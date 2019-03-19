@@ -2,6 +2,6 @@
 
 #you are running this script at your own risk !
 while true;
-do echo Evil Message;
+do echo "Devil in details";
 sleep 10;
 done &
