@@ -27,4 +27,10 @@ date
 #long listing the files in dest to check their sizes
 ls -lh $dest
 
+#encryption
+gpg -c $destFolder/$archive_file
+
+#remove unencrypted file
+rm -r $destFolder/$archive_file
+
 
