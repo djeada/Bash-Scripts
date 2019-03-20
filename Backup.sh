@@ -6,6 +6,12 @@ sourceFolder="/etc"
 #destination of backup.
 destFolder="/home/adam/Desktop"
 
+#declaring max Size
+maxSize="10M"
+
+#excluding file extansions
+exclusion="*.sh"
+
 #create archive filename.
 day=$(date +%Y-%m-%d)
 hostname=$(hostname -s)
@@ -17,8 +23,8 @@ date
 echo
 
 #Backup the files using tar.
-tar cvf $destFolder/$archive_file $sourceFolder
-
+tar -zcvf $destFolder/$archive_file --exclude=$exclusion --exclude-from <(find $sourceFolder -size +$maxSize) $sourceFolder
+ 
 #print end status message
 echo
 echo "Backup finished"
