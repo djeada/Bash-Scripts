@@ -48,4 +48,6 @@ gpg -c $destFolder/$archive_file
 
 #remove unencrypted backup file
 rm -r $destFolder/$archive_file
+rm -rf backupDir
+
 
