@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#what files or folders to tak backup of
+#what files or folders to take backup of
 declare -a arr=("/home/adam/Desktop" "/etc" "/home/adam/Desktop/Rogue")
 
 #sourceFolder="/home/adam/Desktop"
@@ -35,7 +35,6 @@ echo
 #Backup the files using tar
 tar -zcvf $destFolder/$archive_file --exclude=$exclusion --exclude-from <(find backupDir -size +$maxSize) backupDir
 
- 
 #print end status message
 echo
 echo "Backup finished"
