@@ -3,7 +3,8 @@
 #what files or folders to take backup of
 declare -a arr=("/home/adam/Desktop" "/etc" "/home/adam/Desktop/Rogue")
 
-#sourceFolder="/home/adam/Desktop"
+#where to send your backup
+sourceFolder="/home/adam/Desktop"
 
 #destination of backup
 destFolder="/home/adam/Desktop"
