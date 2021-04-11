@@ -9,5 +9,4 @@ fi
 VAR1=$(ls / | wc -l)
 VAR2=$(ls ~/ | wc -l)
 
-echo "W katalogu gównym jest $VAR1 plików, 
-a w katalogu domowym jest $VAR2 plików. "
+echo "In root dir there are $VAR1 files and in home dir there are $VAR2 files."
