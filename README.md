@@ -15,7 +15,7 @@ Collection of Bash scripts.
 * Eventually, scripts get too complicated for basic languages such as Bash. At this stage, you should consider utilizing more powerful programming languages, such as Python.
 * Shell scripts may also be used to "glue" together more complex Python scripts.
 
-<h1> When not use Bash? </h1>
+<h1> When should you not use Bash? </h1>
 
 * Complex applications.
 * GUI.
@@ -72,6 +72,17 @@ if [ $i -eq 10 ]; then        # int comparison
 if [ "$name" == "10" ]; then  # string comparison
 ```
 
+<h1>For loop </h1>
+
+A for loop repeats a sequence of steps a number of times.
+
+```bash
+for number in {1..10}
+do
+  echo "$number "
+done
+```
+
 <h1>Pipes </h1>
 
 The pipe is used to pass the output of one command as input to the next:
@@ -89,15 +100,4 @@ cmd >out.log             # Redirect stdout to out.log
 cmd 2>err.log            # Redirect stderr to file err.log
 cmd 2>&1                 # Redirect stderr to stdout
 cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
-```
-
-<h1>For loop </h1>
-
-A for loop repeats a sequence of steps a number of times.
-
-```bash
-for number in {1..10}
-do
-  echo "$number "
-done
 ```
