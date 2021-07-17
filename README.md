@@ -20,3 +20,19 @@ Collection of Bash scripts.
 * GUI.
 * Cross-platform portability.
 * Calculations.
+
+<h1>Hello world </h1>
+
+```bash
+#!/bin/bash
+echo "Hello world"
+```
+
+<h1>Executing script </h1>
+
+Open the terminal in the directory containing your script.
+
+```bash
+chmod u+x filename.sh
+./filename.sh
+```
