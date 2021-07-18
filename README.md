@@ -102,3 +102,111 @@ cmd 2>err.log            # Redirect stderr to file err.log
 cmd 2>&1                 # Redirect stderr to stdout
 cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
 ```
+
+
+<h1>Intro</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Hello world in Bash.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/hello_world.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Check if condition is true using if statements.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/conditionals.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Example with while loop.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/while_loop.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>Example with for loop.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/for_loop.sh">Bash</a></td>
+        </tr>
+    </tbody>
+</table>
+
+<h1>Math</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Airthmetic operations.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/arithmetic_operations.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Sum arguments passed to the script.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/sum_args.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Convert a number from decimal system to binary representation.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/decimal_binary.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>Calculate the factorial of an integer.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/factorial.sh">Bash</a></td>
+        </tr>
+    </tbody>
+</table>
+
+<h1>Files</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Count files.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_files.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Create a directory.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/make_dir.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Count number of line in a given text file.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/line_counter.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>Bundle together given files.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/bundle_files.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>5</td>
+            <td>Get middle line.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/middle.sh">Bash</a></td>
+        </tr>
+    </tbody>
+</table>
