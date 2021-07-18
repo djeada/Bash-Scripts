@@ -1,54 +1,51 @@
 #!/bin/bash
 
-#what files or folders to take backup of
-declare -a arr=("/home/adam/Desktop" "/etc" "/home/adam/Desktop/Rogue")
+confFile="backup_conf"
 
-#where to send your backup
-sourceFolder="/home/adam/Desktop"
+if [ ! -f "$confFile" ]; then
+  echo "$confFile does not exist."
+  echo "Edit the file and run the script again."
+  echo 'declare -a arr=("/home/adam/Documents/temp")' > $confFile
+  echo 'destFolder="."' >> $confFile
+  echo 'maxSize="10M"' >> $confFile
+  echo 'exclude=".sh"' >> $confFile
+  exit 0
+fi
 
-#destination of backup
-destFolder="/home/adam/Desktop"
+#read the variables from the config file
+. $confFile
 
 #store all the backup folders in one directory
-mkdir backupDir
+tempDir="temp$(date)"
+echo $tempDir
+mkdir -p $tempDir
 
-for i in "${arr[@]}"
+for i in "${sourceFiles[@]}"
 do
-	sudo cp -Rf $i backupDir
+    cp -Rf $i $tempDir
 done
 
-#declaring max Size
-maxSize="10M"
-
-#excluding file extansions
-exclusion="*.sh"
-
-#create archive filename
+#prepare the archive
 day=$(date +%Y-%m-%d)
 hostname=$(hostname -s)
-archive_file="$hostname-$day.tar.gz"
+archive="$hostname-$day.tar.gz"
 
 #print start backup massage.
-echo "Backing up $sourceFolder to $dest/$archive_file"
+echo "Backing up $arr to $dest/$archive"
 date
-echo
 
 #Backup the files using tar
-tar -zcvf $destFolder/$archive_file --exclude=$exclusion --exclude-from <(find backupDir -size +$maxSize) backupDir
+tar -zcvf $destFolder/$archive --exclude=$exclude --exclude-from <(find $tempDir -size +$maxSize) $tempDir
 
 #print end status message
-echo
-echo "Backup finished"
-date
-
-#long listing the files in dest to check their sizes
-ls -lh $dest
+echo "Backup finished! $(date)"
 
 #encryption
-gpg -c $destFolder/$archive_file
+echo "Encrypting backup..."
+gpg -c $destFolder/$archive
+echo "Encryption finished!"
 
 #remove unencrypted backup file
-rm -r $destFolder/$archive_file
-rm -rf backupDir
-
+rm -rf $destFolder/$archive
+rm -rf $tempDir
 
