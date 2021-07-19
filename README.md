@@ -104,8 +104,7 @@ cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
 ```
 
 <h1>Formatting</h1>
-
-To keep formatting consistent use <a href="https://github.com/lovesegfault/beautysh">beautysh</a>.
+<a href="https://github.com/lovesegfault/beautysh">Beautysh</a> is a great way to keep your formatting consistent.
 
 ```bash
 beautysh **/*.sh
