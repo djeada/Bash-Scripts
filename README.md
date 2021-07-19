@@ -185,7 +185,7 @@ cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
     <tbody>
         <tr>
             <td>1</td>
-            <td>Count files.</td>
+            <td>Count files in a directory.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_files.sh">Bash</a></td>
         </tr>
         <tr>
@@ -208,5 +208,29 @@ cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
             <td>Get middle line.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/middle.sh">Bash</a></td>
         </tr>
+    </tbody>
+</table>
+
+<h1>System administration</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Basic system check.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/system_check.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Make a system backup. Compress files and encrypt the archive.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
+       </tr>
     </tbody>
 </table>
