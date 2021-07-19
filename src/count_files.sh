@@ -1,9 +1,9 @@
 #!/bin/bash
-FILE=$~/.xsession-errors     
+FILE=$~/.xsession-errors
 if [ -f $FILE ]; then
-   echo "File $FILE exists."
+    echo "File $FILE exists."
 else
-   echo "File $FILE does not exist."
+    echo "File $FILE does not exist."
 fi
 
 VAR1=$(ls / | wc -l)

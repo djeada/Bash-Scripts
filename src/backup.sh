@@ -3,13 +3,13 @@
 confFile="backup_conf"
 
 if [ ! -f "$confFile" ]; then
-  echo "$confFile does not exist."
-  echo "Edit the file and run the script again."
-  echo 'declare -a arr=("/home/adam/Documents/temp")' > $confFile
-  echo 'destFolder="."' >> $confFile
-  echo 'maxSize="10M"' >> $confFile
-  echo 'exclude=".sh"' >> $confFile
-  exit 0
+    echo "$confFile does not exist."
+    echo "Edit the file and run the script again."
+    echo 'declare -a arr=("/home/adam/Documents/temp")' > $confFile
+    echo 'destFolder="."' >> $confFile
+    echo 'maxSize="10M"' >> $confFile
+    echo 'exclude=".sh"' >> $confFile
+    exit 0
 fi
 
 #read the variables from the config file

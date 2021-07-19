@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$1" ]
-  then
+then
     echo "No argument supplied"
     exit 1
 fi
@@ -16,7 +16,7 @@ fi
 counter=0
 
 while read p; do
-  ((counter++))
+    ((counter++))
 done < $fileName
 
-echo "Number of lines in ${fileName} is: ${counter}" 
+echo "Number of lines in ${fileName} is: ${counter}"
