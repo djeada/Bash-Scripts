@@ -103,6 +103,13 @@ cmd 2>&1                 # Redirect stderr to stdout
 cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
 ```
 
+<h1>Formatting</h1>
+
+To keep formatting consistent use <a href="https://github.com/lovesegfault/beautysh">beautysh</a>.
+
+```bash
+beautysh **/*.sh
+```
 
 <h1>Intro</h1>
 
