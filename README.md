@@ -39,6 +39,26 @@ chmod u+x filename.sh
 ./filename.sh
 ```
 
+<h1>Script shebang</h1>
+
+To utilize the bash interpreter, the first line of a script file must specify the absolute path to the bash executable to use:
+
+```bash
+#!/bin/bash
+```
+
+The bash path in the shebang is resolved and utilized only when a script is launched directly as follows:
+
+```bash
+./filename.sh
+```
+
+When a bash interpreter is explicitly specified to execute a script, the shebang is ignored:
+
+```bash
+bash ./filename.sh
+```
+
 <h1>Variables </h1>
   
 * Assign the value <i>var="Test"</i>.
