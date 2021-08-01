@@ -93,7 +93,7 @@ if [ $i -eq 10 ]; then        # int comparison
 if [ "$name" == "10" ]; then  # string comparison
 ```
 
-<h1>For loop </h1>
+<h1>For loop</h1>
 
 A for loop repeats a sequence of steps a number of times.
 
@@ -104,7 +104,35 @@ do
 done
 ```
 
-<h1>Pipes </h1>
+<h1>Array</h1>
+
+Create an array:
+
+```bash
+array=(1 2 3 4)
+```
+
+Create an array with specified element indices like follows:
+
+```bash
+array=([3]='elem_a' [4]='elem_b')
+```
+
+Insert an elementat (e.g. 'abc') at a given index (e.g. 2):
+
+```bash
+array=("${array[@]:0:2}" 'new' "${array[@]:2}")
+```
+
+Iterate trough an array:
+
+```bash
+for elem in "${array[@]}"; do
+  echo "$elem"
+done
+```
+
+<h1>Pipe</h1>
 
 The pipe is used to pass the output of one command as input to the next:
 
