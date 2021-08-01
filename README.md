@@ -132,6 +132,35 @@ for elem in "${array[@]}"; do
 done
 ```
 
+<h1>Functions</h1>
+
+A simple function:
+
+
+```bash
+#!/bin/bash
+
+hello_world ()
+{
+  echo "Hello World!"
+}
+
+hello_world
+```
+
+Sum two numbers:
+
+```bash
+#!/bin/bash
+
+sum_two() {
+    return $(($1 + $2))
+}
+
+sum_two 5 3
+echo $?
+```
+
 <h1>Pipe</h1>
 
 The pipe is used to pass the output of one command as input to the next:
