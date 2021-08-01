@@ -1,2 +1,2 @@
 #!/bin/bash
-sed -i 'y/ąāáǎàćēéěèęīíǐìńōóǒòóūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŃŌÓǑÒÓŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiinooooouuuuüüüüzzAAAAACEEEEEIIIINOOOOOUUUUÜÜÜÜZZ/' $1
+sed -i 'y/ąāáǎàćēéěèęīíǐìńōóǒòóśūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŃŌÓǑÒÓŚŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiinooooosuuuuüüüüzzAAAAACEEEEEIIIINOOOOOSUUUUÜÜÜÜZZ/' $1
