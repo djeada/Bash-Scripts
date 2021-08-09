@@ -318,7 +318,7 @@ beautysh **/*.sh
     </tbody>
 </table>
 
-<h1>Programming workflowe</h1>
+<h1>Programming workflow</h1>
 
 <table>
     <thead>
