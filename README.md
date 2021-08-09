@@ -317,3 +317,28 @@ beautysh **/*.sh
        </tr>
     </tbody>
 </table>
+
+<h1>Programming workflowe</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Remove the carriage return from files.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_carriage_return.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Replace all diacritical characters in files.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_diacritics.sh">Bash</a></td>
+       </tr>
+    </tbody>
+</table>
+
