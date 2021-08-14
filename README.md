@@ -233,7 +233,7 @@ beautysh **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Airthmetic operations.</td>
+            <td>Arithmetic operations.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/arithmetic_operations.sh">Bash</a></td>
         </tr>
         <tr>
