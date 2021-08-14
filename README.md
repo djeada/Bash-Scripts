@@ -21,7 +21,6 @@ Collection of Bash scripts.
 * GUI.
 * Cross-platform portability.
 * Calculations.
-* Anything complex.
 
 <h1>Hello world </h1>
 
