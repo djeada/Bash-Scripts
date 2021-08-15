@@ -287,7 +287,7 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>5</td>
-            <td>Get middle line.</td>
+            <td>Get the middle line.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/middle.sh">Bash</a></td>
         </tr>
     </tbody>
