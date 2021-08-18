@@ -277,7 +277,7 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>3</td>
-            <td>Count number of line in a given text file.</td>
+            <td>Count the number of lines in a text file.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/line_counter.sh">Bash</a></td>
         </tr>
         <tr>
