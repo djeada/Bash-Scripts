@@ -43,7 +43,7 @@ chmod u+x filename.sh
 To utilize the bash interpreter, the first line of a script file must specify the absolute path to the bash executable to use:
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 ```
 
 The bash path in the shebang is resolved and utilized only when a script is launched directly as follows:
