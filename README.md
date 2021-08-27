@@ -1,5 +1,5 @@
 # Bash-scripts
-Collection of Bash scripts.
+A collection of Bash scripts.
 
 <h1>About Bash</h1>
 
