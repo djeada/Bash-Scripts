@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 confFile="backup_conf"
 

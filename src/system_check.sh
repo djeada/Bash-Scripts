@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "Memory: $(free -h)"
 echo "Disk Usage: $(du -h)"

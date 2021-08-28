@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 echo "Enter directory name"
 read dirName
 if [-d "$dirName" ]

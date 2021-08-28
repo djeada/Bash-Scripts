@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 echo "Conversion of decimal number $1 to Binary "
 echo
 num=$1

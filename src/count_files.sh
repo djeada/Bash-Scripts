@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 FILE=$~/.xsession-errors
 if [ -f $FILE ]; then
     echo "File $FILE exists."
