@@ -25,7 +25,7 @@ A collection of Bash scripts.
 <h1>Hello world </h1>
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 echo "Hello world"
 ```
 
@@ -137,7 +137,7 @@ A simple function:
 
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 
 hello_world ()
 {
@@ -150,7 +150,7 @@ hello_world
 Sum two numbers:
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 
 sum_two() {
     return $(($1 + $2))
