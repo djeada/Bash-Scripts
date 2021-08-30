@@ -217,6 +217,11 @@ beautysh **/*.sh
             <td>Example with for loop.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/for_loop.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>5</td>
+            <td>Print a christmas tree.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/edit/master/src/christmas_tree.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
@@ -250,6 +255,11 @@ beautysh **/*.sh
             <td>4</td>
             <td>Calculate the factorial of an integer.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/factorial.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>5</td>
+            <td>Is the number prime?</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/is_prime.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
