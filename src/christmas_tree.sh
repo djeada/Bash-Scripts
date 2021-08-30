@@ -15,22 +15,28 @@ triangle() {
 
 christmas_tree() {
 
-  n=$1
+    n=$1
 
-  for (( i=1; i<=$n; i++ )); do
-      triangle $i
-  done
+    for (( i=1; i<=$n; i++ )); do
+        triangle $i
+    done
 
 }
 
 main() {
 
-  if [ $# -eq 0 ]; then
-    echo "Must provide the expression to be evaluated!"
-    exit 1
-  fi
+    if [ $# -ne 1 ]; then
+        echo "Must provide exactly one number!"
+        exit 1
+    fi
 
-  christmas_tree $1
+    re='^[0-9]+$'
+    if ! [[ $1 =~ $re ]]; then
+        echo "$1 is not a positive integer!"
+        exit 1
+    fi
+
+    christmas_tree $1
 
 }
 

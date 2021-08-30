@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
 
-if [ $# -eq 0 ]; then
-    echo "Must provide exactly one number!"
-    exit 1
-fi
+main() {
 
-re='^[0-9]+$'
-if ! [[ $1 =~ $re ]]; then
-   echo "$1 is not a positive integer!"
-   exit 1
-fi
+    if [ $# -eq 0 ]; then
+        echo "Must provide exactly one number!"
+        exit 1
+    fi
 
-fact=1
-num=$1
+    re='^[0-9]+$'
+    if ! [[ $1 =~ $re ]]; then
+        echo "$1 is not a positive integer!"
+        exit 1
+    fi
 
-while [ $num -gt 1 ]
-do
-    fact=$((fact * num))  #fact = fact * num
-    num=$((num - 1))      #num = num - 1
-done
+    fact=1
+    num=$1
 
-echo $fact
+    while [ $num -gt 1 ]
+    do
+        fact=$((fact * num))  #fact = fact * num
+        num=$((num - 1))      #num = num - 1
+    done
+
+    echo $fact
+}
+
+main "$@"

@@ -12,8 +12,7 @@ is_prime() {
         return 0
     fi
 
-    i=5
-    w=2
+    i=3
 
     while [[ $((i * i)) -le $a ]]; do
 
@@ -21,8 +20,7 @@ is_prime() {
             return 0
         fi
 
-        i=$((i + w))
-        w=$((6 - w))
+        i=$((i + 2))
     done
 
     return 1
@@ -31,17 +29,23 @@ is_prime() {
 
 main() {
 
-  if [ $# -eq 0 ]; then
-    echo "Must provide the expression to be evaluated!"
-    exit 1
-  fi
+    if [ $# -ne 1 ]; then
+        echo "Must provide exactly one number!"
+        exit 1
+    fi
 
-  if [[ $((is_prime $1)) -eq 1 ]]; then
-      echo "$1 one is a prime number!"
-  else
-      echo "$1 is not a prime number!"
-  fi
-  
+    re='^[0-9]+$'
+    if ! [[ $1 =~ $re ]]; then
+        echo "$1 is not a positive integer!"
+        exit 1
+    fi
+
+    if [[ $(is_prime $1)$? -eq 1 ]]; then
+        echo "$1 is a prime number!"
+    else
+        echo "$1 is not a prime number!"
+    fi
+
 }
 
 main "$@"

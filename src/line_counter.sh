@@ -1,22 +1,29 @@
 #!/usr/bin/env bash
 
-if [ -z "$1" ]
-then
-    echo "No argument supplied"
-    exit 1
-fi
+main() {
 
-fileName=$1
+    if [ -z "$1" ]
+    then
+        echo "No arguments supplied"
+        exit 1
+    fi
 
-if [ ! -f "$fileName" ]; then
-    echo "$fileName does not exist."
-    exit 1
-fi
+    file_name=$1
 
-counter=0
+    if [ ! -f "$file_name" ]; then
+        echo "$file_name does not exist."
+        exit 1
+    fi
 
-while read p; do
-    ((counter++))
-done < $fileName
+    counter=0
 
-echo "Number of lines in ${fileName} is: ${counter}"
+    while read p; do
+        ((counter++))
+    done < $file_name
+
+    echo "Number of lines in ${file_name} is: ${counter}"
+
+}
+
+main "$@"
+

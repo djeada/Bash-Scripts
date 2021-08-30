@@ -2,7 +2,7 @@
 
 main() {
     if [ $# -eq 0 ]; then
-        echo "Must provide the path!"
+        echo "You must provide a path!"
         exit 1
     fi
 
