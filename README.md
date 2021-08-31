@@ -92,6 +92,44 @@ if [ $i -eq 10 ]; then        # int comparison
 if [ "$name" == "10" ]; then  # string comparison
 ```
 
+Integer comparison:
+
+| Operator | Description |
+| --- | --- |
+| <i>-eq/</i> | equal |
+| <i>-ne</i> | not equal |
+| <i>-gt/bin</i> | greater than |
+| <i>-ge</i> | greater than or equal to |
+| <i>-lt</i> | less than |
+| <i>-le/lib</i> | less than or equal to |
+
+String comparison:
+
+| Operator | Description |
+| --- | --- |
+| <i>==/</i> | equal |
+| <i>!=</i> | not equal |
+| <i>/></i> | greater than |
+| <i>/<</i> | less than |
+| <i>-n</i> | string is not null |
+| <i>-z</i> | string is null |
+
+Single [] are condition tests that are compatible with the posix shell.
+
+Bash and other shells allow double [[]] as an enhancement to the usual []. (e.g. zsh, ksh). They expand the standard possix operations with other operations. For example, instead of -o, it is possible to use || and do regex matching with =~.
+
+If you need to perform word splitting or filename expansion, you'd use single square brackets. Assuming there is just one csv file named 'file.csv' in the current directory, the following line of code will not print True:
+
+```bash
+if [[ -f *.csv ]]; then echo True; fi
+```
+
+The reason for this is that the test condition checks for a file with the name '\*.txt' and no globbing is performed. This line of code, on the other hand, will print True:
+
+```bash
+if [ -f *.csv ]; then echo True; fi
+```
+
 <h1>For loop</h1>
 
 A for loop repeats a sequence of steps a number of times.
@@ -105,7 +143,7 @@ done
 
 <h1>Array</h1>
 
-Create an array:
+Using single quotation marks, create an array:
 
 ```bash
 array=(1 2 3 4)
@@ -126,9 +164,15 @@ array=("${array[@]:0:2}" 'new' "${array[@]:2}")
 Iterate trough an array:
 
 ```bash
-for elem in "${array[@]}"; do
-  echo "$elem"
+items=('item_1' 'item_2' 'item_3' 'item_4')
+
+for item in $items; do
+  echo "$item"
 done
+# => item_1
+# => item_2
+# => item_3
+# => item_4
 ```
 
 <h1>Functions</h1>
@@ -258,7 +302,7 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>5</td>
-            <td>Is the number prime?</td>
+            <td>Is it a prime number?</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/is_prime.sh">Bash</a></td>
         </tr>
     </tbody>
