@@ -116,7 +116,7 @@ String comparison:
 
 Single [] are condition tests that are compatible with the posix shell.
 
-Bash and other shells allow double [[]] as an enhancement to the usual []. (e.g. zsh, ksh). They expand the standard possix operations with other operations. For example, instead of -o, it is possible to use || and do regex matching with =~.
+Bash and other shells (e.g. zsh, ksh) allow double [[]] as an enhancement to the usual []. They expand the standard possix operations with other operations. For example, instead of -o, it is possible to use || and do regex matching with =~.
 
 If you need to perform word splitting or filename expansion, you'd use single square brackets. Assuming there is just one csv file named 'file.csv' in the current directory, the following line of code will not print True:
 
