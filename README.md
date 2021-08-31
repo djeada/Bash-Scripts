@@ -88,29 +88,29 @@ var=$(whoami)
 Comparison of strings and ints differs. Assume that all values are strings, unless proven otherwise.
 
 ```bash
-if [ $i -eq 10 ]; then        # int comparison
-if [ "$name" == "10" ]; then  # string comparison
+if [ $i -eq 10 ]; then echo True; fi         # int comparison
+if [ "$name" == "10" ]; then echo True; fi   # string comparison
 ```
 
 Integer comparison:
 
 | Operator | Description |
 | --- | --- |
-| <i>-eq/</i> | equal |
+| <i>-eq</i> | equal |
 | <i>-ne</i> | not equal |
-| <i>-gt/bin</i> | greater than |
+| <i>-gt</i> | greater than |
 | <i>-ge</i> | greater than or equal to |
 | <i>-lt</i> | less than |
-| <i>-le/lib</i> | less than or equal to |
+| <i>-le</i> | less than or equal to |
 
 String comparison:
 
 | Operator | Description |
 | --- | --- |
-| <i>==/</i> | equal |
+| <i>==</i> | equal |
 | <i>!=</i> | not equal |
-| <i>/></i> | greater than |
-| <i>/<</i> | less than |
+| <i>></i> | greater than |
+| <i><</i> | less than |
 | <i>-n</i> | string is not null |
 | <i>-z</i> | string is null |
 
