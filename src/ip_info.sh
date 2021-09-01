@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 help() {
     echo "               ip info"
     echo
