@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-echo "Memory: $(free -h)"
-echo "Disk Usage: $(df -h)"
-echo "Uptime: $(uptime)"
+echo -e "Memor usage: \n$(free -h)"
+echo -e "\nDisk usage: \n$(df -h)"
+echo -e "\nUptime: $(uptime)"
