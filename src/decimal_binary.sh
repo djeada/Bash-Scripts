@@ -5,7 +5,13 @@ main() {
     echo "Conversion of a decimal number $1 to it's binary representation.\n"
 
     if [ $# -ne 1 ]; then
-        echo "Must provide the expression to be evaluated!"
+        echo "Must provide exactly one number!"
+        exit 1
+    fi
+
+    re='^[0-9]+$'
+    if ! [[ $1 =~ $re ]]; then
+        echo "$1 is not a positive integer!"
         exit 1
     fi
 
