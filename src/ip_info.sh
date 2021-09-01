@@ -29,7 +29,7 @@ display_private_ip() {
 get_value_from_dict() {
     dict=$1
     key=$2
-    echo $dict | grep -m1 -oP '"'"$key"'"\s*:\s*"\K[^"]+'
+    echo $dict | grep -m1 -oP '"'"$key"'"?\s*:\s*"?\K[^"]+'
 }
 
 display_location() {
@@ -46,6 +46,13 @@ display_location() {
             echo "Country: $(get_value_from_dict "$ip_dict" "country")"
             echo "Region: $(get_value_from_dict "$ip_dict" "regionName")"
             echo "Postal code: $(get_value_from_dict "$ip_dict" "zip")"
+
+            lat=$(get_value_from_dict "$ip_dict" "lat")
+            lon=$(get_value_from_dict "$ip_dict" "lon")
+            echo "Latitude: ${lat::-1}"
+            echo "Longitude: ${lon::-1}"
+        else
+          echo "Couldn't find any informations!"
         fi
     fi
 }
