@@ -2,7 +2,7 @@
 
 main() {
 
-    if [ $# -eq 0 ]; then
+    if [ $# -ne 1 ]; then
         echo "Must provide exactly one number!"
         exit 1
     fi
