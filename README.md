@@ -395,3 +395,21 @@ beautysh **/*.sh
     </tbody>
 </table>
 
+<h1>Utility</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Find your IP address</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/ip_info.sh">Bash</a></td>
+        </tr>
+    </tbody>
+</table>
