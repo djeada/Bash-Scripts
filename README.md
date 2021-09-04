@@ -389,6 +389,16 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>2</td>
+            <td>Check Operating System.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>3</td>
+            <td>Get CPU temperature.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh">Bash</a></td>
+       </tr>
+        <tr>
+            <td>2</td>
             <td>Replace all diacritical characters in files.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_diacritics.sh">Bash</a></td>
        </tr>
