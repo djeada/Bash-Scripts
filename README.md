@@ -365,6 +365,16 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>2</td>
+            <td>Check Operating System.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>3</td>
+            <td>Get CPU temperature.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh">Bash</a></td>
+       </tr>
+        <tr>
+            <td>4</td>
             <td>Make a system backup. Compress files and encrypt the archive.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
        </tr>
@@ -387,16 +397,6 @@ beautysh **/*.sh
             <td>Remove the carriage return from files.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_carriage_return.sh">Bash</a></td>
         </tr>
-        <tr>
-            <td>2</td>
-            <td>Check Operating System.</td>
-            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh">Bash</a></td>
-       </tr>
-       <tr>
-            <td>3</td>
-            <td>Get CPU temperature.</td>
-            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh">Bash</a></td>
-       </tr>
         <tr>
             <td>2</td>
             <td>Replace all diacritical characters in files.</td>
