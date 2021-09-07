@@ -3,7 +3,23 @@
 correct_file_name ()
 {
     new_name=`echo $1 | sed -e 's/ /_/g' | tr '[:upper:]' '[:lower:]'`
-    mv "$1" "$new_name"
+    if [ "$1" != "$new_name" ]; then
+        mv -T "$1" "$new_name"
+    fi
+}
+
+find_files ()
+{
+
+    for file in $(find $1 -maxdepth 1 \( ! -regex '.*/\..*' \) )
+    do
+        correct_file_name $file
+        if [ "$1" != "$file" ] && [ -d $file ]; then
+            find_files $file
+        fi
+
+    done
+
 }
 
 main() {
@@ -14,10 +30,7 @@ main() {
     fi
 
     if [ $1 == '.' ] || [ -d "${1}" ]; then
-        for file in $(find $1 -maxdepth 10 -type f)
-        do
-            correct_file_name $file
-        done
+        find_files $1
     elif [ -f "${1}" ]; then
         correct_file_name $1
     else
