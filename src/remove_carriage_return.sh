@@ -8,7 +8,7 @@ remove_carriage_return ()
 main() {
 
     if [ $# -eq 0 ]; then
-        echo "Must provide the path!"
+        echo "Must provide a path!"
         exit 1
     fi
 
