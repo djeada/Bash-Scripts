@@ -166,7 +166,7 @@ Iterate trough an array:
 ```bash
 items=('item_1' 'item_2' 'item_3' 'item_4')
 
-for item in $items; do
+for item in "${items[@]}"; do
   echo "$item"
 done
 # => item_1
@@ -401,6 +401,11 @@ beautysh **/*.sh
             <td>2</td>
             <td>Replace all diacritical characters in files.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_diacritics.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Change all spaces in file names to underscores and convert them to lowercase.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/correct_file_names.sh">Bash</a></td>
        </tr>
     </tbody>
 </table>
