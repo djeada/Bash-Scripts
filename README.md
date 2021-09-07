@@ -40,7 +40,7 @@ chmod u+x filename.sh
 
 <h1>Script shebang</h1>
 
-To utilize the bash interpreter, the first line of a script file must specify the absolute path to the bash executable to use:
+To use the bash interpreter, the first line of a script file must specify the absolute path to the bash executable:
 
 ```bash
 #!/usr/bin/env bash
