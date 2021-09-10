@@ -52,7 +52,7 @@ display_location() {
             echo "Latitude: ${lat::-1}"
             echo "Longitude: ${lon::-1}"
         else
-          echo "Couldn't find any informations!"
+            echo "Couldn't find any informations!"
         fi
     fi
 }

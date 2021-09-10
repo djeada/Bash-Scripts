@@ -11,9 +11,9 @@ correct_file_name ()
 find_files ()
 {
 
-  find $1 -maxdepth 1 \( ! -regex '.*/\..*' \) | while read file
+    find $1 -maxdepth 1 \( ! -regex '.*/\..*' \) | while read file
     do
-      echo $file
+        echo $file
         correct_file_name "$file"
         if [ "$1" != "$file" ] && [ -d "$file" ]; then
             find_files $file
