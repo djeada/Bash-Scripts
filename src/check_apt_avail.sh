@@ -2,7 +2,7 @@
 
 main() {
 
-    if [ -n "$(command -v apt | wc -l)" != "1" ]
+    if [ $(command -v apt | wc -l) -ne 1  ]
     then
       echo "The apt command is not accessible on this system."
       exit 1
