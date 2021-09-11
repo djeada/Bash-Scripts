@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#In kB
+# A value in kB
 MINIMUM=100000000
 MIN_READABLE=$(echo "scale=2; $a/1024/1024" | bc -l)
 
