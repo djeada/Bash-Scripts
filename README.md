@@ -328,7 +328,7 @@ beautysh **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Count files in a directory.</td>
+            <td>Count the files in a directory.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_files.sh">Bash</a></td>
         </tr>
         <tr>
@@ -343,7 +343,7 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>4</td>
-            <td>Bundle together given files.</td>
+            <td>Bundle together the given files.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/bundle_files.sh">Bash</a></td>
         </tr>
         <tr>
@@ -401,12 +401,12 @@ beautysh **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Remove the carriage return from files.</td>
+            <td>Remove the carriage return from the given files.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_carriage_return.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Replace all diacritical characters in files.</td>
+            <td>Replace all diacritical characters in the given files.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_diacritics.sh">Bash</a></td>
         </tr>
         <tr>
@@ -435,7 +435,7 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>2</td>
-            <td>Empty trash</td>
+            <td>Empty the trash</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/empty_trash.sh">Bash</a></td>
         </tr>
     </tbody>
