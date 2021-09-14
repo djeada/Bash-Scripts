@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# TODO: add option to supply a list of disk name patterns
+
 main() {
 
     # get file system names and percentage of use
