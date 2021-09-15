@@ -181,6 +181,12 @@ done
 # => item_3
 # => item_4
 ```
+  
+A one-liner for printing an array:
+
+```bash
+echo "${array[*]}"
+```
 
 <h1>Functions</h1>
 
