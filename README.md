@@ -423,6 +423,35 @@ beautysh **/*.sh
     </tbody>
 </table>
 
+<h1>Git</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Reset local repository to match the origin.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/reset_local_repo_to_origin.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Remove the specified branch, both locally and remotely.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_branch.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Count the number of lines of code in a git repository.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_lines_of_code.sh">Bash</a></td>
+       </tr>
+    </tbody>
+</table>
+  
 <h1>Utility</h1>
 
 <table>
