@@ -12,8 +12,8 @@ main() {
         exit 1
     fi
 
-    is_remote_branch=$(git branch -r | grep -w $branch_name > /dev/null)
-    is_local_branch=$(git branch -l | grep -w $branch_name > /dev/null)
+    is_remote_branch=$(git branch -r | grep -Fw $branch_name > /dev/null)
+    is_local_branch=$(git branch -l | grep -Fw $branch_name > /dev/null)
 
     if [ $is_remote_branch -ne 0 ] && [ $is_local_branch -ne 0 ]; then
         echo "provided branch doesn't exists"
