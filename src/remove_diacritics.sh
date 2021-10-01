@@ -2,7 +2,7 @@
 
 remove_diactrics ()
 {
-    sed -i 'y/ąāáǎàćēéěèęīíǐìńōóǒòóśūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŃŌÓǑÒÓŚŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiinooooosuuuuüüüüzzAAAAACEEEEEIIIINOOOOOSUUUUÜÜÜÜZZ/' $1
+    sed -i 'y/ąāáǎàćēéěèęīíǐìłńōóǒòóśūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŁŃŌÓǑÒÓŚŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiilnooooosuuuuüüüüzzAAAAACEEEEEIIIILNOOOOOSUUUUÜÜÜÜZZ/' $1
 }
 
 main() {
