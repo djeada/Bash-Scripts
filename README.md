@@ -449,6 +449,16 @@ beautysh **/*.sh
             <td>Count the number of lines of code in a git repository.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_lines_of_code.sh">Bash</a></td>
        </tr>
+       <tr>
+            <td>4</td>
+            <td>Squash n last commits.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>5</td>
+            <td>Remove n last commits.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh">Bash</a></td>
+       </tr>
     </tbody>
 </table>
   
