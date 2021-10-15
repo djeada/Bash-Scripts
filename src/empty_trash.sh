@@ -43,7 +43,6 @@ main() {
     else
         echo "You are using a non-default trash location. You must specify the path of the directory you wish to empty."
         exit 1
-
     fi
 
 }
