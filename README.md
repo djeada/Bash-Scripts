@@ -65,6 +65,8 @@ When a bash interpreter is explicitly specified to execute a script, the shebang
 bash ./filename.sh
 ```
 
+Scripts may also be created in a variety of different "scripting languages," thus a Perl script might begin with <i>#!/usr/bin/env perl</i> and one in Python with <i> #!/usr/bin/env python3</i>.
+
 <h1>Variables </h1>
   
 * Assign the value <i>var="Test"</i>.
