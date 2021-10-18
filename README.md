@@ -375,21 +375,31 @@ beautysh **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Basic system check.</td>
+            <td>Basic system info.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/system_check.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Check Operating System.</td>
+            <td>Check the operating system.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh">Bash</a></td>
        </tr>
        <tr>
             <td>3</td>
+            <td>Check if apt command is available.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/check_apt_avail.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>4</td>
+            <td>Check the amount of RAM.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/ram_memory.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>5</td>
             <td>Get CPU temperature.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh">Bash</a></td>
        </tr>
         <tr>
-            <td>4</td>
+            <td>6</td>
             <td>Make a system backup. Compress files and encrypt the archive.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
        </tr>
