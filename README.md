@@ -376,7 +376,7 @@ beautysh **/*.sh
         <tr>
             <td>1</td>
             <td>Basic system info.</td>
-            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/system_check.sh">Bash</a></td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/system_info.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
