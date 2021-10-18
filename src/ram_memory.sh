@@ -8,7 +8,7 @@ main() {
 
     ram="$(free | awk '/^Mem:/{print $2}')"
     if [ $ram -lt $MINIMUM ]; then
-        echo "The system doesn't meet the requirements. Memory must be at least $MIN_READABLE GB."
+        echo "The system doesn't meet the requirements. RAM size must be at least $MIN_READABLE GB."
         exit 1
     fi
 
