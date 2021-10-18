@@ -5,10 +5,10 @@ help() {
     echo
     echo "Syntax: ip_info [-h|public|private|locate]"
     echo "options:"
-    echo "h          Print this Help."
-    echo "public     Print public ip address."
-    echo "private    Print private ip address."
-    echo "locate     Print location based on public ip address."
+    echo "h          Print this help."
+    echo "public     Print the public IP address."
+    echo "private    Print the private IP address."
+    echo "locate     Print the location based on the public IP address."
     echo
 }
 
