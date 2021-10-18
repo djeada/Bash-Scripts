@@ -11,8 +11,8 @@ main() {
         exit 1
     fi
 
-    middle=$(($(sed -n '$=' $1)/2))
-    head -$middle $1 | tail -n +$middle
+    middle_line=$(($(sed -n '$=' $1)/2))
+    head -$middle_line $1 | tail -n +$middle_line
 }
 
 main "$@"
