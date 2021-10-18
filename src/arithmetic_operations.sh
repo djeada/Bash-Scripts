@@ -3,7 +3,7 @@
 main() {
 
     if [ $# -ne 1 ]; then
-        echo "Must provide the expression to be evaluated!"
+        echo "You must provide an expression to be evaluated!"
         exit 1
     fi
 
