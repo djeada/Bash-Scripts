@@ -390,7 +390,7 @@ beautysh **/*.sh
        </tr>
        <tr>
             <td>4</td>
-            <td>Check the amount of RAM.</td>
+            <td>Check the RAM size.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/ram_memory.sh">Bash</a></td>
        </tr>
        <tr>
