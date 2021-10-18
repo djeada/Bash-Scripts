@@ -5,7 +5,7 @@ main() {
     num_files_root=$(ls / | wc -l)
     num_files_home=$(ls ~/ | wc -l)
 
-    echo "In root dir there are $num_files_root files and in home dir there are $num_files_home files."
+    echo "There are $num_files_root files in the root directory and $num_files_home files in the home directory."
 
 }
 
