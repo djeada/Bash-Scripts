@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-read c
+echo "Type a y or n."
+read input
 
-if [ "$c"  == "n" ] || [ "$c" == "N" ]; then
-    echo NO
-fi
-if [ "$c"  == "y" ] || [ "$c" == "Y" ]; then
-    echo YES
+if [ "$input"  == "n" ] || [ "$input" == "N" ]; then
+    echo "NO"
+elif [ "$input"  == "y" ] || [ "$input" == "Y" ]; then
+    echo "YES"
 fi
