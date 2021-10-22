@@ -419,7 +419,7 @@ beautysh **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Remove the carriage return from the given files.</td>
+            <td>Remove carriage return from the given files.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_carriage_return.sh">Bash</a></td>
         </tr>
         <tr>
