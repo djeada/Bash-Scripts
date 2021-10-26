@@ -279,7 +279,7 @@ beautysh **/*.sh
         <tr>
             <td>5</td>
             <td>Print a christmas tree.</td>
-            <td><a href="https://github.com/djeada/Bash-scripts/edit/master/src/christmas_tree.sh">Bash</a></td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
