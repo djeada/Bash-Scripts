@@ -1,51 +1,116 @@
 #!/usr/bin/env bash
 
-confFile="backup_conf"
+validate_config_file() {
+    source $1
 
-if [ ! -f "$confFile" ]; then
-    echo "$confFile does not exist."
-    echo "Edit the file and run the script again."
-    echo 'declare -a arr=("/home/adam/Documents/temp")' > $confFile
-    echo 'destFolder="."' >> $confFile
-    echo 'maxSize="10M"' >> $confFile
-    echo 'exclude=".sh"' >> $confFile
-    exit 0
-fi
+    if [ -z "${BACKUP_DIR}" ]; then
+        echo "BACKUP_DIR is not set"
+        exit 1
+    fi
 
-#read the variables from the config file
-. $confFile
+    if [ -z "${SOURCE_DIR}" ]; then
+        echo "SOURCE_DIR is not set"
+        exit 1
+    fi
 
-#store all the backup folders in one directory
-tempDir="temp$(date)"
-echo $tempDir
-mkdir -p $tempDir
+    if [ -z "${EXCLUDE_DIRS}" ]; then
+        echo "EXCLUDE_DIRS is not set"
+        exit 1
+    fi
 
-for i in "${sourceFiles[@]}"
-do
-    cp -Rf $i $tempDir
-done
+    if [ -z "${EXCLUDE_FILES}" ]; then
+        echo "EXCLUDE_FILES is not set"
+        exit 1
+    fi
 
-#prepare the archive
-day=$(date +%Y-%m-%d)
-hostname=$(hostname -s)
-archive="$hostname-$day.tar.gz"
+    if [ -z "${EXCLUDE_EXTENSIONS}" ]; then
+        echo "EXCLUDE_EXTENSIONS is not set"
+        exit 1
+    fi
 
-#print start backup massage.
-echo "Backing up $arr to $dest/$archive"
-date
+    if [ -z "${WITH_COMPRESSION}" ]; then
+        echo "WITH_COMPRESSION is not set"
+        exit 1
+    fi
 
-#Backup the files using tar
-tar -zcvf $destFolder/$archive --exclude=$exclude --exclude-from <(find $tempDir -size +$maxSize) $tempDir
+    if [ -z "${WITH_ENCRYPTION}" ]; then
+        echo "WITH_ENCRYPTION is not set"
+        exit 1
+    fi
 
-#print end status message
-echo "Backup finished! $(date)"
+    if [ -z "${GPG_PASSPHRASE}" ]; then
+        echo "GPG_PASSPHRASE is not set"
+        exit 1
+    fi
 
-#encryption
-echo "Encrypting backup..."
-gpg -c $destFolder/$archive
-echo "Encryption finished!"
+    echo "Validation complete"
+}
 
-#remove unencrypted backup file
-rm -rf $destFolder/$archive
-rm -rf $tempDir
+create_config_file() {
+    echo "Creating a defualt config file at: $1"
 
+    echo "BACKUP_DIR=path/to/backup/dir" > $1
+    echo "SOURCE_DIR=path/to/source/dir" >> $1
+    echo "EXCLUDE_DIRS=0" >> $1
+    echo "EXCLUDE_FILES=0" >> $1
+    echo "EXCLUDE_EXTENSIONS=0" >> $1
+    echo "WITH_COMPRESSION=true" >> $1
+    echo "WITH_ENCRYPTION=true" >> $1
+    echo "GPG_PASSPHRASE=passphrase" >> $1
+
+    echo "Config file created"
+}
+
+create_backup() {
+    echo "Creating backup"
+
+    if [ ! -d "${BACKUP_DIR}" ]; then
+        mkdir -p "${BACKUP_DIR}"
+    fi
+
+    if [ ! -d "${SOURCE_DIR}" ]; then
+        echo "Source directory does not exist"
+        exit 1
+    fi
+
+    # copy all files and directories from source to backup
+    rsync -av --exclude-from="${EXCLUDE_DIRS}" --exclude-from="${EXCLUDE_FILES}" --exclude-from="${EXCLUDE_EXTENSIONS}" "${SOURCE_DIR}" "${BACKUP_DIR}"
+
+    if [ "${WITH_COMPRESSION}" == "true" ]; then
+        echo "Compressing backup"
+        tar -czf "../${BACKUP_DIR}/backup.tar.gz" "${BACKUP_DIR}"
+        echo "Compression complete"
+
+        if [ "${WITH_ENCRYPTION}" == "true" ]; then
+            echo "Encrypting backup"
+            gpg --batch --yes --passphrase="${GPG_PASSPHRASE}" --symmetric "../${BACKUP_DIR}/backup.tar.gz"
+            echo "Encryption complete"
+        fi
+        # remove uncompressed backup
+        rm -rf "${BACKUP_DIR}"
+    fi
+
+    echo "Backup created"
+}
+
+main() {
+
+    if [ $# -eq 1 ]; then
+        if [ -f "$1" ]; then
+            echo "Using config file: $1"
+            validate_config_file $1
+            create_backup $1
+        else
+            echo "Config file not found: $1"
+            exit 1
+        fi
+    else
+        default_config_file="config.sh"
+        create_config_file $default_config_file
+        echo "Fill the config file with the desired values and run the script again."
+        exit 1
+    fi
+    
+}
+
+main "$@"
