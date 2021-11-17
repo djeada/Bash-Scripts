@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: correct_file_names.sh
+# Description: Corrects the file names in a given directory.
+# Usage: correct_file_names.sh [<directory>]
+#       [<directory>] - the directory containing the files to be corrected.
+# Example: ./correct_file_names.sh path/to/directory
+
 correct_file_name ()
 {
     new_name=`echo $1 | sed -e 's/ /_/g' | tr '[:upper:]' '[:lower:]'`

@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: remove_branch.sh
+# Description: Removes a branch from a git repository, both locally and remotely.
+# Usage: remove_branch.sh [<branch_name>]
+#        [<branch_name>] - the name of the branch to remove.
+# Example: ./remove_branch.sh test
+
 main() {
 
     if [ $# -eq 0 ]; then

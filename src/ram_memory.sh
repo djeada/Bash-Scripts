@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
-# A value in kB
+# Script Name: ram_memory.sh
+# Description: Checks if the amount of RAM is enough to run the program.
+# Usage: ram_memory.sh
+# Example: ./ram_memory.sh
+
+# Initialize the constants
 MINIMUM=100000000
 MIN_READABLE=$(echo "scale=2; $a/1024/1024" | bc -l)
 

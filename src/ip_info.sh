@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
 
+# Script Name: ip_info.sh
+# Description: Displays information about the IP address.
+# Usage: ip_info.sh [<h>] [<public>] [<private>] [<location>]
+#        [<h>] - displays help
+#        [<public>] - displays public IP address
+#        [<private>] - displays private IP address
+#        [<location>] - displays location of the IP address
+# Example: ./ip_info.sh public private location
+
 help() {
-    echo "               ip info"
+    echo "NAME"
+    echo "ip_info.sh - displays information about the IP address"
     echo
-    echo "Syntax: ip_info [-h|public|private|locate]"
-    echo "options:"
-    echo "h          Print this help."
-    echo "public     Print the public IP address."
-    echo "private    Print the private IP address."
-    echo "locate     Print the location based on the public IP address."
+    echo "SYNTAX"
+    echo "ip_info.sh [h] [public] [private] [locate]"
     echo
+    echo "OPTIONS"
+    echo "h - displays this help"
+    echo "public - displays the public IP address"
+    echo "private - displays the private IP address"
+    echo "locate - displays the location of the IP address"
 }
 
 display_public_ip() {

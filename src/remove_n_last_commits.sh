@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: remove_n_last_commits.sh
+# Description: Removes the last n commits from a git repository.
+# Usage: remove_n_last_commits.sh [<number_of_commits>]
+#        [<number_of_commits>] - the number of commits to remove.
+# Example: ./remove_n_last_commits.sh 10
+
 main() {
 
     working_dir="."

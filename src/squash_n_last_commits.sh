@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+# Script Name: squash_n_last_commits.sh
+# Description: Squashes the last n commits in a git repository.
+# Usage: squash_n_last_commits.sh [<number_of_commits>] [<branch_name>] [<directory_path>]
+#        [<number_of_commits>] - the number of commits to squash.
+#        [<branch_name>] - the name of the branch to squash.
+#        [<directory_path>] - the path to the working directory.
+# Example: ./squash_n_last_commits.sh 10 master .
+
 main() {
 
     working_dir="."

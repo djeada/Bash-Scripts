@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Script Name: empty_trash.sh
+# Description: Empties the trash.
+# Usage: empty_trash.sh
+# Example: ./empty_trash.sh
+
 main() {
 
     if [ $# -eq 1 ]; then

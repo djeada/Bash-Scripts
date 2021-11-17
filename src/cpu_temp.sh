@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Script Name: cpu_temp.sh
+# Description: Displays the current CPU temperature.
+# Usage: cpu_temp.sh
+# Example: ./cpu_temp.sh
+
 main() {
 
     if [ $# -eq 1 ]; then

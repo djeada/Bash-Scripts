@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: is_prime.sh
+# Description: Checks if a number is prime.
+# Usage: is_prime.sh [<number>]
+#        [<number>] - the number to check if it is a prime number.
+# Example: ./is_prime.sh 5
+
 is_prime() {
 
     a=$1

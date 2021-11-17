@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# Script Name: backup.sh
+# Description: Create a backup of the provided directory.
+# Usage: backup.sh  [<config_file>]
+#        [<config_file>] is the path to the configuration file. If not provided, 
+#        the default configuration file is created and the script has to be executed again.
+# Usage: ./backup.sh path/to/config_file
+
 validate_config_file() {
     source $1
 

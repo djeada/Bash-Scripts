@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: remove_duplicate_lines.sh
+# Description: Removes duplicate lines from a given file.
+# Usage: remove_duplicate_lines.sh [<file_path>]
+#        [<file_path>] - the path to the file to process.
+# Example: ./remove_duplicate_lines.sh path/to/file
+
 main() {
     if [ $# -eq 0 ]; then
         echo "You must provide a file path!"

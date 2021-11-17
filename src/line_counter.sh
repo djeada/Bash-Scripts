@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: line_counter.sh
+# Description: Counts the number of lines in a file.
+# Usage: line_counter.sh [<file_name>]
+#        [<file_name>] - the name of the file to count the lines in.
+# Example: ./line_counter.sh path/to/file.txt
+
 main() {
 
     if [ -z "$1" ]

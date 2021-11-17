@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: disk_usage.sh
+# Description: Finds total disk usage on the machine.
+# Usage: disk_usage.sh
+# Example: ./disk_usage.sh
+
+
 # TODO: add option to supply a list of disk name patterns
 
 main() {

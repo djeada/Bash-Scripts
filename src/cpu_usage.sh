@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# Script Name: cpu_usage.sh
+# Description: Displays the current CPU usage.
+# Usage: cpu_usage.sh
+# Example: ./cpu_usage.sh
+
+# To be implemented:
+# - Add option to display CPU usage for a specific process.
+# - Add option to display CPU usage for a specific user.
+
 main() {
 
     # https://stackoverflow.com/questions/9229333/how-to-get-overall-cpu-usage-e-g-57-on-linux

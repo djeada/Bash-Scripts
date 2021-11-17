@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: remove_carriage_return.sh
+# Description: Removes the carriage return from all the files in a given directory.
+# Usage: remove_carriage_return.sh [<directory_path>]
+#        [<directory_path>] - the path to the directory to process.
+# Example: ./remove_carriage_return.sh path/to/directory
+
 remove_carriage_return ()
 {
     sed -i 's/\r//g' $1

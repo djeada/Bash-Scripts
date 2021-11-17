@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+
+# Script Name: dead_code.sh
+# Description: Finds classes, functions, and variables 
+# that are declared but never used in the code.
+# Usage: dead_code.sh [<project_path>]
+#        [<project_path>] - path to the project to analyze (defaults to current directory).
+# Example: ./dead_code.sh path/to/project
 
 # find all python files in src/ 
 

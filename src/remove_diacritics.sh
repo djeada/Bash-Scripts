@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Script Name: remove_diacritics.sh
+# Description: Removes the diacritics from all the files in a given directory.
+# Usage: remove_diacritics.sh [<directory_path>]
+#        [<directory_path>] - the path to the directory to process.
+# Example: ./remove_diacritics.sh path/to/directory
+
 remove_diactrics ()
 {
     sed -i 'y/ąāáǎàćēéěèęīíǐìłńōóǒòóśūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŁŃŌÓǑÒÓŚŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiilnooooosuuuuüüüüzzAAAAACEEEEEIIIILNOOOOOSUUUUÜÜÜÜZZ/' $1

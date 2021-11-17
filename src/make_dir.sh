@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Script Name: make_dir.sh
+# Description: Creates a directory and a file in it if the directory does not exist.
+# Usage: make_dir.sh
+# Example: ./make_dir.sh
+
 main() {
 
     echo "Enter the directory name:"
