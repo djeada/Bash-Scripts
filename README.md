@@ -367,6 +367,11 @@ beautysh **/*.sh
             <td>Get the middle line.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/middle_line.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>6</td>
+            <td>Remove duplicate lines from a file.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicate_lines.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
@@ -393,21 +398,31 @@ beautysh **/*.sh
        </tr>
        <tr>
             <td>3</td>
+            <td>Check if root.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/check_if_root.sh">Bash</a></td>
+       </tr>      
+       <tr>
+            <td>4</td>
             <td>Check if apt command is available.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/check_apt_avail.sh">Bash</a></td>
        </tr>
        <tr>
-            <td>4</td>
+            <td>5</td>
             <td>Check the RAM size.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/ram_memory.sh">Bash</a></td>
        </tr>
        <tr>
-            <td>5</td>
+            <td>6</td>
             <td>Get CPU temperature.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh">Bash</a></td>
        </tr>
+       <tr>
+            <td>7</td>
+            <td>Get total CPU usage.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/cpu_usage.sh">Bash</a></td>
+        </tr>
         <tr>
-            <td>6</td>
+            <td>8</td>
             <td>Make a system backup. Compress files and encrypt the archive.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
        </tr>
