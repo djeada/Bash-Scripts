@@ -359,16 +359,11 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>4</td>
-            <td>Bundle together the given files.</td>
-            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/bundle_files.sh">Bash</a></td>
-        </tr>
-        <tr>
-            <td>5</td>
             <td>Get the middle line.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/middle_line.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>6</td>
+            <td>5</td>
             <td>Remove duplicate lines from a file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicate_lines.sh">Bash</a></td>
         </tr>
