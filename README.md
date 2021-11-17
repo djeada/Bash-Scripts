@@ -415,9 +415,14 @@ beautysh **/*.sh
             <td>7</td>
             <td>Get total CPU usage.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/cpu_usage.sh">Bash</a></td>
-        </tr>
-        <tr>
+       </tr>
+       <tr>
             <td>8</td>
+            <td>Block websites from being visited.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_blok.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>9</td>
             <td>Make a system backup. Compress files and encrypt the archive.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
        </tr>
