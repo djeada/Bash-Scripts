@@ -11,8 +11,11 @@ main() {
         exit 1
     fi
 
-    middle_line=$(($(sed -n '$=' $1)/2))
-    head -$middle_line $1 | tail -n +$middle_line
+    local file_path=$1
+    local file_name=$(basename $file_path)
+
+    awk '/^\s*$/||!seen[$0]++' $file_path > $file_name.tmp
+    mv $file_name.tmp $file_name
 }
 
 main "$@"
