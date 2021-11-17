@@ -6,13 +6,33 @@ main() {
 
     read dir_name
 
-    if [ -d "$dir_name" ]
-    then
-        echo "There is already a directory with that name!"
-    else
-        mkdir "$dir_name"
-        echo "A directory has been created!"
+    if [[ -d "$dir_name" ]]; then
+        echo "Directory $dir_name already exists."
+        exit 1
     fi
+
+    if [[ ! -d "$dir_name" ]]; then
+        mkdir -p "$dir_name"
+    fi
+
+    echo "Enter the file name:"
+
+    read file_name
+
+    file_name="$dir_name/$file_name"
+
+    if [[ ! -f "$file_name" ]]; then
+        touch "$file_name"
+    fi
+
+    echo "Enter the file content:"
+
+    read file_content
+
+    echo "$file_content" >> "$file_name"
+
+    echo "Directory $dir_name created successfully."
+    echo "File $file_name created within $dir_name."
 
 }
 
