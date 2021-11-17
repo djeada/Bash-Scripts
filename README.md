@@ -28,8 +28,12 @@ A collection of Bash scripts.
 * GUI.
 * Cross-platform portability.
 * Calculations.
+* Networking.
+
 
 <h1>Hello world </h1>
+
+This is a simple example of a Bash script. It prints the string "Hello World" to the standard output (stdout). 
 
 ```bash
 #!/usr/bin/env bash
@@ -38,7 +42,7 @@ echo "Hello world"
 
 <h1>Executing script </h1>
 
-Open the terminal in the directory containing your script.
+To run this script, type the following command in a terminal in the directory where the script is located:
 
 ```bash
 chmod u+x filename.sh
@@ -47,13 +51,13 @@ chmod u+x filename.sh
 
 <h1>Script shebang</h1>
 
-To use the bash interpreter, the first line of a script file must specify the absolute path to the bash executable:
+In the first line of a script, the shebang (#!) is used to specify the interpreter to be used when the script is executed. To use the bash interpreter, the first line of a script file must specify the absolute path to the bash executable:
 
 ```bash
 #!/usr/bin/env bash
 ```
 
-The bash path in the shebang is resolved and utilized only when a script is launched directly as follows:
+The bash path in the shebang is resolved and utilized only when a script is launched directly from a terminal. If the script is launched from a shell script, the interpreter is not resolved and the script is executed using the shell interpreter.
 
 ```bash
 ./filename.sh
@@ -94,7 +98,7 @@ var=$(whoami)
 
 <h1>If statements </h1>
 
-Comparison of strings and ints differs. Assume that all values are strings, unless proven otherwise.
+If statements are used to execute a block of code if a certain condition is met. Comparison of strings and ints differs. Assume that all values are strings, unless proven otherwise.
 
 ```bash
 if [ $i -eq 10 ]; then echo True; fi         # int comparison
@@ -152,25 +156,25 @@ done
 
 <h1>Array</h1>
 
-Using single quotation marks, create an array:
+An array is a variable that holds an ordered list of values. The values are separated by spaces. The following example creates an array named <i>array</i> and assigns the values 1, 2, 3, 4, 5 to it:
 
 ```bash
-array=(1 2 3 4)
+array=(1 2 3 4 5) 
 ```
 
-Create an array with specified element indices like follows:
+It is possible to create an array with specified element indices:
 
 ```bash
 array=([3]='elem_a' [4]='elem_b')
 ```
 
-Insert an elementat (e.g. 'abc') at a given index (e.g. 2):
+To insert an elementat (e.g. 'abc') at a given index (e.g. 2) in the array, use the following syntax:
 
 ```bash
 array=("${array[@]:0:2}" 'new' "${array[@]:2}")
 ```
 
-Iterate trough an array:
+To iterate over the elements of an array, use the following syntax:
 
 ```bash
 items=('item_1' 'item_2' 'item_3' 'item_4')
@@ -184,7 +188,7 @@ done
 # => item_4
 ```
   
-A one-liner for printing an array:
+It is often useful to print the elements of an array on a single line. The following code will print the elements of the array on a single line:
 
 ```bash
 echo "${array[*]}"
@@ -192,21 +196,24 @@ echo "${array[*]}"
 
 <h1>Functions</h1>
 
-A simple function:
-
+Functions are used to group a sequence of commands into a single unit. They are used to perform repetitive tasks. Functions can be called from anywhere in the script. The following example creates a function named <i>hello_world</i> that prints the string <i>Hello World</i> to the standard output (stdout):
 
 ```bash
-#!/usr/bin/env bash
-
 hello_world ()
 {
   echo "Hello World!"
 }
+```
 
+To call the function, use the following syntax:
+
+```bash
 hello_world
 ```
 
-Sum two numbers:
+The above function does not take any arguments and does not explicitly return a value. It is possible to pass any number of arguments to the function. It is also possible to return a value from the function, but only an integer from range [0,255] is allowed.
+
+Here is a complete example of a script that defines and uses a function to sum two numbers:
 
 ```bash
 #!/usr/bin/env bash
@@ -239,7 +246,8 @@ cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
 ```
 
 <h1>Formatting</h1>
-<a href="https://github.com/lovesegfault/beautysh">Beautysh</a> is a great way to keep your formatting consistent.
+
+It is important to keep the formatting of your script as consistent as possible. <a href="https://github.com/lovesegfault/beautysh">Beautysh</a> is an amazing tool that helps you to format your script. To use it, just run the following command in a directory where your scripts are located:
 
 ```bash
 beautysh **/*.sh
