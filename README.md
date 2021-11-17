@@ -467,7 +467,7 @@ beautysh **/*.sh
         <tr>
             <td>1</td>
             <td>Reset local repository to match the origin.</td>
-            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/reset_local_repo_to_origin.sh">Bash</a></td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/reset_to_origin.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
