@@ -7,22 +7,22 @@
 # Example: ./is_prime.sh 5
 
 is_prime() {
+    # Function that checks if a number is prime.
+    local num=$1
 
-    a=$1
-
-    if [[ $a -eq 2 ]] || [[ $a -eq 3 ]]; then
+    if [[ $num -eq 2 ]] || [[ $num -eq 3 ]]; then
         return 1
     fi
 
-    if [[ $(($a % 2)) -eq 0 ]] || [[ $(($a % 3)) -eq 0 ]]; then
+    if [[ $(($num % 2)) -eq 0 ]] || [[ $(($num % 3)) -eq 0 ]]; then
         return 0
     fi
 
     i=3
 
-    while [[ $((i * i)) -le $a ]]; do
+    while [[ $((i * i)) -le $num ]]; do
 
-        if [[ $(($a % i)) -eq 0 ]]; then
+        if [[ $(($num % i)) -eq 0 ]]; then
             return 0
         fi
 
