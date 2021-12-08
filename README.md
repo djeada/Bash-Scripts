@@ -407,7 +407,7 @@ beautysh **/*.sh
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/min_array.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>3</td>
+            <td>4</td>
             <td>Script to remove duplicates in an array.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicates_in_array.sh">Bash</a></td>
         </tr>
