@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# Script Name: reset_local_repo_to_origin.sh
+# Description: Script to reset local git repositories to origin.
+# Usage: reset_local_repo_to_origin.sh [branch_name] [<path_to_repo>]
+#       [branch_name] - Branch name to reset to origin.
+#       [<path_to_repo>] - Path to the local git repository.
+# Example: reset_local_repo_to_origin.sh master
+
 main() {
 
     working_dir="."
