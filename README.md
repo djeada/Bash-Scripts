@@ -286,6 +286,16 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>5</td>
+            <td>A simple script to display the digits of a number.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/digits.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>6</td>
+            <td>Script to print all numbers in a given interval.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/numbers_in_interval.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>7</td>
             <td>Print a christmas tree.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh">Bash</a></td>
         </tr>
@@ -327,6 +337,79 @@ beautysh **/*.sh
             <td>5</td>
             <td>Is it a prime number?</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/is_prime.sh">Bash</a></td>
+        </tr>
+    </tbody>
+</table>
+
+<h1>Strings</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Count the number of occurrences of a given character in a string.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/count_char.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Check if a string is a palindrome.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/is_palindrome.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Check if two strings are anagrams.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/are_anagrams.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>Calculate the Hamming Distance of two strings.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/hamming_distance.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>5</td>
+            <td>Sort a string alphabetically.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/sort_string.sh">Bash</a></td>
+        </tr>
+    </tbody>
+</table>
+
+<h1>Arrays</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td>Caculate the arithmetic mean of n number.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/arith_mean.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Find the maximum value in an array.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/max_array.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Find the minimum value in an array.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/min_array.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Script to remove duplicates in an array.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicates_in_array.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
@@ -510,13 +593,18 @@ beautysh **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Find your IP address</td>
+            <td>Find your IP address.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/ip_info.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Empty the trash</td>
+            <td>Empty the trash.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/empty_trash.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Block websites from being visited.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_blok.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
