@@ -2,7 +2,7 @@
 
 # Script Name: extract.sh
 # Description: Script to extract files based on extension
-# Usage: extract.sh.sh [archive file]
+# Usage: extract.sh [archive file]
 #       [archive file] - archive file to be extracted
 # Example: ./extract.sh example-14-09-12.tar
 
