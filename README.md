@@ -450,6 +450,11 @@ beautysh **/*.sh
             <td>Remove duplicate lines from a file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicate_lines.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>6</td>
+            <td>Replace left slashes with right slashes and vice versa.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/switch_slashes.sh">Bash</a></td>
+        </tr>     
     </tbody>
 </table>
 
@@ -605,6 +610,16 @@ beautysh **/*.sh
             <td>3</td>
             <td>Block websites from being visited.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_blok.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>Script to extract files based on extension.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/extract.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>5</td>
+            <td>Script to check which programs are running on a specific port.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/program_on_port.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
