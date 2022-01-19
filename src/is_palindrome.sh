@@ -8,32 +8,32 @@
 # Output: true
 
 is_palindrome() {
-  local string="$1"
-  local length=${#string}
-  local half_length=$((length / 2))
-  local i=0
+    local string="$1"
+    local length=${#string}
+    local half_length=$((length / 2))
+    local i=0
 
-  for ((i = 0; i < half_length; i++)); do
-    if [[ "${string:i:1}" != "${string:length - i - 1:1}" ]]; then
-      return 1
-    fi
-  done
+    for ((i = 0; i < half_length; i++)); do
+        if [[ "${string:i:1}" != "${string:length - i - 1:1}" ]]; then
+            return 1
+        fi
+    done
 
-  return 0
+    return 0
 }
 
 main() {
-  if [[ $# -ne 1 ]]; then
-    echo "Usage: is_palindrome.sh [string]"
-    echo "       [string] - the string to check"
-    exit 1
-  fi
+    if [[ $# -ne 1 ]]; then
+        echo "Usage: is_palindrome.sh [string]"
+        echo "       [string] - the string to check"
+        exit 1
+    fi
 
     is_palindrome "$1"
     if [[ $? -eq 0 ]]; then
-      echo "true"
+        echo "true"
     else
-      echo "false"
+        echo "false"
     fi
 }
 

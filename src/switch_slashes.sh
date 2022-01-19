@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: switch_slashes.sh
-# Description: Script to replace left slashes with right slashes and vice versa 
+# Description: Script to replace left slashes with right slashes and vice versa
 # Usage: switch_slashes.sh [file_name] [<direction>]
 #       [file_name] - file to be changed
 #       [<direction>] - three options possible: a) left_to_right b) right_to_left c) invert
@@ -17,16 +17,16 @@ main() {
         echo "Example: ./switch_slashes.sh left_to_right"
         exit 1
     fi
-    
+
     file_name="$1"
-    
-	if [[ "$2" == left_to_right ]]; then
-		sed -i 's|\/|\\|g' "$file_name"
-	elif [[ "$2" == right_to_left ]]; then
-		sed -i 's|\\|\/|g' "$file_name"
-  elif [[ "$2" == invert ]] || [[ "$#" == 1 ]]; then
-    return
-	fi
+
+    if [[ "$2" == left_to_right ]]; then
+        sed -i 's|\/|\\|g' "$file_name"
+    elif [[ "$2" == right_to_left ]]; then
+        sed -i 's|\\|\/|g' "$file_name"
+    elif [[ "$2" == invert ]] || [[ "$#" == 1 ]]; then
+        return
+    fi
 
 }
 

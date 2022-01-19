@@ -22,7 +22,7 @@ main() {
         echo "You can't specify more than 3 parameters!"
         exit 1
     fi
-    
+
     n="$1"
 
     if  [ $# -eq 2 ]; then
@@ -37,8 +37,8 @@ main() {
     is_git_repo=$(git rev-parse --git-dir > /dev/null 2>&1)
 
     if [ ${#is_git_repo} -gt 0 ]; then
-      echo "Not inside a git repo! Please provide a correct path."
-      exit 1
+        echo "Not inside a git repo! Please provide a correct path."
+        exit 1
     fi
 
     if  [ $# -eq 3 ]; then

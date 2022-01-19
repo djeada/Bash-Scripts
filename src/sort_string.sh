@@ -5,7 +5,7 @@
 # Usage: sort_string.sh [string]
 #       [string] - a string to be sorted
 # Example: sort_string.sh "Ala ma kota"
-# Output: Aaaaklmot  
+# Output: Aaaaklmot
 
 sort_string() {
     echo "$1" |  grep -o . | sort -V | tr -d "\n"

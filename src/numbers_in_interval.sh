@@ -9,12 +9,12 @@
 # Output: 1 2 3 4 5
 
 print_numbers_in_interval() {
-  local start=$1
-  local end=$2
+    local start=$1
+    local end=$2
 
-  for ((i = start; i <= end; i++)); do
-    echo $i
-  done
+    for ((i = start; i <= end; i++)); do
+        echo $i
+    done
 }
 
 main() {

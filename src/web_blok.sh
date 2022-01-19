@@ -29,14 +29,14 @@ remove_domain() {
 }
 
 main() {
-    
+
     if [ $# -ne 2 ]; then
         echo "Usage: $0 <action> <domain>"
         echo "  <action>  'add' or 'remove'"
         echo "  <domain>  Domain to block"
         exit 1
     fi
-    
+
     local action="$1"
     local domain="$2"
 

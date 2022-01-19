@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: check_os.sh
-# Description: Check the operating system of the current host 
+# Description: Check the operating system of the current host
 #              and print the result to the standard output.
 # Usage: check_os.sh
 # Example: ./check_os.sh
