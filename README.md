@@ -613,12 +613,12 @@ beautysh **/*.sh
         </tr>
         <tr>
             <td>4</td>
-            <td>Script to extract files based on extension.</td>
+            <td>Extract files based on extension.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/extract.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Script to check which programs are running on a specific port.</td>
+            <td>Check which programs are running on a specific port.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/program_on_port.sh">Bash</a></td>
         </tr>
     </tbody>
