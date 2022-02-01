@@ -10,12 +10,12 @@
 max_array() {
     local max=${1}
     shift
-    for i in ${@}; do
+    for i in "${@}"; do
         if [[ ${i} -gt ${max} ]]; then
             max=${i}
         fi
     done
-    echo ${max}
+    echo "${max}"
 }
 
 main() {
@@ -27,14 +27,14 @@ main() {
     fi
 
     re='^[0-9]+$'
-    for i in $@; do
+    for i in "$@"; do
         if ! [[ $i =~ $re ]]; then
             echo "Error: $i is not an integer"
             exit 1
         fi
     done
 
-    max_array ${@}
+    max_array "${@}"
 }
 
 main "$@"

@@ -15,7 +15,7 @@ odleglosc_hamminga() {
     local n=${#string_a}
     local m=${#string_b}
 
-    if [ $n -ne $m ]; then
+    if [ "$n" -ne "$m" ]; then
         echo "-1"
         return
     fi

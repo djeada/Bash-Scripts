@@ -6,7 +6,7 @@
 # Example: ./conditionals.sh
 
 echo "Type a y or n."
-read input
+read -r input
 
 if [ "$input"  == "n" ] || [ "$input" == "N" ]; then
     echo "NO"

@@ -13,7 +13,7 @@ print_numbers_in_interval() {
     local end=$2
 
     for ((i = start; i <= end; i++)); do
-        echo $i
+        echo "$i"
     done
 }
 
@@ -30,12 +30,12 @@ main() {
         exit 1
     fi
 
-    if [ $1 -ge $2 ]; then
+    if [ "$1" -ge "$2" ]; then
         echo "Start must be less than end"
         exit 1
     fi
 
-    print_numbers_in_interval $1 $2
+    print_numbers_in_interval "$1" "$2"
 }
 
 main "$@"

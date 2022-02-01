@@ -14,7 +14,7 @@ is_prime() {
         return 1
     fi
 
-    if [[ $(($num % 2)) -eq 0 ]] || [[ $(($num % 3)) -eq 0 ]]; then
+    if [[ $(( num % 2 )) -eq 0 ]] || [[ $(( num % 3 )) -eq 0 ]]; then
         return 0
     fi
 
@@ -22,7 +22,7 @@ is_prime() {
 
     while [[ $((i * i)) -le $num ]]; do
 
-        if [[ $(($num % i)) -eq 0 ]]; then
+        if [[ $(( num % i )) -eq 0 ]]; then
             return 0
         fi
 
@@ -46,7 +46,7 @@ main() {
         exit 1
     fi
 
-    if [[ $(is_prime $1)$? -eq 1 ]]; then
+    if [[ $(is_prime "$1")$? -eq 1 ]]; then
         echo "$1 is a prime number!"
     else
         echo "$1 is not a prime number!"

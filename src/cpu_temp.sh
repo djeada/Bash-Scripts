@@ -8,7 +8,7 @@
 main() {
 
     if [ $# -eq 1 ]; then
-        if [ ! -f $1 ]; then
+        if [ ! -f "$1" ]; then
             echo "$1 is not a valid path!"
             exit 1
         fi

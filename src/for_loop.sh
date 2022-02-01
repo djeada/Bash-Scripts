@@ -6,10 +6,10 @@
 # Example: ./for_loop.sh
 
 echo "Enter a positive number: "
-read n
+read -r n
 
 echo "Numbers from 1 to $n:"
 for (( i=1; i<=n; i++ ))
 do
-    echo $i
+    echo "$i"
 done

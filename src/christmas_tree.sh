@@ -11,8 +11,8 @@ triangle() {
 
     a=$1
 
-    for (( i=0; i<$a; i++ )); do
-        for (( j=0; j<=$i; j++ )); do
+    for (( i=0; i<a; i++ )); do
+        for (( j=0; j<=i; j++ )); do
             echo -n "x"
         done
         echo ""
@@ -24,8 +24,8 @@ christmas_tree() {
 
     n=$1
 
-    for (( i=1; i<=$n; i++ )); do
-        triangle $i
+    for (( i=1; i<=n; i++ )); do
+        triangle "$i"
     done
 
 }
@@ -43,7 +43,7 @@ main() {
         exit 1
     fi
 
-    christmas_tree $1
+    christmas_tree "$1"
 
 }
 

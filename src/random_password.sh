@@ -20,8 +20,8 @@ main() {
         exit 1
     fi
 
-    password=$(strings /dev/urandom | grep -o '[[:alnum:]]' | head -n $1 | tr -d '\n')
-    echo $password
+    password=$(strings /dev/urandom | grep -o '[[:alnum:]]' | head -n "$1" | tr -d '\n')
+    echo "$password"
 
 }
 

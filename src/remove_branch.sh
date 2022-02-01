@@ -18,20 +18,20 @@ main() {
         exit 1
     fi
 
-    is_remote_branch=$(git branch -r | grep -Fw $branch_name > /dev/null)
-    is_local_branch=$(git branch -l | grep -Fw $branch_name > /dev/null)
+    is_remote_branch=$(git branch -r | grep -Fw "$branch_name" > /dev/null)
+    is_local_branch=$(git branch -l | grep -Fw "$branch_name" > /dev/null)
 
     if [ -n "$is_remote_branch" ] && [ -n "$is_local_branch" ]; then
         echo "provided branch doesn't exists"
         exit 1
     fi
 
-    if [ -z $is_local_branch ]; then
-        git push -d origin $branch_name
+    if [ -z "$is_local_branch" ]; then
+        git push -d origin "$branch_name"
     fi
 
-    if [ -z $is_remote_branch ]; then
-        git branch -D $branch_name
+    if [ -z "$is_remote_branch" ]; then
+        git branch -D "$branch_name"
     fi
 
 }

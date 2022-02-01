@@ -9,7 +9,7 @@ main() {
 
     echo "Enter the directory name:"
 
-    read dir_name
+    read -r dir_name
 
     if [[ -d "$dir_name" ]]; then
         echo "Directory $dir_name already exists."
@@ -22,7 +22,7 @@ main() {
 
     echo "Enter the file name:"
 
-    read file_name
+    read -r file_name
 
     file_name="$dir_name/$file_name"
 
@@ -32,7 +32,7 @@ main() {
 
     echo "Enter the file content:"
 
-    read file_content
+    read -r file_content
 
     echo "$file_content" >> "$file_name"
 

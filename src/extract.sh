@@ -19,30 +19,30 @@ main() {
     output_dir='.'
 
     if
-    [[ "$1" == *"${extensions[0]}" ]] ||
-    [[ "$1" == *"${extensions[1]}" ]] ||
-    [[ "$1" == *"${extensions[2]}" ]] ||
-    [[ "$1" == *"${extensions[3]}" ]] ||
-    [[ "$1" == *"${extensions[4]}" ]]; then
+    [[ "$1" == *.tar.xz ]] ||
+    [[ "$1" == *.tar.gz ]] ||
+    [[ "$1" == *.tar.bz2 ]] ||
+    [[ "$1" == *.tar ]] ||
+    [[ "$1" == *.tgz ]]; then
         tar -xvf "$1" -C "$output_dir"
     elif
-    [[ "$1" == *"${extensions[5]}" ]] ||
-    [[ "$1" == *"${extensions[6]}" ]] ||
-    [[ "$1" == *"${extensions[7]}" ]] ||
-    [[ "$1" == *"${extensions[8]}" ]]; then
+    [[ "$1" == *.bz ]] ||
+    [[ "$1" == *.bz2 ]] ||
+    [[ "$1" == *.tbz ]] ||
+    [[ "$1" == *.tbz2 ]]; then
         bzip2 -d -k "$1"
     elif
-    [[ "$1" == *"${extensions[9]}" ]]; then
+    [[ "$1" == *.gz ]]; then
         gunzip "$1" -c > "$output_dir"
     elif
-    [[ "$1" == *"${extensions[10]}" ]] ||
-    [[ "$1" == *"${extensions[11]}" ]]; then
+    [[ "$1" == *.zip ]] ||
+    [[ "$1" == *.jar ]]; then
         unzip "$1" -d "$output_dir"
     elif
-    [[ "$1" == *"${extensions[12]}" ]]; then
+    [[ "$1" == *.Z ]]; then
         zcat "$1" | tar -xvf - -C "$output_dir"
     elif
-    [[ "$1" == *"${extensions[13]}" ]]; then
+    [[ "$1" == *.rar ]]; then
         rar x "$1" "$output_dir"
     else
         echo "Please specify a correct archive format: \"${extensions[*]}\""

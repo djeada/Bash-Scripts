@@ -8,7 +8,7 @@
 
 remove_carriage_return ()
 {
-    sed -i 's/\r//g' $1
+    sed -i 's/\r//g' "$1"
 }
 
 main() {
@@ -18,13 +18,13 @@ main() {
         exit 1
     fi
 
-    if [ $1 == '.' ] || [ -d "${1}" ]; then
+    if [ "$1" == '.' ] || [ -d "${1}" ]; then
         for file in $(find $1 -maxdepth 10 -type f)
         do
-            remove_carriage_return $file
+            remove_carriage_return "$file"
         done
     elif [ -f "${1}" ]; then
-        remove_carriage_return $1
+        remove_carriage_return "$1"
     else
         echo "$1 is not a valid path!"
     fi
@@ -32,3 +32,4 @@ main() {
 }
 
 main "$@"
+

@@ -10,7 +10,7 @@
 sum() {
     local sum=0
     local i=0
-    while [ $i -lt $1 ]; do
+    while [ $i -lt "$1" ]; do
         ((sum += i))
         ((i++))
     done
@@ -30,7 +30,7 @@ main() {
         exit 1
     fi
 
-    echo "Sum of integers smaller than $1 is $(sum $1)."
+    echo "Sum of integers smaller than $1 is $(sum "$1")."
 }
 
 main "$@"

@@ -25,21 +25,21 @@ main() {
     reminder=1
     binary_representation=" "
 
-    while [ $number -gt 0 ]
+    while [ "$number" -gt 0 ]
     do
-        reminder=`expr $number % 2 `
+        reminder=$(( number % 2))
         binary_representation="$binary_representation$reminder"
-        number=`expr $number / 2 `
+        number=$(( number / 2))
     done
 
     i=${#binary_representation}
     result=" "
 
-    while [ $i -gt 0 ]
+    while [ "$i" -gt 0 ]
     do
-        rev=`echo $binary_representation | awk '{ printf substr( $0,'$i',1 ) }'`
+        rev=$(echo "$binary_representation" | awk '{ printf substr( $0, "$i",1 ) }')
         result="$result$rev"
-        i=$(( $i - 1 ))
+        i=$(( i - 1 ))
     done
 
     echo "Binary representation: $result"

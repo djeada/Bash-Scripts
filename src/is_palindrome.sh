@@ -29,8 +29,8 @@ main() {
         exit 1
     fi
 
-    is_palindrome "$1"
-    if [[ $? -eq 0 ]]; then
+    result=$(is_palindrome "$1")
+    if [[ "$result" -eq 0 ]]; then
         echo "true"
     else
         echo "false"

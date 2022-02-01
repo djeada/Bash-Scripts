@@ -13,11 +13,11 @@ sqrt() {
     local precision=$2
     local result="${number}.0"
 
-    while [ 1 -eq $(echo "$result*$result - $number > 0.0001" | bc -l) ]; do
+    while [ 1 -eq "$(echo "$result*$result - $number > 0.0001" | bc -l)" ]; do
         result=$(echo "scale=$precision; ($result + $number/$result)/2" | bc -l)
     done
 
-    echo $result
+    echo "$result"
 }
 
 
@@ -45,7 +45,7 @@ main() {
         precision=$2
     fi
 
-    sqrt $number $precision
+    sqrt "$number" "$precision"
 }
 
 main "$@"

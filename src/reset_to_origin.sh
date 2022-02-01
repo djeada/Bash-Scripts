@@ -18,10 +18,10 @@ main() {
 
     if [ $# -eq 1 ] || [ $# -eq 2 ]; then
         branch_name="$1"
-        is_remote_branch=$(git branch -r | grep -Fw $branch_name > /dev/null)
-        is_local_branch=$(git branch -l | grep -Fw $branch_name > /dev/null)
+        is_remote_branch=$(git branch -r | grep -Fw "$branch_name" > /dev/null)
+        is_local_branch=$(git branch -l | grep -Fw "$branch_name" > /dev/null)
 
-        if [ $is_remote_branch -ne 0 ] && [ $is_local_branch -ne 0 ]; then
+        if [ "$is_remote_branch" -ne 0 ] && [ "$is_local_branch" -ne 0 ]; then
             echo "provided branch doesn't exists"
             exit 1
         fi
@@ -29,7 +29,7 @@ main() {
         if  [ $# -eq 2 ]; then
             working_dir="$2"
             if [ ! -d "$working_dir" ]; then
-                echo "$workind_dir is not a directory."
+                echo "$working_dir is not a directory."
                 exit 1
             fi
         fi
@@ -39,7 +39,7 @@ main() {
         exit 1
     fi
 
-    cd "$working_dir"
+    cd "$working_dir" || exit
 
     git fetch origin
     git checkout "$branch_name"

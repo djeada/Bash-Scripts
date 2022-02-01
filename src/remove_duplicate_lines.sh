@@ -12,16 +12,17 @@ main() {
         exit 1
     fi
 
-    if [ ! -f $1 ]; then
+    if [ ! -f "$1" ]; then
         echo "$1 is not a valid file path!"
         exit 1
     fi
 
     local file_path=$1
-    local file_name=$(basename $file_path)
+    local file_name
+    file_name=$(basename "$file_path")
 
-    awk '/^\s*$/||!seen[$0]++' $file_path > $file_name.tmp
-    mv $file_name.tmp $file_name
+    awk '/^\s*$/||!seen[$0]++' "$file_path" > "$file_name".tmp
+    mv "$file_name".tmp "$file_name"
 }
 
 main "$@"

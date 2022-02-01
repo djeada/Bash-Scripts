@@ -8,4 +8,5 @@
 echo "I'm here: $(pwd)"
 echo "HOME is an example of an environment variable: $HOME"
 echo "You don't need quotes to display an output of a command:"
-echo $(date)
+echo "$(date)"
+

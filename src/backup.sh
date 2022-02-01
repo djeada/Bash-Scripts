@@ -8,7 +8,7 @@
 # Usage: ./backup.sh path/to/config_file
 
 validate_config_file() {
-    source $1
+    source "$1"
 
     if [ -z "${BACKUP_DIR}" ]; then
         echo "BACKUP_DIR is not set"
@@ -56,14 +56,14 @@ validate_config_file() {
 create_config_file() {
     echo "Creating a defualt config file at: $1"
 
-    echo "BACKUP_DIR=path/to/backup/dir" > $1
-    echo "SOURCE_DIR=path/to/source/dir" >> $1
-    echo "EXCLUDE_DIRS=0" >> $1
-    echo "EXCLUDE_FILES=0" >> $1
-    echo "EXCLUDE_EXTENSIONS=0" >> $1
-    echo "WITH_COMPRESSION=true" >> $1
-    echo "WITH_ENCRYPTION=true" >> $1
-    echo "GPG_PASSPHRASE=passphrase" >> $1
+    echo "BACKUP_DIR=path/to/backup/dir" > "$1"
+    echo "SOURCE_DIR=path/to/source/dir" >> "$1"
+    echo "EXCLUDE_DIRS=0" >> "$1"
+    echo "EXCLUDE_FILES=0" >> "$1"
+    echo "EXCLUDE_EXTENSIONS=0" >> "$1"
+    echo "WITH_COMPRESSION=true" >> "$1"
+    echo "WITH_ENCRYPTION=true" >> "$1"
+    echo "GPG_PASSPHRASE=passphrase" >> "$1"
 
     echo "Config file created"
 }
@@ -105,8 +105,8 @@ main() {
     if [ $# -eq 1 ]; then
         if [ -f "$1" ]; then
             echo "Using config file: $1"
-            validate_config_file $1
-            create_backup $1
+            validate_config_file "$1"
+            create_backup "$1"
         else
             echo "Config file not found: $1"
             exit 1

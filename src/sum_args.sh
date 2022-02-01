@@ -12,7 +12,7 @@ main() {
 
     sum=0
     for i; do
-        echo $i
+        echo "$i"
     done
 
     # $# tells you the number of arguments
@@ -27,7 +27,8 @@ main() {
         shift
     done
 
-echo "Sum of the arguments: $sum"}
+    echo "Sum of the arguments: $sum"
+}
 
 main "$@"
 

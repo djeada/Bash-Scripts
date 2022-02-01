@@ -18,7 +18,7 @@ main() {
         path=~/.Trash
         echo "Detected system Mac Os X"
 
-    elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+    elif [ "$(cut "$(uname -s)" 1 5)" == "Linux" ]; then
         distro=$(awk -F= '/^NAME/{print $2}' /etc/os-release)
         distro=$(echo "$distro" | awk '{print tolower($0)}')
 
@@ -39,8 +39,8 @@ main() {
     echo "Attempting to remove files located at: $path"
 
     if [ -d "$path" ]; then
-        rm -rf "$path"/*
-        if [ $? -eq 0 ]; then
+        result=$(rm -rf "${path:?}"/*)
+        if [ "$result" -eq 0 ]; then
             echo OK
         else
             echo FAIL

@@ -26,14 +26,14 @@ main() {
     fi
 
     re='^[0-9]+$'
-    for i in $@; do
+    for i in "$@"; do
         if ! [[ $i =~ $re ]]; then
             echo "Error: $i is not an integer"
             exit 1
         fi
     done
 
-    echo "Arithmetic mean of $@ is $(mean $@)"
+    echo "Arithmetic mean of $* is $(mean "$*")"
 }
 
 main "$@"

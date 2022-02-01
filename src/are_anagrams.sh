@@ -22,8 +22,10 @@ are_angrams() {
         return
     fi
 
-    local string_a_sorted=$(sort_string "$string_a")
-    local string_b_sorted=$(sort_string "$string_b")
+    local string_a_sorted
+    string_a_sorted=$(sort_string "$string_a")
+    local string_b_sorted
+    string_b_sorted=$(sort_string "$string_b")
 
     if [ "$string_a_sorted" == "$string_b_sorted" ]; then
         echo true

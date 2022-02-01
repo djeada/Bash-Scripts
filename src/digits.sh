@@ -12,9 +12,9 @@ print_digits() {
     local digits=()
     local digit
 
-    while [ $number -gt 0 ]; do
+    while [ "$number" -gt 0 ]; do
         digit=$((number % 10))
-        digits+=($digit)
+        digits+=("$digit")
         number=$((number / 10))
     done
 
@@ -36,7 +36,7 @@ main() {
         exit 1
     fi
 
-    print_digits $1
+    print_digits "$1"
 }
 
 main "$@"

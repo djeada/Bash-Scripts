@@ -23,9 +23,9 @@ main() {
 
     counter=0
 
-    while read p; do
+    while read -r _; do
         ((counter++))
-    done < $file_name
+    done < "$file_name"
 
     echo "Number of lines in ${file_name} is: ${counter}"
 

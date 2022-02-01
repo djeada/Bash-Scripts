@@ -28,10 +28,10 @@ main() {
     if  [ $# -eq 2 ]; then
         working_dir="$3"
         if [ ! -d "$working_dir" ]; then
-            echo "$workind_dir is not a directory."
+            echo "$working_dir is not a directory."
             exit 1
         fi
-        cd "$working_dir"
+        cd "$working_dir" || exit
     fi
 
     is_git_repo=$(git rev-parse --git-dir > /dev/null 2>&1)
@@ -43,7 +43,7 @@ main() {
 
     if  [ $# -eq 3 ]; then
         branch_name="$2"
-        is_local_branch=$(git branch -l | grep -Fw $branch_name)
+        is_local_branch=$(git branch -l | grep -Fw "$branch_name")
 
         if [ ${#is_local_branch} -eq 0 ]; then
             echo "provided branch doesn't exists"
@@ -52,7 +52,7 @@ main() {
     fi
 
     git checkout "$branch_name"
-    git reset --soft HEAD~$n
+    git reset --soft HEAD~"$n"
     git commit
 }
 

@@ -40,7 +40,7 @@ display_private_ip() {
 get_value_from_dict() {
     dict=$1
     key=$2
-    echo $dict | grep -m1 -oP '"'"$key"'"?\s*:\s*"?\K[^"]+'
+    echo "$dict" | grep -m1 -oP '"'"$key"'"?\s*:\s*"?\K[^"]+'
 }
 
 display_location() {
@@ -50,7 +50,7 @@ display_location() {
             public_ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
         fi
 
-        ip_dict=$(curl http://ip-api.com/json/$public_ip 2>&1)
+        ip_dict=$(curl http://ip-api.com/json/"$public_ip" 2>&1)
         status=$(get_value_from_dict "$ip_dict" "status")
 
         if [[ $status == "success" ]]; then

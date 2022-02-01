@@ -10,12 +10,12 @@
 min_array() {
     local min=${1}
     shift
-    for i in ${@}; do
+    for i in "${@}"; do
         if [[ ${i} -lt ${min} ]]; then
             min=${i}
         fi
     done
-    echo ${min}
+    echo "${min}"
 }
 
 main() {
@@ -27,14 +27,14 @@ main() {
     fi
 
     re='^[0-9]+$'
-    for i in $@; do
+    for i in "$@"; do
         if ! [[ $i =~ $re ]]; then
             echo "Error: $i is not an integer"
             exit 1
         fi
     done
 
-    min_array ${@}
+    min_array "${@}"
 }
 
 main "$@"
