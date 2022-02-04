@@ -245,14 +245,20 @@ cmd 2>&1                 # Redirect stderr to stdout
 cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
 ```
 
-<h1>Formatting</h1>
+<h1>Formatting and linting</h1>
 
 It is important to keep the formatting of your script as consistent as possible. <a href="https://github.com/lovesegfault/beautysh">Beautysh</a> is an amazing tool that helps you to format your script. To use it, just run the following command in a directory where your scripts are located:
 
 ```bash
 beautysh **/*.sh
 ```
+  
+Additionally we advise to use <a href="https://github.com/koalaman/shellcheck">shellcheck</a> for code inspection.
 
+```bash
+shellcheck **/*.sh
+```
+  
 <h1>Intro</h1>
 
 <table>
