@@ -3,12 +3,12 @@
 # TODO: accept only the date, use random time, and calculate the day of the week based on the date
 
 week_day() {
-    
-   DD="$1"
-   MM="$2"
-   YY="$3"
 
-   CC=$(( YY/100))
+    DD="$1"
+    MM="$2"
+    YY="$3"
+
+    CC=$(( YY/100))
     YY=$(( YY % 100))
 
     A=$((( CC/4) - 2*CC - 1))
@@ -51,12 +51,12 @@ week_day() {
 main() {
 
     if [ $# -ne 1 ]; then
-       echo "You have to provide the new date!"
-       exit 1
+        echo "You have to provide the new date!"
+        exit 1
     fi
-    
+
     date="$1"
-    
+
     LC_ALL=C GIT_COMMITTER_DATE="$1 +0100" git commit --amend --no-edit --date "$1 +0100"
 
 
