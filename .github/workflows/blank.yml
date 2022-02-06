@@ -27,4 +27,4 @@ jobs:
 
       # Execute defined hooks
       - name: Run all hooks
-        run: /home/runner/work/{repo-name}/{repo-name}/hooks/_run_all.sh
+        run: ${GITHUB_WORKSPACE}/hooks/_run_all.sh
