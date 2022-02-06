@@ -549,6 +549,16 @@ shellcheck **/*.sh
             <td>Change all spaces in file names to underscores and convert them to lowercase.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/correct_file_names.sh">Bash</a></td>
        </tr>
+       <tr>
+            <td>4</td>
+            <td>Remove trailing whitespaces from every file in a given directory.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_trailing_whitespaces.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>5</td>
+            <td>Beautify and format every shell script found in the current repository.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/shell_format.sh">Bash</a></td>
+       </tr>
     </tbody>
 </table>
 
