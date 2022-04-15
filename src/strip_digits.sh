@@ -23,7 +23,8 @@ main() {
     temp_name="$file_name""$(date '+%Y-%m-%d')".tmp
 
     sed -r 's/[^[:space:]]*[0-9][^[:space:]]* ?//g' "$file_path" > "$temp_name"
-    mv "$file_name".tmp "$temp_name"
+    mv "$temp_name" "$file_path"
+
 }
 
 main "$@"
