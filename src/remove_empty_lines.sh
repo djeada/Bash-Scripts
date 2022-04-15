@@ -21,7 +21,7 @@ main() {
     local file_name
     file_name=$(basename "$file_path")
 
-    awk 'NF' file "$file_path"
+    awk 'NF' "$file_path"
     
 }
 

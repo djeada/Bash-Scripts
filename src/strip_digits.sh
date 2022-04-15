@@ -22,7 +22,7 @@ main() {
     file_name=$(basename "$file_path")
 
     sed -r 's/[^[:space:]]*[0-9][^[:space:]]* ?//g' "$file_path" > "$file_name".tmp
-    mv "$file_name".tmp "$file_name"
+    mv "$file_name".tmp "$file_path"
 }
 
 main "$@"
