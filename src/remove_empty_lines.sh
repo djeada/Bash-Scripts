@@ -20,8 +20,10 @@ main() {
     local file_path=$1
     local file_name
     file_name=$(basename "$file_path")
+    temp_name="$file_name""$(date '+%Y-%m-%d')".tmp
 
-    awk 'NF' "$file_path"
+    awk 'NF' "$file_path" "$file_path" > "$temp_name"
+    mv "$file_name".tmp "$temp_name"
     
 }
 
