@@ -28,7 +28,7 @@ A collection of Bash scripts.
 * GUI.
 * Cross-platform portability.
 * Calculations.
-* Networking.
+* Network programming.
 
 
 <h1>Hello world </h1>
