@@ -20,6 +20,10 @@ main() {
 
     else
         path=/sys/class/thermal/thermal_zone0/temp
+        if [ ! -f "$path" ]; then
+            echo "Default path is not valid! You can provide a path as an argument."
+            exit 1
+        fi
     fi
 
     temp=$(cat $path)
@@ -30,4 +34,3 @@ main() {
 }
 
 main "$@"
-
