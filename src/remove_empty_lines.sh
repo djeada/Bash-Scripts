@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: remove_empty_lines.sh
-# Description: Removes all that contain only whitespaces in a given file. 
+# Description: Removes all that contain only whitespaces in a given file.
 # Usage: remove_empty_lines.sh [<file_path>]
 #        [<file_path>] - the path to the file to process.
 # Example: ./remove_empty_lines.sh path/to/file
@@ -24,7 +24,7 @@ main() {
 
     awk 'NF' "$file_path" > "$temp_name"
     mv "$temp_name" "$file_path"
-    
+
 }
 
 main "$@"

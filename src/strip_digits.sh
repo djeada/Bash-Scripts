@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: strip_digits.sh
-# Description: Removes all digits from each string in a given file. 
+# Description: Removes all digits from each string in a given file.
 # Usage: strip_digits.sh [<file_path>]
 #        [<file_path>] - the path to the file to process.
 # Example: ./strip_digits.sh path/to/file

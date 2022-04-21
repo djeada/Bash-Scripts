@@ -9,13 +9,13 @@
 main() {
 
     if [ $# -ne 1 ]; then
-      echo "Usage: time_execution.sh [command]"
-    exit 1
+        echo "Usage: time_execution.sh [command]"
+        exit 1
     fi
-    
-        TIMEFORMAT=%0lR
-        time $1
-        unset TIMEFORMAT
+
+    TIMEFORMAT=%0lR
+    time $1
+    unset TIMEFORMAT
 
 }
 
