@@ -344,6 +344,11 @@ shellcheck **/*.sh
             <td>Is it a prime number?</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/is_prime.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>6</td>
+            <td>Calculate the square root of a number.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/sqrt.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
