@@ -8,7 +8,9 @@
 
 main() {
 
-    if [ $# -ne 1 ]; then
+    command="$*"
+
+    if [ -z "$command" ]; then
         echo "Usage: time_execution.sh [command]"
         exit 1
     fi
@@ -16,10 +18,12 @@ main() {
     N=10
     total=0
     TIMEFORMAT=%0lR
+    echo "time -p "${command}""
     for i in $(seq 1 $N); do
-        time=$( { time -p $1; } 2>&1 )
-        total=$(echo "$total + $time" | bc)
-    done
+        time_slice=$( { time -p "$command"; } 2>&1 )
+        total=$(echo "$total + $time_slice" | bc)
+          echo "TIMINGO: $time_slice"
+      done
     unset TIMEFORMAT
 
     avg=$(echo "$total / $N" | bc)
