@@ -14,7 +14,9 @@ main() {
         return
     fi
 
-    find . -type f -exec sed -i -e "s/$1/$2/g" {} \;
+    echo "$1 $2"
+
+    find . -type f -exec sed -i -r -e "s/$1/$2/g" {} \;
 }
 
 main "$@"
