@@ -73,8 +73,8 @@ Scripts may also be created in a variety of different "scripting languages," thu
 
 <h1>Variables </h1>
   
-* Assign the value <i>var="Test"</i>.
-* Retrive the value <i>$x</i> or <i>${x}</i>.
+* Assign the value: <i>var="Test"</i>.
+* Retrive the value: <i>$x</i> or <i>${x}</i>.
 * Variables can be defined explicitly as int or array:
 
 ```bash
