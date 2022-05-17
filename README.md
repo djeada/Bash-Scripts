@@ -308,7 +308,7 @@ shellcheck **/*.sh
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>7</td>
+            <td>8</td>
             <td>Prompt the user for a response to a given question.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/promt_for_answer.sh">Bash</a></td>
         </tr>
@@ -421,7 +421,7 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Calculate the arithmetic mean of the given n numbers.</td>
+            <td>Calculate the arithmetic mean of the given *n* numbers.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/arith_mean.sh">Bash</a></td>
         </tr>
         <tr>
@@ -642,12 +642,12 @@ shellcheck **/*.sh
        </tr>
        <tr>
             <td>4</td>
-            <td>Squash n last commits.</td>
+            <td>Squash *n* last commits.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Remove n last commits.</td>
+            <td>Remove *n* last commits.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh">Bash</a></td>
        </tr>
        <tr>
