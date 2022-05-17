@@ -25,8 +25,8 @@ main() {
         exit 1
     fi
 
-    lower_bound=$1
-    upper_bound=$2
+    local lower_bound="$1"
+    local upper_bound="$2"
 
     echo $((lower_bound + SRANDOM % upper_bound))
 
