@@ -272,10 +272,10 @@ ps -x | grep chromium
 But what if you'd want to save the results to a file? Bash has a redirect operator > that may be used to control where the output is delivered.
 
 ```bash
-cmd >out.log             # Redirect stdout to out.log
-cmd 2>err.log            # Redirect stderr to file err.log
-cmd 2>&1                 # Redirect stderr to stdout
-cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
+some_command > out.log            # Redirect stdout to out.log
+some_command 2> err.log           # Redirect stderr to file err.log
+some_command 2>&1                 # Redirect stderr to stdout
+some_command 1>/dev/null 2>&1     # Silence both stdout and stderr
 ```
 
 ### Formatting and linting
@@ -454,7 +454,7 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Calculate the arithmetic mean of the given *n* numbers.</td>
+            <td>Calculate the arithmetic mean of the given <i>n</i> numbers.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/arith_mean.sh">Bash</a></td>
         </tr>
         <tr>
@@ -675,12 +675,12 @@ shellcheck **/*.sh
        </tr>
        <tr>
             <td>4</td>
-            <td>Squash *n* last commits.</td>
+            <td>Squash <i>n</i> last commits.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Remove *n* last commits.</td>
+            <td>Remove <i>n</i> last commits.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh">Bash</a></td>
        </tr>
        <tr>
