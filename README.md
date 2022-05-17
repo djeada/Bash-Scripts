@@ -8,13 +8,13 @@
 # Bash-scripts
 A collection of Bash scripts.
 
-<h1>About Bash</h1>
+## About Bash
 
 * Scripting languages originated as extensions of command interpreters in operating systems.
 * Bourne shell (sh) was the first significant shell. Bash, today's most used Unix shell, is a GNU/FSF enhancement on the Bourne shell.
 * Other shells include: C shell (csh), TC shell (tcsh), Dash (dash), Korn shell (ksh), Z shell (zsh).
 
-<h1> What's the purpose of shell scripts? </h1>
+###  What's the purpose of shell scripts? 
 
 * When working on programming projects or doing administrative tasks on servers, usually several command sequences are regularly repeated. This is especially true when working with files and directories, processing text, or configuring the network. Numerous times, those command sequences exist in many forms and must be adjusted with user input, necessitating the usage of scripts.
 * Scripting languages such as Bash improve our processes by including variables, if statements, loops, arrays, and functions, allowing for more sophisticated program flow.
@@ -22,7 +22,7 @@ A collection of Bash scripts.
 * Eventually, scripts get too complicated for basic languages such as Bash. At this stage, you should consider utilizing more powerful programming languages, such as Python.
 * Shell scripts may also be used to "glue" together more complex Python scripts.
 
-<h1> When should you not use Bash? </h1>
+###  When should you not use Bash? 
 
 * Complex applications.
 * GUI.
@@ -31,7 +31,7 @@ A collection of Bash scripts.
 * Network programming.
 
 
-<h1>Hello world </h1>
+### Hello world 
 
 This is a simple example of a Bash script. It prints the string "Hello World" to the standard output (stdout). 
 
@@ -40,7 +40,7 @@ This is a simple example of a Bash script. It prints the string "Hello World" to
 echo "Hello world"
 ```
 
-<h1>Executing script </h1>
+### Executing a script 
 
 To run this script, type the following command in a terminal in the directory where the script is located:
 
@@ -49,7 +49,7 @@ chmod u+x filename.sh
 ./filename.sh
 ```
 
-<h1>Script shebang</h1>
+### The shebang
 
 In the first line of a script, the shebang (#!) is used to specify the interpreter to be used when the script is executed. To use the bash interpreter, the first line of a script file must specify the absolute path to the bash executable:
 
@@ -71,7 +71,7 @@ bash ./filename.sh
 
 Scripts may also be created in a variety of different "scripting languages," thus a Perl script might begin with <i>#!/usr/bin/env perl</i> and one in Python with <i> #!/usr/bin/env python3</i>.
 
-<h1>Variables </h1>
+### Variables 
   
 * Assign the value: <i>var="Test"</i>.
 * Retrive the value: <i>$x</i> or <i>${x}</i>.
@@ -89,14 +89,14 @@ declare -r var2=5   # var2 is read only
 var=$(whoami)
 ```
 
-<h1>Command line arguments </h1>
+### Command line arguments 
 
 * First argument: <i>$1</i>
 * All command line arguments as array: <i>$@</i>
 * Number of command line arguments: <i>$#</i>
 * The exit status of the last executed command: <i>$?</i>
 
-<h1>If statements </h1>
+### If statements 
 
 If statements are used to execute a block of code if a certain condition is met. Comparison of strings and ints differs. Assume that all values are strings, unless proven otherwise.
 
@@ -143,7 +143,7 @@ The reason for this is that the test condition checks for a file with the name '
 if [ -f *.csv ]; then echo True; fi
 ```
 
-<h1>For loop</h1>
+### For loop
 
 A for loop repeats a sequence of steps a number of times.
 
@@ -154,7 +154,7 @@ do
 done
 ```
 
-<h1>Array</h1>
+### Array
 
 An array is a variable that holds an ordered list of values. The values are separated by spaces. The following example creates an array named <i>array</i> and assigns the values 1, 2, 3, 4, 5 to it:
 
@@ -194,7 +194,7 @@ It is often useful to print the elements of an array on a single line. The follo
 echo "${array[*]}"
 ```
 
-<h1>Functions</h1>
+### Functions
 
 Functions are used to group a sequence of commands into a single unit. They are used to perform repetitive tasks. Functions can be called from anywhere in the script. The following example creates a function named <i>hello_world</i> that prints the string <i>Hello World</i> to the standard output (stdout):
 
@@ -226,7 +226,7 @@ sum_two 5 3
 echo $?
 ```
 
-<h1>Pipe</h1>
+### Pipes
 
 The pipe is used to pass the output of one command as input to the next:
 
@@ -234,7 +234,7 @@ The pipe is used to pass the output of one command as input to the next:
 ps -x | grep chromium
 ```
 
-<h1>Redirect </h1>
+### Redirect 
 
 But what if you'd want to save the results to a file? Bash has a redirect operator > that may be used to control where the output is delivered.
 
@@ -245,7 +245,7 @@ cmd 2>&1                 # Redirect stderr to stdout
 cmd 1>/dev/null 2>&1     # Silence both stdout and stderr
 ```
 
-<h1>Formatting and linting</h1>
+### Formatting and linting
 
 It is important to keep the formatting of your script as consistent as possible. <a href="https://github.com/lovesegfault/beautysh">Beautysh</a> is an amazing tool that helps you to format your script. To use it, just run the following command in a directory where your scripts are located:
 
@@ -258,8 +258,10 @@ Additionally we advise to use <a href="https://github.com/koalaman/shellcheck">s
 ```bash
 shellcheck **/*.sh
 ```
-  
-<h1>Intro</h1>
+
+## Available scripts
+ 
+### Intro
 
 <table>
     <thead>
@@ -308,7 +310,7 @@ shellcheck **/*.sh
     </tbody>
 </table>
 
-<h1>Math</h1>
+### Math
 
 <table>
     <thead>
@@ -352,7 +354,7 @@ shellcheck **/*.sh
     </tbody>
 </table>
 
-<h1>Strings</h1>
+### Strings
 
 <table>
     <thead>
@@ -391,7 +393,7 @@ shellcheck **/*.sh
     </tbody>
 </table>
 
-<h1>Arrays</h1>
+### Arrays
 
 <table>
     <thead>
@@ -404,7 +406,7 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Caculate the arithmetic mean of n number.</td>
+            <td>Calculate the arithmetic mean of the given n numbers.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/arith_mean.sh">Bash</a></td>
         </tr>
         <tr>
@@ -425,7 +427,7 @@ shellcheck **/*.sh
     </tbody>
 </table>
 
-<h1>Files</h1>
+### Files
 
 <table>
     <thead>
@@ -469,7 +471,7 @@ shellcheck **/*.sh
     </tbody>
 </table>
 
-<h1>System administration</h1>
+### System administration
 
 <table>
     <thead>
@@ -528,7 +530,7 @@ shellcheck **/*.sh
     </tbody>
 </table>
 
-<h1>Programming workflow</h1>
+### Programming workflow
 
 <table>
     <thead>
@@ -567,7 +569,7 @@ shellcheck **/*.sh
     </tbody>
 </table>
 
-<h1>Git</h1>
+### Git
 
 <table>
     <thead>
@@ -603,10 +605,15 @@ shellcheck **/*.sh
             <td>Remove n last commits.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh">Bash</a></td>
        </tr>
+       <tr>
+            <td>6</td>
+            <td>Change the date of the last commit.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/change_commit_date.sh">Bash</a></td>
+       </tr>
     </tbody>
 </table>
   
-<h1>Utility</h1>
+### Utility
 
 <table>
     <thead>
@@ -642,5 +649,14 @@ shellcheck **/*.sh
             <td>Check which programs are running on a specific port.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/program_on_port.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>6</td>
+            <td>Alias all the scripts from a given directory.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/alias_all_the_scripts.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
+
+## Refrences
+  
+* https://www.gnu.org/software/bash/manual/bash.html
