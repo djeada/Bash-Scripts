@@ -12,7 +12,7 @@ A collection of Bash scripts.
 <!--ts-->
 
   - [About-Bash](#About-Bash)
-    - [What's-the-purpose-of-shell-scripts?](#What's-the-purpose-of-shell-scripts?)
+    - [What's-the-purpose-of-shell-scripts?](#What's-the-purpose-of-shell-scripts)
     - [When-should-you-not-use-Bash?](#When-should-you-not-use-Bash)
     - [Hello-world](#Hello-world)
     - [Executing-a-script](#Executing-a-script)
