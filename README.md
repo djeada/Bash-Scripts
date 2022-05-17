@@ -199,7 +199,7 @@ echo "${array[*]}"
 Functions are used to group a sequence of commands into a single unit. They are used to perform repetitive tasks. Functions can be called from anywhere in the script. The following example creates a function named <i>hello_world</i> that prints the string <i>Hello World</i> to the standard output (stdout):
 
 ```bash
-hello_world ()
+hello_world()
 {
   echo "Hello World!"
 }
@@ -218,7 +218,8 @@ Here is a complete example of a script that defines and uses a function to sum t
 ```bash
 #!/usr/bin/env bash
 
-sum_two() {
+sum_two() 
+{
     return $(($1 + $2))
 }
 
