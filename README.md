@@ -8,6 +8,38 @@
 # Bash-scripts
 A collection of Bash scripts.
 
+## Table of Contents
+<!--ts-->
+
+  - [About-Bash](#About-Bash)
+    - [What's-the-purpose-of-shell-scripts?](#What's-the-purpose-of-shell-scripts?)
+    - [When-should-you-not-use-Bash?](#When-should-you-not-use-Bash?)
+    - [Hello-world](#Hello-world)
+    - [Executing-a-script](#Executing-a-script)
+    - [The-shebang](#The-shebang)
+    - [Variables](#Variables)
+    - [Command-line-arguments](#Command-line-arguments)
+    - [If-statements](#If-statements)
+    - [For-loops](#For-loops)
+    - [Arrays](#Arrays)
+    - [Functions](#Functions)
+    - [Pipes](#Pipes)
+    - [Redirections](#Redirections)
+    - [Formatting-and-linting](#Formatting-and-linting)
+  - [Available-scripts](#Available-scripts)
+    - [Intro](#Intro)
+    - [Math](#Math)
+    - [Strings](#Strings)
+    - [Arrays](#Arrays)
+    - [Files](#Files)
+    - [System-administration](#System-administration)
+    - [Programming-workflow](#Programming-workflow)
+    - [Git](#Git)
+    - [Utility](#Utility)
+  - [Refrences](#Refrences)
+
+<!--te-->
+
 ## About Bash
 
 * Scripting languages originated as extensions of command interpreters in operating systems.
