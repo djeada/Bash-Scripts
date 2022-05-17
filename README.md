@@ -143,7 +143,7 @@ The reason for this is that the test condition checks for a file with the name '
 if [ -f *.csv ]; then echo True; fi
 ```
 
-### For loop
+### For loops
 
 A for loop repeats a sequence of steps a number of times.
 
@@ -154,7 +154,7 @@ do
 done
 ```
 
-### Array
+### Arrays
 
 An array is a variable that holds an ordered list of values. The values are separated by spaces. The following example creates an array named <i>array</i> and assigns the values 1, 2, 3, 4, 5 to it:
 
@@ -234,7 +234,7 @@ The pipe is used to pass the output of one command as input to the next:
 ps -x | grep chromium
 ```
 
-### Redirect 
+### Redirections
 
 But what if you'd want to save the results to a file? Bash has a redirect operator > that may be used to control where the output is delivered.
 
@@ -307,6 +307,11 @@ shellcheck **/*.sh
             <td>Print a christmas tree.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>7</td>
+            <td>Prompt the user for a response to a given question.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/promt_for_answer.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
@@ -372,21 +377,31 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>2</td>
+            <td>Convert all uppercase letters in a text string to lowercase.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/lower.sh">Bash</a></td>
+        </tr>
+       <tr>
+            <td>3</td>
+            <td>Convert all lowercase letters in a text string to uppercase.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/upper.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>4</td>
             <td>Check if a string is a palindrome.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/is_palindrome.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>3</td>
+            <td>5</td>
             <td>Check if two strings are anagrams.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/are_anagrams.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>4</td>
+            <td>6</td>
             <td>Calculate the Hamming Distance of two strings.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/hamming_distance.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>5</td>
+            <td>7</td>
             <td>Sort a string alphabetically.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/sort_string.sh">Bash</a></td>
         </tr>
@@ -467,7 +482,22 @@ shellcheck **/*.sh
             <td>6</td>
             <td>Replace left slashes with right slashes and vice versa.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/switch_slashes.sh">Bash</a></td>
-        </tr>     
+        </tr>   
+        <tr>
+            <td>7</td>
+            <td>Add the text to the beginning of a specified file.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/prepend_text_to_file.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>Removes all that contain only whitespaces in a given file.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_empty_lines.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>9</td>
+            <td>Rename all files in a directory with a particular extension to a new extension.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/rename_extension.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
@@ -527,6 +557,16 @@ shellcheck **/*.sh
             <td>Make a system backup. Compress files and encrypt the archive.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
        </tr>
+       <tr>
+            <td>10</td>
+            <td>Display processes which might be orphans.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/orphans.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>11</td>
+            <td>Display processes which might be zombies.</td>
+            <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/zombies.sh">Bash</a></td>
+       </tr>
     </tbody>
 </table>
 
@@ -564,7 +604,12 @@ shellcheck **/*.sh
         <tr>
             <td>5</td>
             <td>Beautify and format every shell script found in the current repository.</td>
-            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/shell_format.sh">Bash</a></td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/beautify_script.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>6</td>
+            <td>Find unused functions and classes in a Python project.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/dead_code.sh">Bash</a></td>
        </tr>
     </tbody>
 </table>
@@ -651,8 +696,28 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>6</td>
+            <td>Convert month names to numbers and vice versa.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/month_to_number.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>7</td>
             <td>Alias all the scripts from a given directory.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/alias_all_the_scripts.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>Get a random integer number from the given range.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/rand_int.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>9</td>
+            <td>Generate a random password of the specified length.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/random_password.sh">Bash</a></td>
+        </tr>
+        <tr>
+            <td>10</td>
+            <td>Time execution of a program with the parameters supplied.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/time_execution.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
