@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: arith_mean.sh
-# Description: Script to calculate arithmetic mean of a list of numbers
+# Description: Calculate the arithmetic mean of the given n numbers.
 # Usage: arith_mean.sh [list of numbers]
 #       [list of numbers] - space separated list of numbers
 # Example: ./arith_mean.sh 1 2 3 4 5
