@@ -10,26 +10,16 @@ ask_question_and_get_response ()
         exit 1
     fi
 
-    # check if the first argument is a string
-    if [ -z "$1" ]; then
-        echo "First argument is not a string"
-        exit 1
-    fi
+    echo -e "$1"
+    read -p "[$2]"$'\n' response
 
     if [ $# -eq 2 ]; then
-        # check if the second argument is a string
-        if [ -z "$2" ]; then
-            echo "Second argument is not a string"
-            exit 1
-        fi
-        
+      if [ -z "$response" ]; then
         response="$2"
+      fi
     fi
-
-    echo -e "$1"
-    read -p "[$response]"$'\n' response
 }
 
 # Ask for the user's name
-ask_question_and_get_response "What is your name?" "John Doe"
+ask_question_and_get_response "What is your name?"
 echo "Hello $response"
