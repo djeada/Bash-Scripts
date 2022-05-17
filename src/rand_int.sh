@@ -25,11 +25,12 @@ main() {
         exit 1
     fi
 
-    local lower_bound="$1"
-    local upper_bound="$2"
+    local min="$1"
+    local max="$2"
 
-    echo $((lower_bound + SRANDOM % upper_bound))
+    echo $((SRANDOM % (max + 1 - min) + min))
 
 }
+
 
 main "$@"
