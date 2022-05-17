@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # TODO: accept only the date, use random time, and calculate the day of the week based on the date
+# LC_ALL=C GIT_COMMITTER_DATE="Wed Feb 16 14:00 2020 +0100" git commit --amend --no-edit --date "Wed Feb 16 14:00 2020 +0100"
 
 week_day() {
 
