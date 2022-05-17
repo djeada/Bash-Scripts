@@ -709,7 +709,7 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>2</td>
-            <td>Empty the trash.</td>
+            <td>Empty trash.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/empty_trash.sh">Bash</a></td>
         </tr>
         <tr>
