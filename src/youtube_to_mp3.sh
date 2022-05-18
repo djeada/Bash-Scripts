@@ -69,6 +69,8 @@ main() {
         output_file="$2"
     else
         output_file=$(youtube-dl --get-title "$url")
+        #convert spaces to underscores and make lowercase
+        output_file=$(echo "$output_file" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
     fi
 
     download_video "$url" "$output_file"
