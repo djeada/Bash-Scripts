@@ -1,6 +1,6 @@
 
 prepend_text_to_file() {
-    
+
     # assure number of arguments is correct
     if [ $# -ne 2 ]; then
         echo "Usage: prepend_text_to_file <file> <text>"

@@ -14,9 +14,9 @@ ask_question_and_get_response ()
     read -p "[$2]"$'\n' response
 
     if [ $# -eq 2 ]; then
-      if [ -z "$response" ]; then
-        response="$2"
-      fi
+        if [ -z "$response" ]; then
+            response="$2"
+        fi
     fi
 }
 

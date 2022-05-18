@@ -22,8 +22,8 @@ main() {
     for i in $(seq 1 $N); do
         time_slice=$( { time -p "$command"; } 2>&1 )
         total=$(echo "$total + $time_slice" | bc)
-          echo "TIMINGO: $time_slice"
-      done
+        echo "TIMINGO: $time_slice"
+    done
     unset TIMEFORMAT
 
     avg=$(echo "$total / $N" | bc)

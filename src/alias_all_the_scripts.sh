@@ -4,7 +4,7 @@
 
 
 main() {
-    
+
     # check if at least one argument is given
     if [ $# -eq 0 ]; then
         echo "Usage: $0 <source_dir> [destination_dir]"
@@ -25,7 +25,7 @@ main() {
     fi
 
     # create destination directory if it does not exist
-    mkdir -p "$destination_dir"    
+    mkdir -p "$destination_dir"
 
     # copy all files with .sh extension from source directory to destination directory
     cp -r "$source_dir"/*.sh "$destination_dir"

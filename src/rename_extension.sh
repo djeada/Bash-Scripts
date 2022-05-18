@@ -59,4 +59,4 @@ rename_files_with_extension() {
 
 
 rename_files_with_extension "$@"
-    
+
