@@ -2,8 +2,8 @@
 
 # Script Name: backup.sh
 # Description: Create a backup of the provided directory.
-# Usage: backup.sh  [<config_file>]
-#        [<config_file>] is the path to the configuration file. If not provided,
+# Usage: backup.sh  <config_file>
+#        <config_file> is the path to the configuration file. If not provided,
 #        the default configuration file is created and the script has to be executed again.
 # Usage: ./backup.sh path/to/config_file
 
@@ -102,22 +102,22 @@ create_backup() {
 
 main() {
 
-    if [ $# -eq 1 ]; then
-        if [ -f "$1" ]; then
-            echo "Using config file: $1"
-            validate_config_file "$1"
-            create_backup "$1"
-        else
-            echo "Config file not found: $1"
-            exit 1
-        fi
-    else
+    if [ $# -eq 0 ]; then
         default_config_file="config.sh"
         create_config_file $default_config_file
         echo "Fill the config file with the desired values and run the script again."
         exit 1
     fi
-
+    
+    if [ -f "$1" ]; then
+        echo "Using config file: $1"
+        validate_config_file "$1"
+        create_backup "$1"
+    else
+        echo "Config file not found: $1"
+        exit 1
+    fi
+    
 }
 
 main "$@"
