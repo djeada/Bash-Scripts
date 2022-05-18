@@ -50,8 +50,8 @@ convert_video_to_mp3() {
 
 
 main() {
-    if [ $# -ne 2 ]; then
-        echo "Usage: youtube_to_mp3.sh [url] [output_file]"
+    if [ $# -lt 1 ]; then
+        echo "Usage: youtube_to_mp3.sh [url] <output_file>"
         return
     fi
 
@@ -63,8 +63,16 @@ main() {
         fi
     fi
 
-    download_video "$1" "$2"
-    convert_video_to_mp3 "$2"
+    local url="$1"
+
+    if [ $# -eq 2 ]; then
+        output_file="$2"
+    else
+        output_file=$(youtube-dl --get-title "$url")
+    fi
+
+    download_video "$url" "$output_file"
+    convert_video_to_mp3 "$output_file"
 }
 
 
