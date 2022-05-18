@@ -53,14 +53,27 @@ convert_video_to_mp3() {
     echo "Video file deleted"
 }
 
-is_url_is_playlist() {
+download_video_and_convert_to_mp3() {
+    
     local url="$1"
-    local playlist_id=$(youtube-dl -j --flat-playlist "$url" | jq -r '.id')
-    if [ "$playlist_id" != "null" ]; then
-        return 0
-    else
-        return 1
+    if [ -z "$2" ]; then
+        local output_file=$(youtube-dl --get-title "$url")
+        local output_file=$(echo "$output_file" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
+    else 
+        local output_file="$2"
     fi
+
+    download_video "$url" "$output_file"
+    convert_video_to_mp3 "$output_file"
+}
+
+read_playlist_to_array() {
+    local url="$1"
+    local temp_file="$(mktemp)"
+    youtube-dl -j --flat-playlist --skip-download "$url" | jq -r '.id' | sed 's_^_https://youtu.be/_' > "$temp_file"
+    IFS=$'\n' 
+    read -d '' -r -a all_videos_urls < "$temp_file"
+    unset IFS
 }
 
 main() {
@@ -78,29 +91,17 @@ main() {
     fi
 
     local url="$1"
+    read_playlist_to_array "$url"
 
-    if [ $# -eq 2 ]; then
-        output_file="$2"
-    else
-        output_file=$(youtube-dl --get-title "$url")
-        #convert spaces to underscores and make lowercase
-        output_file=$(echo "$output_file" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
-    fi
-
-    if is_url_is_playlist "$url"; then
+    if [ "${#all_videos_urls[@]}" -gt "1" ]; then
         echo "Downloading playlist..."
-        local all_videos_urls=$(youtube-dl -j --flat-playlist "$url" | jq -r '.id' | sed 's_^_https://youtu.be/_')
-        for video_url in $all_videos_urls; do
-            download_video "$video_url" "$output_file"
-            convert_video_to_mp3 "$output_file"
+        for video_url in "${all_videos_urls[@]}"; do
+            download_video_and_convert_to_mp3 "$video_url"
         done
     else
-        download_video "$url" "$output_file"
-        convert_video_to_mp3 "$output_file"
+        download_video_and_convert_to_mp3 "$url" "$2"
     fi
 
-    download_video "$url" "$output_file"
-    convert_video_to_mp3 "$output_file"
 }
 
 
