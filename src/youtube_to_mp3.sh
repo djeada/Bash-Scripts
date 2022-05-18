@@ -45,6 +45,7 @@ convert_video_to_mp3() {
     local input_file="$1"
     local output_file="${input_file%.*}.mp3"
     ffmpeg -i "$input_file" -vn -ab 128k "$output_file"
+    rm "$input_file"
 }
 
 
