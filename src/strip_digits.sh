@@ -18,12 +18,11 @@ main() {
     fi
 
     local file_path=$1
-    local file_name
-    file_name=$(basename "$file_path")
-    temp_name="$file_name""$(date '+%Y-%m-%d')".tmp
+    local file_name=$(basename "$file_path")
+    local temp_file="$(mktemp)"
 
-    sed -r 's/[^[:space:]]*[0-9][^[:space:]]* ?//g' "$file_path" > "$temp_name"
-    mv "$temp_name" "$file_path"
+    sed -r 's/[^[:space:]]*[0-9][^[:space:]]* ?//g' "$file_path" > "$temp_file"
+    mv "$temp_file" "$file_path"
 
 }
 
