@@ -531,6 +531,11 @@ shellcheck **/*.sh
             <td>Rename all files in a directory with a particular extension to a new extension.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/rename_extension.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>10</td>
+            <td>Strip digits from every string found in a given file.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/strip_digits.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
