@@ -523,7 +523,7 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>8</td>
-            <td>Removes all that contain only whitespaces in a given file.</td>
+            <td>Remove all the lines that contain only whitespaces in a given file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_empty_lines.sh">Bash</a></td>
         </tr>
         <tr>
