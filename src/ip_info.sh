@@ -2,11 +2,11 @@
 
 # Script Name: ip_info.sh
 # Description: Displays information about the IP address.
-# Usage: ip_info.sh [<h>] [<public>] [<private>] [<location>]
-#        [<h>] - displays help
-#        [<public>] - displays public IP address
-#        [<private>] - displays private IP address
-#        [<location>] - displays location of the IP address
+# Usage: ip_info.sh [h | public | private | location]
+#        [h] - displays help
+#        [public] - displays public IP address
+#        [private] - displays private IP address
+#        [location] - displays location of the IP address
 # Example: ./ip_info.sh public private location
 
 help() {
