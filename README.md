@@ -757,6 +757,11 @@ shellcheck **/*.sh
             <td>Time execution of a program with the parameters supplied.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/time_execution.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>11</td>
+            <td>Download audio from a YouTube video or playlist if the URL is valid.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/youtube_to_mp3.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
