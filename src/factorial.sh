@@ -2,8 +2,8 @@
 
 # Script Name: factorial.sh
 # Description: Calculates factorial of a given integer.
-# Usage: factorial.sh [<integer>]
-#        [<integer>] - integer to calculate factorial of.
+# Usage: factorial.sh [integer]
+#        [integer] - integer to calculate factorial of.
 # Example: ./factorial.sh 5
 
 main() {
