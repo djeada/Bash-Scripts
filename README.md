@@ -332,7 +332,7 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>6</td>
-            <td>Script to print all numbers in a given interval.</td>
+            <td>Print all numbers in a given interval.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/numbers_in_interval.sh">Bash</a></td>
         </tr>
         <tr>
@@ -469,7 +469,7 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>4</td>
-            <td>Script to remove duplicates in an array.</td>
+            <td>Remove duplicates in a given array.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicates_in_array.sh">Bash</a></td>
         </tr>
     </tbody>
