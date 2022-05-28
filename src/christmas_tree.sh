@@ -2,8 +2,8 @@
 
 # Script Name: christmas_tree.sh
 # Description: Prints a christmas tree of a given height to the standard output.
-# Usage: christmas_tree.sh [<height>]
-#        [<height>] - the height of the christmas tree.
+# Usage: christmas_tree.sh [height]
+#        [height] - the height of the christmas tree.
 # Example: ./christmas_tree.sh 10
 
 
