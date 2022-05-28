@@ -2,8 +2,9 @@
 
 # Script Name: count_files.sh
 # Description: Counts the total number of lines of code in a given git repository.
-# Usage: count_files.sh [<repository_path>]
-#       [<repository_path>] - the path to the git repository.
+# Usage: count_files.sh <repository_path>
+#       <repository_path> - the path to a git repository; 
+#                           if no path is specified, the current working directory is used.
 # Example: ./count_files.sh path/to/repository
 
 main() {
