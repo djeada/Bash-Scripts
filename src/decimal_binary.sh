@@ -2,8 +2,8 @@
 
 # Script Name: decimal_binary.sh
 # Description: Converts decimal numbers to their binary representation.
-# Usage: decimal_binary.sh [<decimal_number>]
-#        [<decimal_number>] - decimal number to be converted to binary.
+# Usage: decimal_binary.sh [decimal_number]
+#        [decimal_number] - decimal number to be converted to binary.
 # Example: ./decimal_binary.sh 123
 
 main() {
