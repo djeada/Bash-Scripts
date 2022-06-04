@@ -108,7 +108,7 @@ main() {
         echo "Fill the config file with the desired values and run the script again."
         exit 1
     fi
-    
+
     if [ -f "$1" ]; then
         echo "Using config file: $1"
         validate_config_file "$1"
@@ -117,7 +117,7 @@ main() {
         echo "Config file not found: $1"
         exit 1
     fi
-    
+
 }
 
 main "$@"

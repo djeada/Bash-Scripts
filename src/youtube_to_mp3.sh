@@ -54,12 +54,12 @@ convert_video_to_mp3() {
 }
 
 download_video_and_convert_to_mp3() {
-    
+
     local url="$1"
     if [ -z "$2" ]; then
         local output_file=$(youtube-dl --get-title "$url")
         local output_file=$(echo "$output_file" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
-    else 
+    else
         local output_file="$2"
     fi
 
@@ -71,7 +71,7 @@ read_playlist_to_array() {
     local url="$1"
     local temp_file="$(mktemp)"
     youtube-dl -j --flat-playlist --skip-download "$url" | jq -r '.id' | sed 's_^_https://youtu.be/_' > "$temp_file"
-    IFS=$'\n' 
+    IFS=$'\n'
     read -d '' -r -a all_videos_urls < "$temp_file"
     unset IFS
 }

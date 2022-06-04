@@ -4,7 +4,7 @@
 # Description: Script to replace left slashes with right slashes and vice versa
 # Usage: switch_slashes.sh [file_name] <direction>
 #       [file_name] - file to be changed
-#       <left_to_right | right_to_left | invert> - if not specified the direction is set to invert 
+#       <left_to_right | right_to_left | invert> - if not specified the direction is set to invert
 # Example: ./switch_slashes.sh left_to_right
 
 main() {
