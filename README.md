@@ -769,3 +769,4 @@ shellcheck **/*.sh
 
 * https://www.gnu.org/software/bash/manual/bash.html
 * http://mywiki.wooledge.org/BashGuide
+* https://wiki.bash-hackers.org/
