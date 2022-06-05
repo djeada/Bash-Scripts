@@ -2,9 +2,8 @@
 
 # Script Name: time_execution.sh
 # Description: Displays the average time it takes for a command to execute.
-# Usage: time_execution.sh [command] <n>
+# Usage: time_execution.sh [command]
 #        [command] is the command to execute.
-#        <n> number of times the command should be executed. By default set to 5.
 # Example: ./time_execution.sh sleep 1
 
 main() {
@@ -15,7 +14,7 @@ main() {
         exit 1
     fi
 
-    N=5
+    N=10
     total="0.0"
     TIMEFORMAT=%0lR
     for i in $(seq 1 $N); do
@@ -28,7 +27,7 @@ main() {
     unset TIMEFORMAT
 
     avg=$(echo "scale=10;$total / $N" | bc)
-    echo "$avg"|sed -e 's/^[0]*//' -e 's/[0]*$//g'
+    echo "$avg" | sed -e 's/[0]*$//g'
 }
 
 main "$@"
