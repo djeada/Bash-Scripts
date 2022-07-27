@@ -329,27 +329,27 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>2</td>
-            <td>Check if condition is true using if statements.</td>
+            <td>Using if statements, determine whether a condition is true.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/conditionals.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Example with while loop.</td>
+            <td>Example of a while loop.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/while_loop.sh">Bash</a></td>
         </tr>
         <tr>
             <td>4</td>
-            <td>Example with for loop.</td>
+            <td>Example of a for loop.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/for_loop.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>A simple script to display the digits of a number.</td>
+            <td>A simple script for displaying the digits of a number.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/digits.sh">Bash</a></td>
         </tr>
         <tr>
             <td>6</td>
-            <td>Print all numbers in a given interval.</td>
+            <td>Print all of the numbers in a given interval.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/numbers_in_interval.sh">Bash</a></td>
         </tr>
         <tr>
@@ -383,12 +383,12 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>2</td>
-            <td>Sum arguments passed to the script.</td>
+            <td>Sum the parameters passed to the script.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/sum_args.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Convert a number from decimal system to binary representation.</td>
+            <td>Convert a number from the decimal system to binary form.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/decimal_binary.sh">Bash</a></td>
         </tr>
         <tr>
@@ -447,12 +447,12 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>6</td>
-            <td>Calculate the Hamming Distance of two strings.</td>
+            <td>Calculate the Hamming Distance between two strings.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/hamming_distance.sh">Bash</a></td>
         </tr>
         <tr>
             <td>7</td>
-            <td>Sort a string alphabetically.</td>
+            <td>Sort a given string alphabetically.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/sort_string.sh">Bash</a></td>
         </tr>
     </tbody>
@@ -505,7 +505,7 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Count the files in a directory.</td>
+            <td>Count the number of files in a directory.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_files.sh">Bash</a></td>
         </tr>
         <tr>
@@ -540,7 +540,7 @@ shellcheck **/*.sh
         </tr>
         <tr>
             <td>8</td>
-            <td>Remove all the lines that contain only whitespaces in a given file.</td>
+            <td>Remove all lines in a specified file that contain just whitespaces.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_empty_lines.sh">Bash</a></td>
         </tr>
         <tr>
@@ -584,7 +584,7 @@ shellcheck **/*.sh
        </tr>      
        <tr>
             <td>4</td>
-            <td>Check if apt command is available.</td>
+            <td>Check if the apt command is available.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/check_apt_avail.sh">Bash</a></td>
        </tr>
        <tr>
@@ -594,22 +594,22 @@ shellcheck **/*.sh
        </tr>
        <tr>
             <td>6</td>
-            <td>Get CPU temperature.</td>
+            <td>Get the CPU temperature.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh">Bash</a></td>
        </tr>
        <tr>
             <td>7</td>
-            <td>Get total CPU usage.</td>
+            <td>Get the total CPU usage.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/cpu_usage.sh">Bash</a></td>
        </tr>
        <tr>
             <td>8</td>
-            <td>Block websites from being visited.</td>
+            <td>On the local machine, block certain websites from being visited.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_blok.sh">Bash</a></td>
        </tr>
        <tr>
             <td>9</td>
-            <td>Make a system backup. Compress files and encrypt the archive.</td>
+            <td>Create a backup of your system. Compress the files and encrypt the resulting archive.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
        </tr>
        <tr>
