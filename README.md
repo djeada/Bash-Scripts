@@ -74,7 +74,7 @@ echo "Hello world"
 
 ### Executing a script 
 
-To run this script, type the following command in a terminal in the directory where the script is located:
+To run this script, open the terminal in the directory where the script is located and type the following command:
 
 ```bash
 chmod u+x filename.sh
