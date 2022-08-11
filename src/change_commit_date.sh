@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # LC_ALL=C GIT_COMMITTER_DATE="Wed Feb 16 14:00 2020 +0100" git commit --amend --no-edit --date "Wed Feb 16 14:00 2020 +0100"
-abs() { 
+abs() {
     [[ $[ $@ ] -lt 0 ]] && echo "$[ ($@) * -1 ]" || echo "$[ $@ ]"
 }
 
@@ -22,12 +22,12 @@ day_string_converter() {
     result=$(((A + B + C + DD) % 7))
 
     if [ $result -lt 0 ]; then
-    A=$(abs "$A")
-    B=$(abs "$B")
-    C=$(abs "$C")
-    result=$(((A + B + C + DD) % 7))
+        A=$(abs "$A")
+        B=$(abs "$B")
+        C=$(abs "$C")
+        result=$(((A + B + C + DD) % 7))
     fi
-    
+
     if [[ "$result" -eq 1 ]]; then
         echo "Mon"
 
