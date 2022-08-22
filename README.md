@@ -6,7 +6,9 @@
 </div>
 
 # Bash-scripts
-A collection of Bash scripts.
+A collection of utility Bash scripts for automating common mundane tasks.
+
+
 
 ## Table of Contents
 <!--ts-->
