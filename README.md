@@ -8,7 +8,7 @@
 # Bash-scripts
 A collection of utility Bash scripts for automating common mundane tasks.
 
-
+![Screenshot](https://user-images.githubusercontent.com/37275728/186024435-7edf1be2-ca64-4841-98bf-d07cbb362715.png)
 
 ## Table of Contents
 <!--ts-->
