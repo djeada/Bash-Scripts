@@ -7,13 +7,13 @@ download_repos() {
   fi
   
   echo "Using the following temp dir: $temp_dir"
-  cd "$temp_dir"
-  virtualenv env
-  source env/bin/activate
-  pip install ghcloneall
-  ghcloneall --init --user "$user_name"
-  ghcloneall
-  deactivate
+  cd "$temp_dir" && 
+  virtualenv env &&
+  source env/bin/activate &&
+  pip install ghcloneall &&
+  ghcloneall --init --user "$user_name" &&
+  ghcloneall && 
+  deactivate &&
   cd ~
   destination="$1""_repo_archive.tar"
   tar -cvf "$destination" "$temp_dir"
