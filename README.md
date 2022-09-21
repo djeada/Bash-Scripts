@@ -712,6 +712,11 @@ shellcheck **/*.sh
             <td>Change the date of the last commit.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/change_commit_date.sh">Bash</a></td>
        </tr>
+       <tr>
+            <td>7</td>
+            <td>Download all of a user's public github repositories.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh">Bash</a></td>
+       </tr>
     </tbody>
 </table>
   
