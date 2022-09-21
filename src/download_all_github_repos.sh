@@ -1,8 +1,8 @@
 download_repos() {
   user_name="$1"
-  temp_dir=$(mktemp -q /tmp/repo_archive.XXXXXX)
+  temp_dir=$(mktemp -d -q /tmp/repo_archive_XXXXXX)
   if [ $? -ne 0 ]; then
-      echo "$0: Can't create a temp file!"
+      echo "$0: Can't create a temp dir!"
       exit 1
   fi
   
