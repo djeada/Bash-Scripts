@@ -15,7 +15,7 @@ download_repos() {
   ghcloneall && 
   deactivate &&
   cd ~
-  destination="$1""_repo_archive.tar"
+  destination="$user_name""_repo_archive.tar"
   tar -cvf "$destination" "$temp_dir"
   rm -rf "$temp_dir"
   echo "All repositories of $user_name have been written to $destination"
