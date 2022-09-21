@@ -6,6 +6,7 @@ download_repos() {
       exit 1
   fi
   
+  echo "Using the following temp dir: $temp_dir"
   cd "$temp_dir"
   virtualenv env
   source env/bin/activate
