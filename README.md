@@ -794,3 +794,11 @@ shellcheck **/*.sh
 * https://www.gnu.org/software/bash/manual/bash.html
 * http://mywiki.wooledge.org/BashGuide
 * https://wiki.bash-hackers.org/
+
+## Contributing
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
+
+## License
+[MIT](https://choosealicense.com/licenses/mit/)
