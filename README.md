@@ -605,7 +605,7 @@ shellcheck **/*.sh
        <tr>
             <td>8</td>
             <td>Blocks certain websites from being visited on the local machine by modifying the `hosts` file.</td>
-            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_blok.sh">Bash</a></td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_block.sh">Bash</a></td>
        </tr>
        <tr>
             <td>9</td>
