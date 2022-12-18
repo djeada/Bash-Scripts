@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Copy all the scripts to ~/.bash_scripts
 # Make sure they have proper permissions set
 # Loop over the scripts and for each one create an alias in ~/.bashrc
