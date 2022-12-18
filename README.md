@@ -554,6 +554,11 @@ shellcheck **/*.sh
             <td>Strips digits from every string found in a given file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/strip_digits.sh">Bash</a></td>
         </tr>
+        <tr>
+            <td>11</td>
+            <td>Lists the most recently modified files in a given directory. </td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/recently_modified_files.sh">Bash</a></td>
+        </tr>
     </tbody>
 </table>
 
@@ -716,6 +721,16 @@ shellcheck **/*.sh
             <td>Downloads all of the public repositories belonging to a specified user on GitHub. This can be useful for backing up repositories.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh">Bash</a></td>
        </tr>
+       <tr>
+            <td>8</td>
+            <td>Squashes all commits on a specified Git branch into a single commit.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/squash_branch.sh">Bash</a></td>
+       </tr>
+       <tr>
+            <td>9</td>
+            <td>Counts the total lines changed by a specific author in a Git repository.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/contributions_by_git_author.sh">Bash</a></td>
+       </tr>
     </tbody>
 </table>
   
@@ -779,6 +794,11 @@ shellcheck **/*.sh
             <td>10</td>
             <td>Downloads the audio from a YouTube video or playlist in MP3 format. Specify the video or playlist URL and the destination directory for the downloaded files.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/youtube_to_mp3.sh">Bash</a></td>
+        </tr>
+         <tr>
+            <td>11</td>
+            <td>Clears the local caches in the user's cache directory (e.g. `~/.cache`) that are older than a specified number of days.</td>
+            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/clear_cache.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
