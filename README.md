@@ -1,9 +1,7 @@
-<div align="center">
-<a href="https://github.com/djeada/Bash-scripts/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/djeada/Bash-scripts"></a>
-<a href="https://github.com/djeada/Bash-scripts/network"><img alt="GitHub forks" src="https://img.shields.io/github/forks/djeada/Bash-scripts"></a>
-<a href="https://github.com/djeada/Bash-scripts/blob/master/LICENSE"><img alt="GitHub license" src="https://img.shields.io/github/license/djeada/Bash-scripts"></a>
-<a href=""><img src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat"></a>
-</div>
+[![GitHub stars](https://img.shields.io/github/stars/djeada/Bash-scripts)](https://github.com/djeada/Bash-scripts/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/djeada/Bash-scripts)](https://github.com/djeada/Bash-scripts/network)
+[![GitHub license](https://img.shields.io/github/license/djeada/Bash-scripts)](https://github.com/djeada/Bash-scripts/blob/master/LICENSE)
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)]( )
 
 # Bash-scripts
 A collection of utility Bash scripts for automating common mundane tasks.
