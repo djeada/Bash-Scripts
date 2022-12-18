@@ -1,50 +1,44 @@
 #!/usr/bin/env bash
 
-# Script Name: dead_code.sh
-# Description: Finds classes, functions, and variables
-# that are declared but never used in the code.
-# Usage: dead_code.sh [<project_path>]
-#        [<project_path>] - path to the project to analyze (defaults to current directory).
-# Example: ./dead_code.sh path/to/project
+# Script Name: find_dead_code.sh
+# Description: This script searches for function and class definitions in Python files in the current directory and all subdirectories, and counts their occurrences. It then displays a list of functions and classes that occur less than a specified number of times, which may indicate dead code.
+# Usage: `find_dead_code.sh [n]`
+# Example: `find_dead_code.sh 3` displays a list of functions and classes that occur less than 3 times in the Python files in the current directory and all subdirectories.
 
-# find all python files in src/
+# Set default value for n if no argument is provided
+n="${1:-3}"
 
-function_names=()
+# Find all .py files in the current directory and all subdirectories
+files=$(find . -name '*.py')
 
-for file in $(find src/ -name "*.py")
-do
-    # get file contents
-    file_contents=$(cat "$file")
+# Initialize an empty array to store the names of functions and classes
+names=()
 
-    # get all function names and remove the 'def'
-    function_names_in_file=$(echo "$file_contents"| grep -o -E 'def [a-zA-Z0-9_]+' | sed 's/def //g')
-
-    # add function names to the dictionary, key is the file name, value is the list of function names
-    function_names+=([$file]=$function_names_in_file)
-
-    # iterate over the dictionary and check how many times a function is called in all files in src/
-    for key in "${!function_names[@]}"
-    do
-        # get the list of function names
-        function_names_in_file=${function_names[$key]}
-
-        # iterate over the list of function names and check how many times they are called
-        for function_name in $function_names_in_file
-        do
-            # get the number of times the function is called
-            # it has to appear either in the file it was declared in or in a file that imports it
-            # using the file name associated with the function name
-            number_of_times_called=$(grep -o -E "$function_name" src/*.py | wc -l)
-
-            # if the function is called more than once, remove it from the list of function names
-            if [ "$number_of_times_called" -gt 1 ]
-            then
-                function_names_in_file=$(echo "$function_names_in_file" | sed "s/$function_name//g")
-            fi
-        done
-
-        # update the list of function names in the dictionary
-        function_names[$key]=$function_names_in_file
-    done
+# Extract the names of functions and classes from the .py files
+for file in $files; do
+  while IFS= read -r line; do
+    # Check if the line starts with "def" or "class"
+    if [[ "$line" == def* ]] || [[ "$line" == class* ]]; then
+      # Extract the first word after "def" or "class"
+      name=$(echo "$line" | awk '{print $2}' | awk -F '[: (]' '{print $1}')
+      # Add the name to the array
+      names+=("$name")
+    fi
+  done < "$file"
 done
 
+# Initialize an empty array to store the counts of functions and classes
+counts=()
+
+# Count the occurrences of each name in the .py files
+for name in "${names[@]}"; do
+  count=$(grep -c "$name" $files)
+  counts+=("$count")
+done
+
+# Display the names and counts of functions and classes that occur less than n times
+for i in "${!names[@]}"; do
+  if [ "${counts[$i]}" -lt "$n" ]; then
+    echo "${names[$i]} occurred ${counts[$i]} times"
+  fi
+done
