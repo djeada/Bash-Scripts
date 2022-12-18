@@ -326,42 +326,42 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Hello world in Bash.</td>
+            <td>Prints "Hello, world!" to the console.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/hello_world.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Using if statements, determine whether a condition is true.</td>
+            <td>Demonstrates the use of if statements to determine if a condition is true or false.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/conditionals.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Example of a while loop.</td>
+            <td>Shows the use of a while loop to execute a block of code repeatedly.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/while_loop.sh">Bash</a></td>
         </tr>
         <tr>
             <td>4</td>
-            <td>Example of a for loop.</td>
+            <td>Demonstrates the use of a for loop to iterate over a sequence of elements.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/for_loop.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>A simple script for displaying the digits of a number.</td>
+            <td>Displays the digits of a given number, one digit per line.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/digits.sh">Bash</a></td>
         </tr>
         <tr>
             <td>6</td>
-            <td>Print all of the numbers in a given interval.</td>
+            <td>Prints all of the numbers within a specified range, one number per line.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/numbers_in_interval.sh">Bash</a></td>
         </tr>
         <tr>
             <td>7</td>
-            <td>Print a christmas tree.</td>
+            <td>Prints a Christmas tree pattern to the console.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh">Bash</a></td>
         </tr>
         <tr>
             <td>8</td>
-            <td>Prompt the user for a response to a given question.</td>
+            <td>Prompts the user for a response to a given question and stores their response in a variable.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/promt_for_answer.sh">Bash</a></td>
         </tr>
     </tbody>
@@ -380,39 +380,38 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Arithmetic operations.</td>
+            <td>Performs basic arithmetic operations (addition, subtraction, multiplication, and division) on two numbers.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/arithmetic_operations.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Sum the parameters passed to the script.</td>
+            <td>Calculates the sum of all the arguments passed to it, treating them as numbers.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/sum_args.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Convert a number from the decimal system to binary form.</td>
+            <td>Converts a number from the decimal (base 10) system to its equivalent in the binary (base 2) system.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/decimal_binary.sh">Bash</a></td>
         </tr>
         <tr>
             <td>4</td>
-            <td>Calculate the factorial of an integer.</td>
+            <td>Calculates the factorial of a given integer.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/factorial.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Is it a prime number?</td>
+            <td>Determines whether a given number is a prime number or not.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/is_prime.sh">Bash</a></td>
         </tr>
         <tr>
             <td>6</td>
-            <td>Calculate the square root of a number.</td>
+            <td>Calculates the square root of a given number.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/sqrt.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
 
 ### Strings
-
 <table>
     <thead>
         <tr>
@@ -424,37 +423,37 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Count the number of occurrences of a given character in a string.</td>
+            <td>Counts the number of times a specific character appears in a given string.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/count_char.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Convert all uppercase letters in a text string to lowercase.</td>
+            <td>Converts all uppercase letters in a given string to lowercase.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/lower.sh">Bash</a></td>
         </tr>
        <tr>
             <td>3</td>
-            <td>Convert all lowercase letters in a text string to uppercase.</td>
+            <td>Converts all lowercase letters in a given string to uppercase.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/upper.sh">Bash</a></td>
         </tr>
         <tr>
             <td>4</td>
-            <td>Check if a string is a palindrome.</td>
+            <td>Checks if a given string is a palindrome, i.e., a word that is spelled the same way forwards and backwards.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/is_palindrome.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Check if two strings are anagrams.</td>
+            <td>Checks if two given strings are anagrams, i.e., if they are made up of the same letters rearranged in a different order.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/are_anagrams.sh">Bash</a></td>
         </tr>
         <tr>
             <td>6</td>
-            <td>Calculate the Hamming Distance between two strings.</td>
+            <td>Calculates the Hamming Distance between two strings, i.e., the number of positions at which the corresponding characters are different.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/hamming_distance.sh">Bash</a></td>
         </tr>
         <tr>
             <td>7</td>
-            <td>Sort a given string alphabetically.</td>
+            <td>Sorts a given string alphabetically, considering all letters to be lowercase.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/sort_string.sh">Bash</a></td>
         </tr>
     </tbody>
@@ -473,22 +472,22 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Calculate the arithmetic mean of the given <i>n</i> numbers.</td>
+            <td>Calculates the arithmetic mean of a given list of numbers.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/arith_mean.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Find the maximum value in an array.</td>
+            <td>Finds the maximum value in a given array of numbers.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/max_array.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Find the minimum value in an array.</td>
+            <td>Finds the minimum value in a given array of numbers.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/min_array.sh">Bash</a></td>
         </tr>
         <tr>
             <td>4</td>
-            <td>Remove duplicates in a given array.</td>
+            <td>Removes duplicates from a given array of numbers.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicates_in_array.sh">Bash</a></td>
         </tr>
     </tbody>
@@ -507,59 +506,58 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Count the number of files in a directory.</td>
+            <td>Counts the number of files in a specified directory.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_files.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Create a directory.</td>
+            <td>Creates a new directory with a specified name.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/make_dir.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Count the number of lines in a text file.</td>
+            <td>Counts the number of lines in a specified text file.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/line_counter.sh">Bash</a></td>
         </tr>
         <tr>
             <td>4</td>
-            <td>Get the middle line.</td>
+            <td>Gets the middle line from a specified text file.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/middle_line.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Remove duplicate lines from a file.</td>
+            <td>Removes duplicate lines from a specified file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicate_lines.sh">Bash</a></td>
         </tr>
         <tr>
             <td>6</td>
-            <td>Replace left slashes with right slashes and vice versa.</td>
+            <td>Replaces all forward slashes with backward slashes and vice versa in a specified file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/switch_slashes.sh">Bash</a></td>
         </tr>   
         <tr>
             <td>7</td>
-            <td>Add the text to the beginning of a specified file.</td>
+            <td>Adds specified text to the beginning of a specified file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/prepend_text_to_file.sh">Bash</a></td>
         </tr>
         <tr>
             <td>8</td>
-            <td>Remove all lines in a specified file that contain just whitespaces.</td>
+            <td>Removes all lines in a specified file that contain only whitespaces.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_empty_lines.sh">Bash</a></td>
         </tr>
         <tr>
             <td>9</td>
-            <td>Rename all files in a directory with a particular extension to a new extension.</td>
+            <td>Renames all files in a specified directory with a particular extension to a new extension.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/rename_extension.sh">Bash</a></td>
         </tr>
         <tr>
             <td>10</td>
-            <td>Strip digits from every string found in a given file.</td>
+            <td>Strips digits from every string found in a given file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/strip_digits.sh">Bash</a></td>
         </tr>
     </tbody>
 </table>
 
 ### System administration
-
 <table>
     <thead>
         <tr>
@@ -571,57 +569,57 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Basic system info.</td>
+            <td>Retrieves basic system information, such as hostname and kernel version.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/system_info.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Check the operating system.</td>
+            <td>Determines the type and version of the operating system running on the machine.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh">Bash</a></td>
        </tr>
        <tr>
             <td>3</td>
-            <td>Check if root.</td>
+            <td>Checks whether the current user has root privileges.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/check_if_root.sh">Bash</a></td>
        </tr>      
        <tr>
             <td>4</td>
-            <td>Check if the apt command is available.</td>
+            <td>Checks if the `apt` command, used for package management on Debian-based systems, is available on the machine.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/check_apt_avail.sh">Bash</a></td>
        </tr>
        <tr>
             <td>5</td>
-            <td>Check the RAM size.</td>
+            <td>Retrieves the size of the machine's random access memory (RAM).</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/ram_memory.sh">Bash</a></td>
        </tr>
        <tr>
             <td>6</td>
-            <td>Get the CPU temperature.</td>
+            <td>Gets the current temperature of the machine's central processing unit (CPU).</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh">Bash</a></td>
        </tr>
        <tr>
             <td>7</td>
-            <td>Get the total CPU usage.</td>
+            <td>Retrieves the current overall CPU usage of the machine.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/cpu_usage.sh">Bash</a></td>
        </tr>
        <tr>
             <td>8</td>
-            <td>On the local machine, block certain websites from being visited.</td>
+            <td>Blocks certain websites from being visited on the local machine by modifying the `hosts` file.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_blok.sh">Bash</a></td>
        </tr>
        <tr>
             <td>9</td>
-            <td>Create a backup of your system. Compress the files and encrypt the resulting archive.</td>
+            <td>Creates a backup of the system's files, compress the backup, and encrypt the resulting archive for storage. The backup can be used to restore the system in case of data loss or system failure.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh">Bash</a></td>
        </tr>
        <tr>
             <td>10</td>
-            <td>Display processes which might be orphans.</td>
+            <td>Displays processes that are not being waited on by any parent process. Orphan processes are created when the parent process terminates before the child process.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/orphans.sh">Bash</a></td>
        </tr>
        <tr>
             <td>11</td>
-            <td>Display processes which might be zombies.</td>
+            <td>Displays processes that are in an undead state, also known as a "zombie" state. Zombie processes are processes that have completed execution but still have an entry in the process table.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/zombies.sh">Bash</a></td>
        </tr>
     </tbody>
@@ -640,36 +638,37 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Remove carriage return from the given files.</td>
+            <td>Removes the carriage return character (`\r`) from the given files, which may be present in files transferred between systems with different line ending conventions.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_carriage_return.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Replace all diacritical characters in the given files.</td>
+            <td>Replaces all characters with diacritical marks in the given files with their non-diacritical counterparts. Diacritical marks are small signs added above or below letters to indicate different pronunciations or tones in some languages.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_diacritics.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Change all spaces in file names to underscores and convert them to lowercase.</td>
+            <td>Changes all spaces in file names to underscores and convert them to lowercase. This can be useful for making the file names more compatible with systems that do not support spaces in file names or for making the file names easier to read or type.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/correct_file_names.sh">Bash</a></td>
        </tr>
        <tr>
             <td>4</td>
-            <td>Remove trailing whitespaces from every file in a given directory.</td>
+            <td>Removes any trailing whitespace characters (spaces or tabs) from the end of every file in a given directory. Trailing whitespace can cause formatting issues or interfere with certain tools and processes.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_trailing_whitespaces.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Beautify and format every shell script found in the current repository.</td>
+            <td>Formats and beautify every shell script found in the current repository. This can make the scripts easier to read and maintain by adding consistent indentation and whitespace.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/beautify_script.sh">Bash</a></td>
        </tr>
        <tr>
             <td>6</td>
-            <td>Find unused functions and classes in a Python project.</td>
+            <td>Finds functions and classes in a Python project that are not being used or called anywhere in the code. This can help identify and remove unnecessary code, which can improve the project's performance and maintainability.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/dead_code.sh">Bash</a></td>
        </tr>
     </tbody>
 </table>
+
 
 ### Git
 
@@ -684,37 +683,37 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Reset local repository to match the origin.</td>
+            <td>Resets the local repository to match the state of the remote repository, discarding any local commits and changes. This can be useful for starting over or synchronizing with the latest version on the remote repository.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/reset_to_origin.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Remove the specified branch, both locally and remotely.</td>
+            <td>Deletes the specified branch both locally and on the remote repository. This can be useful for removing branches that are no longer needed or for consolidating multiple branches into a single branch.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/remove_branch.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Count the number of lines of code in a git repository.</td>
+            <td>Counts the total number of lines of code in a git repository, including lines in all branches and commits. This can be useful for tracking the size and complexity of a project over time.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/count_lines_of_code.sh">Bash</a></td>
        </tr>
-       <tr>
+        <tr>
             <td>4</td>
-            <td>Squash <i>n</i> last commits.</td>
+            <td>Combine multiple commits into a single commit. This can be useful for simplifying a commit history or for cleaning up a series of small, incremental commits that were made in error.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Remove <i>n</i> last commits.</td>
+            <td>Remove the <i>n</i> last commits from the repository. This can be useful for undoing mistakes or for removing sensitive information that was accidentally committed.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh">Bash</a></td>
-       </tr>
-       <tr>
+        </tr>
+        <tr>
             <td>6</td>
-            <td>Change the date of the last commit.</td>
+            <td>Changes the date of the last commit in the repository. This can be useful for altering the commit history for cosmetic purposes.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/change_commit_date.sh">Bash</a></td>
-       </tr>
-       <tr>
+        </tr>
+        <tr>
             <td>7</td>
-            <td>Download all of a user's public github repositories.</td>
+            <td>Downloads all of the public repositories belonging to a specified user on GitHub. This can be useful for backing up repositories.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh">Bash</a></td>
        </tr>
     </tbody>
@@ -733,57 +732,52 @@ shellcheck **/*.sh
     <tbody>
         <tr>
             <td>1</td>
-            <td>Find your IP address.</td>
+            <td>Finds the public IP address of the device running the script.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/ip_info.sh">Bash</a></td>
         </tr>
         <tr>
             <td>2</td>
-            <td>Empty trash.</td>
+            <td>Deletes all files in the trash bin.</td>
             <td><a href="https://github.com/djeada/Bash-scripts/blob/master/src/empty_trash.sh">Bash</a></td>
         </tr>
         <tr>
             <td>3</td>
-            <td>Block websites from being visited.</td>
-            <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/web_blok.sh">Bash</a></td>
-        </tr>
-        <tr>
-            <td>4</td>
-            <td>Extract files based on extension.</td>
+            <td>Extracts files with a specified extension from a given directory.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/extract.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>5</td>
-            <td>Check which programs are running on a specific port.</td>
+            <td>4</td>
+            <td>Determines which programs are currently using a specified port number on the local system.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/program_on_port.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>6</td>
-            <td>Convert month names to numbers and vice versa.</td>
+            <td>5</td>
+            <td>Converts month names to numbers and vice versa in a string. For example, "January" to "1" and "1" to "January".</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/month_to_number.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>7</td>
-            <td>Alias all the scripts from a given directory.</td>
+            <td>6</td>
+            <td>Creates command aliases for all the scripts in a specified directory, allowing them to be run by simply typing their names.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/alias_all_the_scripts.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>8</td>
-            <td>Get a random integer number from the given range.</td>
+            <td>7</td>
+            <td>Generates a random integer within a given range. The range can be specified as arguments to the script.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/rand_int.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>9</td>
-            <td>Generate a random password of the specified length.</td>
+            <td>8</td>
+            <td>Generates a random password of the specified length, using a combination of letters, numbers, and special characters.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/random_password.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>10</td>
-            <td>Time execution of a program with the parameters supplied.</td>
+            <td>9</td>
+            <td>Measures the time it takes to run a program with the specified input parameters. Output the elapsed time in seconds.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/time_execution.sh">Bash</a></td>
         </tr>
         <tr>
-            <td>11</td>
-            <td>Download audio from a YouTube video or playlist.</td>
+            <td>10</td>
+            <td>Downloads the audio from a YouTube video or playlist in MP3 format. Specify the video or playlist URL and the destination directory for the downloaded files.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/youtube_to_mp3.sh">Bash</a></td>
         </tr>
     </tbody>
