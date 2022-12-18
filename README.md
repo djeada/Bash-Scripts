@@ -103,12 +103,12 @@ When a bash interpreter is explicitly specified to execute a script, the shebang
 bash ./filename.sh
 ```
 
-Scripts may also be created in a variety of different "scripting languages," thus a Perl script might begin with <i>#!/usr/bin/env perl</i> and one in Python with <i> #!/usr/bin/env python3</i>.
+Scripts may also be created in a variety of different "scripting languages," thus a Perl script might begin with `#!/usr/bin/env perl` and one in Python with ` #!/usr/bin/env python3`.
 
 ### Variables 
   
-* Assign the value: <i>var="Test"</i>.
-* Retrive the value: <i>$x</i> or <i>${x}</i>.
+* Assign the value: `var="Test"`.
+* Retrive the value: `$x` or `${x}`.
 * Variables can be defined explicitly as int or array:
 
 ```bash
@@ -125,10 +125,10 @@ var=$(whoami)
 
 ### Command line arguments 
 
-* First argument: <i>$1</i>
-* All command line arguments as array: <i>$@</i>
-* Number of command line arguments: <i>$#</i>
-* The exit status of the last executed command: <i>$?</i>
+* First argument: `$1`
+* All command line arguments as array: `$@`
+* Number of command line arguments: `$#`
+* The exit status of the last executed command: `$?`
 
 ### If statements 
 
@@ -143,23 +143,23 @@ Integer comparison:
 
 | Operator | Description |
 | --- | --- |
-| <i>-eq</i> | equal |
-| <i>-ne</i> | not equal |
-| <i>-gt</i> | greater than |
-| <i>-ge</i> | greater than or equal to |
-| <i>-lt</i> | less than |
-| <i>-le</i> | less than or equal to |
+| `-eq` | equal |
+| `-ne` | not equal |
+| `-gt` | greater than |
+| `-ge` | greater than or equal to |
+| `-lt` | less than |
+| `-le` | less than or equal to |
 
 String comparison:
 
 | Operator | Description |
 | --- | --- |
-| <i>==</i> | equal |
-| <i>!=</i> | not equal |
-| <i>></i> | greater than |
-| <i><</i> | less than |
-| <i>-n</i> | string is not null |
-| <i>-z</i> | string is null |
+| `==` | equal |
+| `!=` | not equal |
+| `>` | greater than |
+| `<` | less than |
+| `-n` | string is not null |
+| `-z` | string is null |
 
 Single [] are condition tests that are compatible with the posix shell.
 
@@ -190,7 +190,7 @@ done
 
 ### Arrays
 
-An array is a variable that holds an ordered list of values. The values are separated by spaces. The following example creates an array named <i>array</i> and assigns the values 1, 2, 3, 4, 5 to it:
+An array is a variable that holds an ordered list of values. The values are separated by spaces. The following example creates an array named `array` and assigns the values 1, 2, 3, 4, 5 to it:
 
 ```bash
 array=(1 2 3 4 5) 
@@ -230,7 +230,7 @@ echo "${array[*]}"
 
 ### Functions
 
-Functions are used to group a sequence of commands into a single unit. They are used to perform repetitive tasks. Functions can be called from anywhere in the script. The following example creates a function named <i>hello_world</i> that prints the string <i>Hello World</i> to the standard output (stdout):
+Functions are used to group a sequence of commands into a single unit. They are used to perform repetitive tasks. Functions can be called from anywhere in the script. The following example creates a function named `hello_world` that prints the string `Hello World` to the standard output (stdout):
 
 ```bash
 hello_world()
@@ -698,12 +698,12 @@ shellcheck **/*.sh
        </tr>
         <tr>
             <td>4</td>
-            <td>Combine multiple commits into a single commit. This can be useful for simplifying a commit history or for cleaning up a series of small, incremental commits that were made in error.</td>
+            <td>Combines multiple commits into a single commit. This can be useful for simplifying a commit history or for cleaning up a series of small, incremental commits that were made in error.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh">Bash</a></td>
         </tr>
         <tr>
             <td>5</td>
-            <td>Remove the <i>n</i> last commits from the repository. This can be useful for undoing mistakes or for removing sensitive information that was accidentally committed.</td>
+            <td>Removes the `n` last commits from the repository. This can be useful for undoing mistakes or for removing sensitive information that was accidentally committed.</td>
             <td><a href="https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh">Bash</a></td>
         </tr>
         <tr>
