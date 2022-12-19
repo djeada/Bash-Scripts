@@ -4,7 +4,7 @@
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)]( )
 
 # Bash-scripts
-A collection of utility Bash scripts for automating common mundane tasks.
+A collection of Bash scripts for automating routine tasks and streamlining your workflow. From simple file renaming to more complex deployments, these Bash scripts have you covered.
 
 ![Screenshot](https://user-images.githubusercontent.com/37275728/186024435-7edf1be2-ca64-4841-98bf-d07cbb362715.png)
 
