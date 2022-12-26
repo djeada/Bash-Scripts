@@ -414,8 +414,8 @@ shellcheck **/*.sh
 | 6 | Changes the date of the last commit in the repository. This can be useful for altering the commit history for cosmetic purposes.                                                                                                                                                                            | [Bash](https://github.com/djeada/Bash-Scripts/blob/master/src/change_commit_date.sh)                                   |
 | 7 | Downloads all of the public repositories belonging to a specified user on GitHub. This can be useful for backing up repositories.                                                                                                                                                                              | [Bash](https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh)                            |
 | 8 | Squashes all commits on a specified Git branch into a single commit.                                                                                                                                                                                                                                              | [Bash](https://github.com/djeada/Bash-Scripts/blob/master/src/squash_branch.sh)                                        |
-| 9 | Counts the total lines changed by a specific author in a Git repository.                |
-| [Bash](https://github.com/djeada/Bash-Scripts/blob/master/src/contributions_by_git_author.sh)                                        |
+| 9 | Counts the total lines changed by a specific author in a Git repository.                
+| [Bash](https://github.com/djeada/Bash-Scripts/blob/master/src/contributions_by_git_author.sh)    |                                 
   
 ### Utility
 
