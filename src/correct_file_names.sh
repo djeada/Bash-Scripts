@@ -8,7 +8,8 @@
 
 correct_file_name ()
 {
-    new_name=$(echo "$1" | sed -e 's/ /_/g' | tr '[:upper:]' '[:lower:]')
+    new_name=$(echo "$1" | sed -e 's/[^a-zA-Z0-9.]//g' | tr '[:upper:]' '[:lower:]')
+    new_name=$(echo "$new_name" | tr -s '_')
     if [ "$1" != "$new_name" ]; then
         mv -T "$1" "$new_name"
     fi
