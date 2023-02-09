@@ -32,27 +32,25 @@ correct_file_name ()
     new_name=$(echo "$new_name" | sed -e 's/_$//g')
 
     if [ "$1" != "$new_name" ]; then
-        mv -T "$1" "$new_name"
+        parent_dir=$(dirname "$1")
+        cd "$parent_dir"
+        mv -T "$(basename "$1")" "$new_name"
+        cd - > /dev/null
     fi
 }
 
 find_files ()
 {
-
     find "$1" -maxdepth 1 \( ! -regex '.*/\..*' \) | while read -r file
     do
-        echo "$file"
         correct_file_name "$file"
         if [ "$1" != "$file" ] && [ -d "$file" ]; then
             find_files "$file"
         fi
-
     done
-
 }
 
 main() {
-
     if [ $# -eq 0 ]; then
         echo "Must provide a path!"
         exit 1
@@ -65,8 +63,6 @@ main() {
     else
         echo "$1 is not a valid path!"
     fi
-
 }
 
 main "$@"
-
