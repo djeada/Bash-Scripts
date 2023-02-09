@@ -33,7 +33,7 @@ correct_file_name ()
     
     # If the name starts with '.', remove any underscores after it
     if [ "${new_name:0:1}" == '.' ]; then
-        new_name=$(echo "$new_name" | sed -e 's/\._/./g')
+        new_name=$(echo "$new_name" | sed -e 's/\._//g')
     fi
 
     if [ "$1" != "$new_name" ]; then
