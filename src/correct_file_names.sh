@@ -11,7 +11,7 @@
 correct_file_name ()
 {
     # Replace all punctuation characters with underscores
-    new_name=$(echo "$1" | sed -e 's/[^a-zA-Z0-9._]/_/g')
+    new_name=$(echo "$1" | sed -e 's/[^a-zA-Z0-9._\/]/_/g')
 
     # Replace all repeated spaces with a single space
     new_name=$(echo "$new_name" | tr -s ' ')
@@ -30,11 +30,6 @@ correct_file_name ()
 
     # Remove trailing underscores
     new_name=$(echo "$new_name" | sed -e 's/_$//g')
-    
-    # If the name starts with '.', remove any underscores after it
-    if [ "${new_name:0:1}" == '.' ]; then
-        new_name=$(echo "$new_name" | sed -e 's/\._//g')
-    fi
 
     if [ "$1" != "$new_name" ]; then
         mv -T "$1" "$new_name"
