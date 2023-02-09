@@ -10,7 +10,27 @@
 
 correct_file_name ()
 {
-    new_name=$(echo "$1" | tr -s '' | tr '[:punct:]' '[:space:]' | tr -s ' ' | sed -e 's/ //g' | tr -s '_' | tr '[:upper:]' '[:lower:]')
+    # Replace all punctuation characters with underscores
+    new_name=$(echo "$1" | sed -e 's/[^a-zA-Z0-9._]/_/g')
+
+    # Replace all repeated spaces with a single space
+    new_name=$(echo "$new_name" | tr -s ' ')
+
+    # Replace all spaces with underscores
+    new_name=$(echo "$new_name" | sed -e 's/ /_/g')
+
+    # Replace all repeated underscores with a single underscore
+    new_name=$(echo "$new_name" | tr -s '_')
+
+    # Convert the name to lowercase
+    new_name=$(echo "$new_name" | tr '[:upper:]' '[:lower:]')
+
+    # Remove leading underscores
+    new_name=$(echo "$new_name" | sed -e 's/^_//g')
+
+    # Remove trailing underscores
+    new_name=$(echo "$new_name" | sed -e 's/_$//g')
+
     if [ "$1" != "$new_name" ]; then
         mv -T "$1" "$new_name"
     fi
