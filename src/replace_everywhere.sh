@@ -16,7 +16,7 @@ main() {
         return
     fi
 
-    find . -type f -exec sed -i -z -r -e "s/$1/$2/g" {} \;
+    find . -type f -exec awk -v search="$1" -v replace="$2" 'BEGIN{ORS="";RS=ORS?ORS:search}{print $0 (RT?replace:RT)}' {} > tmp_awk && mv tmp_awk {} \;
 }
 
 main "$@"
