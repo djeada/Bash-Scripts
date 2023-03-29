@@ -10,13 +10,14 @@
 # For strings with spaces use single quotes: replace_everywhere.sh 'string with space' ''
 # Escape special characters with single slash: replace_everywhere.sh 'string\*\*' ''
 
+
 main() {
     if [ $# -ne 2 ]; then
         echo "Usage: replace_everywhere.sh [string_a] [string_b]"
         return
     fi
 
-    find . -type f -exec awk -v search="$1" -v replace="$2" 'BEGIN{ORS="";RS=ORS?ORS:search}{print $0 (RT?replace:RT)}' {} > tmp_awk && mv tmp_awk {} \;
+    find . -type f -exec gawk -i inplace -v search="$1" -v replace="$2" 'BEGIN{ORS="";RS=ORS?ORS:search}{print $0 (RT?replace:RT)}' {} \;
 }
 
 main "$@"
