@@ -11,13 +11,12 @@
 # Escape special characters with single slash: replace_everywhere.sh 'string\*\*' ''
 
 main() {
-
     if [ $# -ne 2 ]; then
-        echo "Usage: hamming_distance.sh [string_a] [string_b]"
+        echo "Usage: replace_everywhere.sh [string_a] [string_b]"
         return
     fi
 
-    find . -type f -exec sed -i -r -e "s/$1/$2/g" {} \;
+    find . -type f -exec sed -i -z -r -e "s/$1/$2/g" {} \;
 }
 
 main "$@"
