@@ -18,7 +18,7 @@ main() {
     fi
 
     # Split the multiline input into multiple sed commands
-    search=$(echo "$1" | sed -e 's/[\\/()$*.^|[]/\\&/g' -e 's/\n/\\n/g')
+    search=$(echo "$1" | sed -e 's/[\\/()$*.^|{}[]/\\&/g' -e 's/\n/\\n/g')
     find . -type f -exec sed -i -e "/$search/{;s/$search/$2/;:a;n;ba;}" {} \;
 }
 
