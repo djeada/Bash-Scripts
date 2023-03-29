@@ -17,7 +17,9 @@ main() {
         return
     fi
 
-    find . -type f -exec gawk -i inplace -v search="$1" -v replace="$2" 'BEGIN{ORS="";RS=ORS?ORS:search}{print $0 (RT?replace:RT)}' {} \;
+    # Split the multiline input into multiple sed commands
+    search=$(echo "$1" | sed -e 's/[\\/()$*.^|[]/\\&/g' -e 's/\n/\\n/g')
+    find . -type f -exec sed -i -e "/$search/{;s/$search/$2/;:a;n;ba;}" {} \;
 }
 
 main "$@"
