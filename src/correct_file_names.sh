@@ -13,12 +13,6 @@ correct_file_name ()
     # Replace all punctuation characters with underscores
     new_name=$(echo "$1" | sed -e 's/[^a-zA-Z0-9._\/]/_/g')
 
-    # Replace all repeated spaces with a single space
-    new_name=$(echo "$new_name" | tr -s ' ')
-
-    # Replace all spaces with underscores
-    new_name=$(echo "$new_name" | sed -e 's/ /_/g')
-
     # Replace all repeated underscores with a single underscore
     new_name=$(echo "$new_name" | tr -s '_')
 
@@ -38,7 +32,7 @@ correct_file_name ()
 
 find_files ()
 {
-    find "$1" -maxdepth 1 \( ! -regex '.*/\..*' \) | while read -r file
+    find "$1" -maxdepth 1 \( ! -regex '.*/\..*' \) | while IFS= read -r file
     do
         correct_file_name "$file"
         if [ "$1" != "$file" ] && [ -d "$file" ]; then
