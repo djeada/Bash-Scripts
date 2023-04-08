@@ -32,7 +32,7 @@ correct_file_name ()
 
 find_files ()
 {
-    find "$1" -maxdepth 1 \( ! -regex '.*/\..*' \) | while IFS= read -r file
+    find "$1" -maxdepth 1 \( ! -regex '.*/\..*' \) -print0 | while IFS= read -r -d $'\0' file
     do
         correct_file_name "$file"
         if [ "$1" != "$file" ] && [ -d "$file" ]; then
