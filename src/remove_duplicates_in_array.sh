@@ -16,9 +16,7 @@ remove_duplicates() {
     done
 
     for element in "${!histogram[@]}"; do
-        if [[ ${histogram[$element]} -gt 1 ]]; then
-            echo -n "$element "
-        fi
+        echo -n "$element "
     done
 
     echo
