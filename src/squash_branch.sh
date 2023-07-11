@@ -7,8 +7,8 @@
 
 # Check if a branch name was provided
 if [ $# -eq 0 ]; then
-  echo "Error: No branch name provided."
-  exit 1
+    echo "Error: No branch name provided."
+    exit 1
 fi
 
 # Check out the specified branch

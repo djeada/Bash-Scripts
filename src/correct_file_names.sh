@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # Script Name: correct_file_names.sh
-# Description: Corrects the file names in a given directory by replacing all non-alphanumeric characters 
-#              (excluding dots) with underscores and converting repeated underscores to a single underscore. 
+# Description: Corrects the file names in a given directory by replacing all non-alphanumeric characters
+#              (excluding dots) with underscores and converting repeated underscores to a single underscore.
 #              The names are also made lowercase.
 # Usage: correct_file_names.sh [<directory>]
 #       [<directory>] - the directory containing the files to be corrected.

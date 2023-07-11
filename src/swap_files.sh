@@ -1,32 +1,51 @@
 #!/bin/bash
 
-# Check for correct number of arguments
-if [ $# -ne 2 ]
-then
-  echo "Usage: $0 file1 file2"
-  exit 1
-fi
+# Script Name: swap_files.sh
+# Description: Swaps the contents of two files.
+# Usage: swap_files.sh file1 file2
+#        file1 - path to the first file
+#        file2 - path to the second file
+# Example: ./swap_files.sh file1.txt file2.txt
 
-# Assign arguments to variables
-file1="$1"
-file2="$2"
+check_arguments() {
+    if [ $# -ne 2 ]; then
+        echo "Usage: $0 file1 file2"
+        exit 1
+    fi
+}
 
-# Check if files exist
-if [ ! -f "$file1" ] || [ ! -f "$file2" ]
-then
-  echo "One or both files do not exist."
-  exit 1
-fi
+check_file_existence() {
+    local file="$1"
+    if [ ! -f "$file" ]; then
+        echo "File $file does not exist."
+        exit 1
+    fi
+}
 
-# Create temporary file
-temp=$(mktemp)
+swap_file_contents() {
+    local file1="$1"
+    local file2="$2"
+    local temp=$(mktemp)
 
-# Swap file contents
-cp "$file1" "$temp"
-cp "$file2" "$file1"
-cp "$temp" "$file2"
+    cp "$file1" "$temp"
+    cp "$file2" "$file1"
+    cp "$temp" "$file2"
 
-# Clean up temporary file
-rm "$temp"
+    rm "$temp"
+}
 
-echo "Contents of $file1 and $file2 have been swapped."
+main() {
+    check_arguments "$@"
+
+    local file1="$1"
+    local file2="$2"
+
+    check_file_existence "$file1"
+    check_file_existence "$file2"
+
+    swap_file_contents "$file1" "$file2"
+
+    echo "Contents of $file1 and $file2 have been swapped."
+}
+
+main "$@"

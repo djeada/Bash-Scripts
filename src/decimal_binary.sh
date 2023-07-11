@@ -1,50 +1,74 @@
 #!/usr/bin/env bash
 
-# Script Name: decimal_binary.sh
-# Description: Converts decimal numbers to their binary representation.
-# Usage: decimal_binary.sh [decimal_number]
-#        [decimal_number] - decimal number to be converted to binary.
-# Example: ./decimal_binary.sh 123
+# Script Name: decimal_binary
+# Description: Converts decimal numbers to their binary representation and vice versa.
+# Usage: DecimalBinaryConverter.sh [-d2b|-b2d] [number]
+#        [-d2b|-b2d] - Flag to specify the conversion direction (-d2b for decimal to binary, -b2d for binary to decimal).
+#        [number] - The number to be converted.
+# Example: ./decimal_binary.sh -d2b 123
+#          ./decimal_binary.sh -b2d 1111011
 
-main() {
+# Print usage function
+print_usage() {
+    echo "Usage: $0 [-d2b|-b2b] [number]"
+    echo "Converts decimal numbers to their binary representation and vice versa."
+}
 
-    if [ $# -ne 1 ]; then
-        echo "Must provide exactly one number!"
-        exit 1
-    fi
-
+# Validation of input function
+validate_input() {
     re='^[0-9]+$'
     if ! [[ $1 =~ $re ]]; then
-        echo "$1 is not a positive integer!"
+        echo "Error: Input is not a positive integer!"
         exit 1
     fi
+}
 
-    echo "Conversion of a decimal number $1 to it's binary representation."
-
-    number=$1
-    reminder=1
-    binary_representation=" "
+# Conversion of decimal to binary function
+decimal_to_binary() {
+    local number=$1
+    local remainder
+    local binary_representation=""
 
     while [ "$number" -gt 0 ]
     do
-        reminder=$(( number % 2))
-        binary_representation="$binary_representation$reminder"
+        remainder=$(( number % 2))
+        binary_representation="$remainder$binary_representation"
         number=$(( number / 2))
     done
 
-    i=${#binary_representation}
-    result=" "
+    echo "$binary_representation"
+}
 
-    while [ "$i" -gt 0 ]
-    do
-        rev=$(echo "$binary_representation" | awk '{ printf substr( $0, "$i",1 ) }')
-        result="$result$rev"
-        i=$(( i - 1 ))
-    done
+# Conversion of binary to decimal function
+binary_to_decimal() {
+    local binary=$1
+    echo "$((2#$binary))"
+}
 
-    echo "Binary representation: $result"
+# Main function
+main() {
+    if [ $# -ne 2 ]; then
+        echo "Error: Must provide exactly two arguments!"
+        print_usage
+        exit 1
+    fi
 
+    local operation=$1
+    local number=$2
+
+    validate_input "$number"
+
+    if [ "$operation" == "-d2b" ]; then
+        echo "Conversion of decimal number $number to binary:"
+        echo "$(decimal_to_binary "$number")"
+    elif [ "$operation" == "-b2d" ]; then
+        echo "Conversion of binary number $number to decimal:"
+        echo "$(binary_to_decimal "$number")"
+    else
+        echo "Error: Invalid operation $operation!"
+        print_usage
+        exit 1
+    fi
 }
 
 main "$@"
-

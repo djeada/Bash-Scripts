@@ -2,8 +2,8 @@
 
 # Script Name: middle_line.sh
 # Description: Prints the middle line of a file.
-# Usage: middle_line.sh [<file_name>]
-#        [<file_name>] - the name of the file to print the middle line of.
+# Usage: middle_line.sh file_name
+#        file_name - the name of the file to print the middle line of.
 # Example: ./middle_line.sh path/to/file.txt
 
 main() {
@@ -12,14 +12,33 @@ main() {
         exit 1
     fi
 
-    if [ ! -f "$1" ]; then
-        echo "$1 is not a valid file path!"
+    file_path=$1
+
+    if [ ! -f "$file_path" ]; then
+        echo "$file_path is not a valid file path!"
         exit 1
     fi
 
-    middle_line=$(($(sed -n '$=' "$1")/2))
-    head -$middle_line "$1" | tail -n +$middle_line
+    if [ ! -r "$file_path" ]; then
+        echo "Cannot read $file_path!"
+        exit 1
+    fi
+
+    if [ ! -s "$file_path" ]; then
+        echo "$file_path is empty!"
+        exit 1
+    fi
+
+    total_lines=$(wc -l <"$file_path")
+    middle_line=$((total_lines / 2))
+
+    while IFS= read -r line; do
+        ((current_line++))
+        if [ "$current_line" -eq "$middle_line" ]; then
+            echo "$line"
+            break
+        fi
+    done <"$file_path"
 }
 
 main "$@"
-

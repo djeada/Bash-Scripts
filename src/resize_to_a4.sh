@@ -1,25 +1,42 @@
 #!/bin/bash
 
-# Define target dimensions
-width=2480
-height=3508
+# Script Name: resize_to_a4.sh
+# Description: Resize all JPG files in the current directory to a specified dimension.
+# Usage: ./resize_to_a4.sh
+# Dependencies: Requires ImageMagick's 'convert' command.
 
-# Get a list of all JPG files in the current directory
-files=$(find . -maxdepth 1 -type f -name "*.jpg")
+# Target dimensions
+readonly TARGET_WIDTH=2480
+readonly TARGET_HEIGHT=3508
 
-# Check if there are any JPG files in the current directory
-if [ -z "$files" ]; then
-  echo "No JPG files found in the current directory."
-  exit 1
+# Find all JPG files in the current directory, up to one level deep
+readonly FILES=$(find . -maxdepth 1 -type f -iname "*.jpg")
+
+# Check for ImageMagick's 'convert' command
+if ! command -v convert >/dev/null 2>&1; then
+    echo "This script requires ImageMagick's 'convert'. Please install it and rerun the script."
+    exit 1
 fi
 
+# Check if there are any JPG files in the current directory
+if [[ -z "${FILES}" ]]; then
+    echo "No JPG files found in the current directory."
+    exit 1
+fi
+
+# Function to resize images
+resize_image() {
+    local file=$1
+    echo "Resizing ${file}..."
+    convert "${file}" -resize "${TARGET_WIDTH}x${TARGET_HEIGHT}!" "${file}"
+    if [[ $? -ne 0 ]]; then
+        echo "Error resizing ${file}. Skipping..."
+    fi
+}
+
 # Resize each JPG file and overwrite the original file
-for file in $files; do
-  echo "Resizing $file..."
-  convert "$file" -resize "${width}x${height}!" "$file"
-  if [ $? -ne 0 ]; then
-    echo "Error resizing $file. Skipping..."
-  fi
+for file in ${FILES}; do
+    resize_image "${file}"
 done
 
 echo "Resizing complete."

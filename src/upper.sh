@@ -1,16 +1,36 @@
+#!/usr/bin/env bash
 
-upper()
-{
-    # $1: string to uppercase
+# Script Name: upper.sh
+# Description: Converts a string to uppercase.
+# Usage: upper.sh string
+#        string - the string to convert to uppercase.
+# Example: upper.sh "Hello World"
+# Output: HELLO WORLD
 
-    # check if exactly one argument is given
+convert_to_uppercase() {
+    # Converts a string to uppercase
+    # $1: string to convert
+
+    # Check if exactly one argument is given
     if [ $# -ne 1 ]; then
-        echo "Usage: upper <string>"
+        echo "Usage: upper.sh string"
         return 1
     fi
 
-    # make string uppercase usin tr
+    # Use tr to convert the string to uppercase
     echo "$1" | tr '[:lower:]' '[:upper:]'
 }
 
-upper "$@"
+main() {
+    # Check if exactly one argument is provided
+    if [ $# -ne 1 ]; then
+        echo "Usage: upper.sh string"
+        exit 1
+    fi
+
+    # Call the convert_to_uppercase function and pass the argument
+    converted_string=$(convert_to_uppercase "$1")
+    echo "$converted_string"
+}
+
+main "$@"

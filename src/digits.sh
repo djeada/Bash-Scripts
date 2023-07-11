@@ -1,38 +1,38 @@
 #!/usr/bin/env bash
 
 # Script Name: digits.sh
-# Description: A simple script to display the digits of a number.
-# Usage: digits.sh [number]
-#       [number] - the number to display
+# Description: A script to display the digits of a number.
+# Usage: digits.sh number
+#        number - the number to display the digits of
 # Example: ./digits.sh 12345
 # Output: 1 2 3 4 5
 
 print_digits() {
     local number=$1
     local digits=()
-    local digit
 
     while [ "$number" -gt 0 ]; do
-        digit=$((number % 10))
+        local digit=$((number % 10))
         digits+=("$digit")
         number=$((number / 10))
     done
 
     for ((i=${#digits[@]}-1; i>=0; i--)); do
-        echo -n "${digits[$i]}"
+        echo -n "${digits[$i]} "
     done
+    echo
 }
 
 main() {
     if [ $# -ne 1 ]; then
-        echo "Usage: digits.sh [number]"
-        echo "       [number] - the number to display"
+        echo "Usage: digits.sh number"
+        echo "       number - the number to display the digits of"
         exit 1
     fi
 
     re='^[0-9]+$'
     if ! [[ $1 =~ $re ]] ; then
-        echo "You must provide a positive integer."
+        echo "Invalid input. Please provide a positive integer."
         exit 1
     fi
 
@@ -40,4 +40,3 @@ main() {
 }
 
 main "$@"
-

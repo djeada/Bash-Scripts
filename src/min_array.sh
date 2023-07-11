@@ -2,15 +2,18 @@
 
 # Script Name: min_array.sh
 # Description: Find the minimum value in an array.
-# Usage: min_array.sh [list of values]
-#       [list of values] - a list of values separated by spaces
+# Usage: min_array.sh val1 val2 ...
+#        val1 val2 ... - a list of values separated by spaces
 # Example: min_array.sh 4 5 6 1 2 3
 # Output: 1
 
-min_array() {
+find_minimum() {
+    # Finds the minimum value in an array
+    # $@: a list of values
+
     local min=${1}
     shift
-    for i in "${@}"; do
+    for i in "$@"; do
         if [[ ${i} -lt ${min} ]]; then
             min=${i}
         fi
@@ -18,11 +21,12 @@ min_array() {
     echo "${min}"
 }
 
-main() {
+validate_input() {
+    # Validates the input values
+    # $@: a list of values
+
     if [ $# -eq 0 ]; then
-        echo "Usage: min_array.sh [list of values]"
-        echo "       [list of values] - a list of values separated by spaces"
-        echo "Example: min_array.sh 4 5 6 1 2 3"
+        echo "Error: No values provided"
         exit 1
     fi
 
@@ -33,9 +37,11 @@ main() {
             exit 1
         fi
     done
+}
 
-    min_array "${@}"
+main() {
+    validate_input "$@"
+    find_minimum "$@"
 }
 
 main "$@"
-

@@ -2,55 +2,41 @@
 
 # Script Name: empty_trash.sh
 # Description: Empties the trash.
-# Usage: empty_trash.sh
+# Usage: empty_trash.sh [optional: path to trash]
 # Example: ./empty_trash.sh
+#          ./empty_trash.sh /custom/path/to/trash
 
 main() {
-
     if [ $# -eq 1 ]; then
         path=$1
-
-    elif [ $# -gt 1 ]; then
-        echo "You can't provide more than one path!"
-        exit 1
-
     elif [ "$(uname)" == "Darwin" ]; then
         path=~/.Trash
-        echo "Detected system Mac Os X"
-
-    elif [ "$(cut "$(uname -s)" 1 5)" == "Linux" ]; then
-        distro=$(awk -F= '/^NAME/{print $2}' /etc/os-release)
-        distro=$(echo "$distro" | awk '{print tolower($0)}')
-
-        echo "Detected system $distro"
-
-        if [[ $distro =~ "ubuntu"  || $distro =~ "mint" ]]; then
+        echo "Detected system: Mac OS X"
+    elif [ "$(uname)" == "Linux" ]; then
+        if [ -d ~/.local/share/Trash/files ]; then
             path=~/.local/share/Trash/files
         else
-            echo "You are using an unsupported system. You must specify the path of the directory you wish to empty."
+            echo "Cannot find the default trash directory. Please specify the path of the directory you wish to empty."
             exit 1
         fi
-
     else
-        echo "You are using an unsupported system. You must specify the path of the directory you wish to empty."
+        echo "Unsupported system detected. Please specify the path of the directory you wish to empty."
         exit 1
     fi
 
     echo "Attempting to remove files located at: $path"
 
     if [ -d "$path" ]; then
-        result=$(rm -rf "${path:?}"/*)
-        if [ "$result" -eq 0 ]; then
-            echo OK
+        if [ -w "$path" ]; then
+            rm -rf "${path:?}"/* && echo "Trash emptied successfully" || echo "Failed to empty trash"
         else
-            echo FAIL
+            echo "You do not have write permissions to the specified directory."
+            exit 1
         fi
     else
-        echo "You are using a non-default trash location. You must specify the path of the directory you wish to empty."
+        echo "The specified directory does not exist."
         exit 1
     fi
-
 }
 
 main "$@"
-

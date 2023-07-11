@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
 
 # Script Name: check_if_root.sh
-# Description: Check if the user is root or not and exit if not.
-# Usage: check_if_root.sh
-# Example: ./check_if_root.sh
+# Description: This script verifies if it is being run as root and provides a relevant message if not.
+# Usage: ./check_if_root.sh
 
-main() {
-
+# Function: Check if the user is root
+check_root() {
+    # Using id -u to fetch user ID. Root user ID is always 0
     if [ "$(id -u)" -ne 0 ]; then
-        echo "This script must be executed with root privileges. Try: sudo bash $0"
-        exit 1
+        echo "Error: This script must be run as root."
+        echo "You may try using: sudo bash $0"
+        return 1
+    else
+        echo "Script is running with root privileges."
+        return 0
     fi
-
 }
 
-main "$@"
+# Function: Main function to control the script flow
+main() {
+    check_root
+    exit $?
+}
 
+main

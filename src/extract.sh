@@ -2,52 +2,43 @@
 
 # Script Name: extract.sh
 # Description: Script to extract files based on extension
-# Usage: extract.sh [archive file]
+# Usage: extract.sh [archive file] [optional: output directory]
 #       [archive file] - archive file to be extracted
-# Example: ./extract.sh example-14-09-12.tar
+# Example: ./extract.sh example-14-09-12.tar /home/user/output
 
-extensions=(.tar.xz .tar.gz .tar.bz2 .tar .tgz .bz .bz2 .tbz .tbz2 .gz .zip .jar .Z .rar)
+extensions=(.tar.xz .tar.gz .tar.bz2 .tar .tgz .bz .bz2 .tbz .tbz2 .gz .zip .jar .Z .rar .7z)
 
 main() {
-    if [ $# -ne 1 ]; then
-        echo "Usage: extract.sh [[archive file]"
+    if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+        echo "Usage: extract.sh [archive file] [optional: output directory]"
         echo "       [archive file] - archive file to be extracted"
-        echo "Example: ./extract.sh example-14-09-12.tar"
+        echo "Example: ./extract.sh example-14-09-12.tar /home/user/output"
         exit 1
     fi
 
-    output_dir='.'
+    file="$1"
+    output_dir="${2:-.}"
 
-    if
-    [[ "$1" == *.tar.xz ]] ||
-    [[ "$1" == *.tar.gz ]] ||
-    [[ "$1" == *.tar.bz2 ]] ||
-    [[ "$1" == *.tar ]] ||
-    [[ "$1" == *.tgz ]]; then
-        tar -xvf "$1" -C "$output_dir"
-    elif
-    [[ "$1" == *.bz ]] ||
-    [[ "$1" == *.bz2 ]] ||
-    [[ "$1" == *.tbz ]] ||
-    [[ "$1" == *.tbz2 ]]; then
-        bzip2 -d -k "$1"
-    elif
-    [[ "$1" == *.gz ]]; then
-        gunzip "$1" -c > "$output_dir"
-    elif
-    [[ "$1" == *.zip ]] ||
-    [[ "$1" == *.jar ]]; then
-        unzip "$1" -d "$output_dir"
-    elif
-    [[ "$1" == *.Z ]]; then
-        zcat "$1" | tar -xvf - -C "$output_dir"
-    elif
-    [[ "$1" == *.rar ]]; then
-        rar x "$1" "$output_dir"
-    else
-        echo "Please specify a correct archive format: \"${extensions[*]}\""
+    if ! [ -f "$file" ]; then
+        echo "File $file does not exist."
+        exit 1
     fi
+
+    if ! [ -d "$output_dir" ]; then
+        echo "Output directory $output_dir does not exist."
+        exit 1
+    fi
+
+    case "$file" in
+        *.tar.xz|*.tar.gz|*.tar.bz2|*.tar|*.tgz) tar -xvf "$file" -C "$output_dir" ;;
+        *.bz|*.bz2|*.tbz|*.tbz2) bzip2 -d -k "$file" ;;
+        *.gz) gunzip "$file" -c > "$output_dir" ;;
+        *.zip|*.jar) unzip "$file" -d "$output_dir" ;;
+        *.Z) zcat "$file" | tar -xvf - -C "$output_dir" ;;
+        *.rar) rar x "$file" "$output_dir" ;;
+        *.7z) 7z x "$file" -o"$output_dir" ;;
+        *) echo "Unsupported archive format. Supported formats: ${extensions[*]}" ;;
+    esac
 }
 
 main "$@"
-

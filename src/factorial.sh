@@ -1,35 +1,38 @@
 #!/usr/bin/env bash
 
 # Script Name: factorial.sh
-# Description: Calculates factorial of a given integer.
-# Usage: factorial.sh [integer]
-#        [integer] - integer to calculate factorial of.
+# Description: Calculates the factorial of a given integer.
+# Usage: factorial.sh integer
+#        integer - Integer to calculate the factorial of.
 # Example: ./factorial.sh 5
 
-main() {
+calculate_factorial() {
+    local num=$1
+    local fact=1
 
-    if [ $# -ne 1 ]; then
-        echo "Must provide exactly one number!"
+    while ((num > 1)); do
+        fact=$((fact * num))
+        num=$((num - 1))
+    done
+
+    echo "$fact"
+}
+
+main() {
+    if (( $# != 1 )); then
+        echo "Must provide exactly one integer!"
         exit 1
     fi
 
-    re='^[0-9]+$'
-    if ! [[ $1 =~ $re ]]; then
+    if ! [[ $1 =~ ^[0-9]+$ ]]; then
         echo "$1 is not a positive integer!"
         exit 1
     fi
 
-    fact=1
-    num=$1
+    local number=$1
+    local result=$(calculate_factorial "$number")
 
-    while [ "$num" -gt 1 ]
-    do
-        fact=$((fact * num))  #fact = fact * num
-        num=$((num - 1))      #num = num - 1
-    done
-
-    echo $fact
+    echo "The factorial of $number is: $result"
 }
 
 main "$@"
-

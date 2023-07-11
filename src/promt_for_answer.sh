@@ -1,10 +1,15 @@
+#!/usr/bin/env bash
 
-ask_question_and_get_response ()
-{
+# Script Name: promt_for_answer.sh
+# Description: Asks a question and gets a user's response.
+# Usage: promt_for_answer.sh
+# Example: ./promt_for_answer.sh
+
+ask_question_and_get_response() {
     # $1 is the question
     # $2 is the default answer
 
-    # check the number of arguments
+    # Check the number of arguments
     if [ $# -eq 0 ]; then
         echo "No arguments supplied"
         exit 1
@@ -20,6 +25,13 @@ ask_question_and_get_response ()
     fi
 }
 
-# Ask for the user's name
-ask_question_and_get_response "What is your name?"
-echo "Hello $response"
+print_greeting() {
+    echo "Hello $response"
+}
+
+main() {
+    ask_question_and_get_response "What is your name?"
+    print_greeting
+}
+
+main "$@"

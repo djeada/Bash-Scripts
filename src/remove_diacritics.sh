@@ -6,7 +6,7 @@
 #        [<directory_path>] - the path to the directory to process.
 # Example: ./remove_diacritics.sh path/to/directory
 
-remove_diactrics ()
+remove_diacritics ()
 {
     sed -i 'y/ąāáǎàćēéěèęīíǐìłńōóǒòóśūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŁŃŌÓǑÒÓŚŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiilnooooosuuuuuuuuzzAAAAACEEEEEIIIILNOOOOOSUUUUUUUUZZ/' "$1"
 }
@@ -21,10 +21,10 @@ main() {
     if [ "$1" == '.' ] || [ -d "${1}" ]; then
         for file in $(find "$1" -maxdepth 10 -type f)
         do
-            remove_diactrics "$file"
+            remove_diacritics "$file"
         done
     elif [ -f "${1}" ]; then
-        remove_diactrics "$1"
+        remove_diacritics "$1"
     else
         echo "$1 is not a valid path!"
     fi

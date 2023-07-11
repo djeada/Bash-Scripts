@@ -1,156 +1,80 @@
 #!/usr/bin/env bash
 
-# LC_ALL=C GIT_COMMITTER_DATE="Wed Feb 16 14:00 2020 +0100" git commit --amend --no-edit --date "Wed Feb 16 14:00 2020 +0100"
+# Script Name: commit_date_modifier.sh
+# Description: Modifies the date of the latest Git commit to a user-provided date
+# Usage: commit_date_modifier.sh DD-MM-YYYY
+#        The date is in the format day-month-year
+# Example: commit_date_modifier.sh 25-12-2022
+
+# Function: Returns absolute value of a number
 abs() {
-    [[ $[ $@ ] -lt 0 ]] && echo "$[ ($@) * -1 ]" || echo "$[ $@ ]"
+    echo ${1#-}
 }
 
+# Function: Convert the input date into a weekday string
 day_string_converter() {
+    local day=$1
+    local month=$2
+    local year=$3
 
-    DD="$1"
-    MM="$2"
-    YY="$3"
+    # Zeller's Congruence algorithm for calculating the day of the week
+    local a=$(( (14 - month) / 12 ))
+    local y=$(( year - a ))
+    local m=$(( month + (12 * a) - 2 ))
+    local d=$(( (day + y + (y / 4) - (y / 100) + (y / 400) + ((31 * m) / 12)) % 7 ))
 
-    CC=$(( YY/100))
-    YY=$(( YY % 100))
+    local days=("Sun" "Mon" "Tue" "Wed" "Thu" "Fri" "Sat")
 
-    A=$((( CC/4) - 2*CC - 1))
-    B=$((5* YY/4))
-    C=$((26*(MM+1)/10))
-
-    local result
-    result=$(((A + B + C + DD) % 7))
-
-    if [ $result -lt 0 ]; then
-        A=$(abs "$A")
-        B=$(abs "$B")
-        C=$(abs "$C")
-        result=$(((A + B + C + DD) % 7))
-    fi
-
-    if [[ "$result" -eq 1 ]]; then
-        echo "Mon"
-
-    elif [[ "$result" -eq 2 ]]; then
-        echo "Tue"
-
-    elif [[ "$result" -eq 3 ]]; then
-        echo "Wen"
-
-    elif [[ "$result" -eq 4 ]]; then
-        echo "Thu"
-
-    elif [[ "$result" -eq 5 ]]; then
-        echo "FRI"
-
-    elif [[ "$result" -eq 6 ]]; then
-        echo "Sat"
-
-    elif [[ "$result" -eq 0 ]]; then
-        echo "Sun"
-
-    else
-        echo "Can't parse the date!"
-        exit 1
-    fi
-
+    echo "${days[d]}"
 }
 
+# Function: Convert numeric month into a month string
 month_string_converter() {
-    case $1 in
-        1)
-            echo "Jan"
-            ;;
-        2)
-            echo "Feb"
-            ;;
-        3)
-            echo "Mar"
-            ;;
-        4)
-            echo "Apr"
-            ;;
-        5)
-            echo "May"
-            ;;
-        6)
-            echo "Jun"
-            ;;
-        7)
-            echo "Jul"
-            ;;
-        8)
-            echo "Aug"
-            ;;
-        9)
-            echo "Sep"
-            ;;
-        10)
-            echo "Oct"
-            ;;
-        11)
-            echo "Nov"
-            ;;
-        12)
-            echo "Dec"
-            ;;
-        *)
-            echo "Can't parse the date!"
-            exit 1
-            ;;
-    esac
+    local month_strs=("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec")
+
+    echo "${month_strs[$1-1]}"
 }
 
+# Function: Generate a random time string in the format HH:MM
 random_time() {
-    # random hour between 0 and 23
-    # random minute between 0 and 59
-    echo "$((RANDOM % 24)):$((RANDOM % 60))"
+    printf -v time "%02d:%02d" $((RANDOM % 24)) $((RANDOM % 60))
+    echo "$time"
 }
 
+# Function: Validate the input date format
 validate_date() {
-    date="$1"
-    # split on -
-    IFS='-' read -r -a date_array <<< "$date"
-    # check if the array has 3 elements
-    if [ ${#date_array[@]} -ne 3 ]; then
-        echo "Can't parse the date!"
-        exit 1
-    fi
-    day="${date_array[0]}"
-    month="${date_array[1]}"
-    year="${date_array[2]}"
-    # check if the day is a number between 1 and 31
-    if [[ $day -lt 1 || $day -gt 31 ]]; then
-        echo "Can't parse the date!"
-        exit 1
-    fi
-    # check if the month is a number between 1 and 12
-    if [[ $month -lt 1 || $month -gt 12 ]]; then
-        echo "Can't parse the date!"
-        exit 1
-    fi
-    # check if the year is a number between 1 and 9999
-    if [[ $year -lt 1900 || $year -gt 9999 ]]; then
-        echo "Can't parse the date!"
+    if [[ $1 =~ ^([1-9]|0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-([0-9]{4})$ ]]; then
+        IFS='-' read -r day month year <<< "$1"
+        # Check the date validity
+        if ! date -d"$month/$day/$year" >/dev/null 2>&1; then
+            echo "Invalid date: $1"
+            exit 1
+        fi
+    else
+        echo "Incorrect date format: $1. Expected format: DD-MM-YYYY"
         exit 1
     fi
 }
 
-
+# Function: Main function to control the script flow
 main() {
-
     if [ $# -ne 1 ]; then
-        echo "You have to provide the new date in a format DD-MM-YYYY"
+        echo "Error: No arguments provided."
+        echo "Usage: commit_date_modifier.sh DD-MM-YYYY"
+        echo "       The date is in the format day-month-year."
+        echo "Example: commit_date_modifier.sh 25-12-2022"
         exit 1
     fi
 
-    date="$1"
+    local date="$1"
     validate_date "$date"
-    day_string=$(day_string_converter "$day" "$month" "$year")
-    month_string=$(month_string_converter "$month")
-    time_string=$(random_time)
+    IFS='-' read -r day month year <<< "$date"
+    local day_string=$(day_string_converter "$day" "$month" "$year")
+    local month_string=$(month_string_converter "$month")
+    local time_string=$(random_time)
 
-    LC_ALL=C GIT_COMMITTER_DATE="$day_string $month_string $day $time_string $year +0100" git commit --amend --no-edit --date "$day_string $month_string $day $time_string $year +0100"
+    GIT_COMMITTER_DATE="$day_string $month_string $day $time_string $year +0100" git commit --amend --no-edit --date "$day_string $month_string $day $time_string $year +0100"
+    echo "Commit date modified to $day_string $month_string $day $time_string $year"
 }
 
 main "$@"

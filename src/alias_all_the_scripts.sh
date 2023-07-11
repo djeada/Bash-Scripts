@@ -1,53 +1,48 @@
 #!/usr/bin/env bash
 
-# Copy all the scripts to ~/.bash_scripts
-# Make sure they have proper permissions set
-# Loop over the scripts and for each one create an alias in ~/.bashrc
+# This script copies bash scripts from a source directory to a destination directory,
+# grants them execution permissions and adds them as aliases in the user's .bashrc file.
 
-
+# Function: Main script execution
 main() {
-
-    # check if at least one argument is given
+    # Check if at least one argument is given
     if [ $# -eq 0 ]; then
+        echo "Error: No arguments provided."
         echo "Usage: $0 <source_dir> [destination_dir]"
         exit 1
     fi
 
-    # check if source directory exists
+    # Validate source directory
     if [ ! -d "$1" ]; then
-        echo "Source directory does not exist"
+        echo "Error: Source directory does not exist."
         exit 1
     fi
 
+    # Set source and destination directories
     local source_dir="$1"
-    if [ $# -gt 1 ]; then
-        local destination_dir="$2"
-    else
-        local destination_dir="$HOME/.bash_scripts"
-    fi
+    local destination_dir="${2:-$HOME/.bash_scripts}"
 
-    # create destination directory if it does not exist
+    # Create destination directory if it does not exist
     mkdir -p "$destination_dir"
 
-    # copy all files with .sh extension from source directory to destination directory
-    cp -r "$source_dir"/*.sh "$destination_dir"
+    # Copy all .sh files from source directory to destination directory and set execution permissions
+    echo "Copying scripts and setting execution permissions..."
+    find "$source_dir" -name "*.sh" -exec cp {} "$destination_dir" \; -exec chmod +x {} \;
 
-    # add execute permissions to all files
-    chmod +x "$destination_dir"/*.sh
-
-    # put aliases to all .sh files from destination directory in .bashrc
+    # Add aliases to .bashrc for each .sh file in the destination directory
+    echo "Adding aliases to .bashrc file..."
     for file in "$destination_dir"/*.sh; do
-        echo "alias $(basename "$file" .sh)=\"$file\"" >> "$HOME/.bashrc"
-        echo "The following alias has been added to your .bashrc: $(basename "$file" .sh)=\"$file\""
+        local alias_name=$(basename "$file" .sh)
+        echo "alias $alias_name=\". $file\"" >> "$HOME/.bashrc"
+        echo "Added alias: $alias_name -> $file"
     done
 
-    # reload .bashrc
+    # Reload .bashrc
+    echo "Reloading .bashrc file..."
     source "$HOME/.bashrc"
 
-    # print success message
-    echo "Successfully installed bash scripts"
-
+    # Print success message
+    echo "Installation successful! Bash scripts have been installed and aliased."
 }
 
 main "$@"
-

@@ -2,8 +2,8 @@
 
 # Script Name: remove_duplicates_in_array.sh
 # Description: Script to remove duplicates in an array.
-# Usage: remove_duplicates_in_array.sh [list of values]
-#       [list of values] - List of values to remove duplicates from.
+# Usage: remove_duplicates_in_array.sh value1 value2 ...
+#        value1, value2, ... - Values to remove duplicates from.
 # Example: remove_duplicates_in_array.sh a b c d a b c d
 # Output: a b c d
 
@@ -17,23 +17,28 @@ remove_duplicates() {
 
     for element in "${!histogram[@]}"; do
         if [[ ${histogram[$element]} -gt 1 ]]; then
-            echo -n "$element"
+            echo -n "$element "
         fi
     done
 
     echo
 }
 
-main() {
-    if [ $# -eq 0 ]; then
-        echo "Usage: remove_duplicates_in_array.sh [list of values]"
-        echo "       [list of values] - List of values to remove duplicates from."
+validate_arguments() {
+    # Validates the number of arguments provided
+    # Arguments:
+    #   $1: The number of arguments provided
+    if [ "$1" -eq 0 ]; then
+        echo "Usage: remove_duplicates_in_array.sh value1 value2 ..."
+        echo "       value1, value2, ... - Values to remove duplicates from."
         echo "Example: remove_duplicates_in_array.sh a b c d a b c d"
         exit 1
     fi
+}
 
+main() {
+    validate_arguments "$#"
     remove_duplicates "$@"
 }
 
 main "$@"
-

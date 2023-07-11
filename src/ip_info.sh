@@ -1,103 +1,92 @@
 #!/usr/bin/env bash
 
 # Script Name: ip_info.sh
-# Description: Displays information about the IP address.
-# Usage: ip_info.sh [h | public | private | location]
-#        [h] - displays help
-#        [public] - displays public IP address
-#        [private] - displays private IP address
-#        [location] - displays location of the IP address
-# Example: ./ip_info.sh public private location
+# Description: Retrieves and displays information about IP addresses.
+# Usage: ip_info.sh [--help] [--public] [--private] [--location]
+#        --help - Displays help information.
+#        --public - Displays the public IP address.
+#        --private - Displays the private IP address.
+#        --location - Displays location information for the public IP address.
 
-help() {
-    echo "NAME"
-    echo "ip_info.sh - displays information about the IP address"
-    echo
-    echo "SYNTAX"
-    echo "ip_info.sh [h] [public] [private] [locate]"
-    echo
-    echo "OPTIONS"
-    echo "h - displays this help"
-    echo "public - displays the public IP address"
-    echo "private - displays the private IP address"
-    echo "locate - displays the location of the IP address"
+display_usage() {
+    cat << EOF
+Usage: $0 [--help] [--public] [--private] [--location]
+
+This script retrieves and displays information about IP addresses.
+
+Options:
+    --help      Display this help and exit.
+    --public    Display the public IP address.
+    --private   Display the private IP address.
+    --location  Display location information for the public IP address.
+EOF
 }
 
 display_public_ip() {
-    if [ -n "$include_public_ip" ]; then
-        public_ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
-        echo "Public ip: $public_ip"
-    fi
+    public_ip=$(curl -s https://api.ipify.org)
+    echo "Public IP: $public_ip"
 }
 
 display_private_ip() {
-    if [ -n "$include_private_ip" ]; then
-        private_ip=$(ip route get 1 | awk '{print $(NF-2);exit}')
-        echo "Private ip: $private_ip"
-    fi
-}
-
-get_value_from_dict() {
-    dict=$1
-    key=$2
-    echo "$dict" | grep -m1 -oP '"'"$key"'"?\s*:\s*"?\K[^"]+'
+    private_ip=$(hostname -I | awk '{print $1}')
+    echo "Private IP: $private_ip"
 }
 
 display_location() {
-    if [ -n "$include_location" ]; then
-
-        if [ -n "$public_ip" ]; then
-            public_ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
-        fi
-
-        ip_dict=$(curl http://ip-api.com/json/"$public_ip" 2>&1)
-        status=$(get_value_from_dict "$ip_dict" "status")
-
-        if [[ $status == "success" ]]; then
-            echo "Country: $(get_value_from_dict "$ip_dict" "country")"
-            echo "Region: $(get_value_from_dict "$ip_dict" "regionName")"
-            echo "Postal code: $(get_value_from_dict "$ip_dict" "zip")"
-
-            lat=$(get_value_from_dict "$ip_dict" "lat")
-            lon=$(get_value_from_dict "$ip_dict" "lon")
-            echo "Latitude: ${lat::-1}"
-            echo "Longitude: ${lon::-1}"
-        else
-            echo "Couldn't find any informations!"
-        fi
+    if [[ -z $public_ip ]]; then
+        public_ip=$(curl -s https://api.ipify.org)
     fi
+    location_info=$(curl -s http://ip-api.com/json/"$public_ip")
+    country=$(echo "$location_info" | grep -Po '"country":.*?[^\\]",' | awk -F':' '{print $2}' | sed 's/","//g' | sed 's/"//g')
+    region=$(echo "$location_info" | grep -Po '"regionName":.*?[^\\]",' | awk -F':' '{print $2}' | sed 's/","//g' | sed 's/"//g')
+    postal_code=$(echo "$location_info" | grep -Po '"zip":.*?[^\\]",' | awk -F':' '{print $2}' | sed 's/","//g' | sed 's/"//g')
+    lat=$(echo "$location_info" | grep -Po '"lat":.*?[^\\],' | awk -F':' '{print $2}' | sed 's/,//g')
+    lon=$(echo "$location_info" | grep -Po '"lon":.*?[^\\],' | awk -F':' '{print $2}' | sed 's/,//g')
+    echo -e "Location Information:\nCountry: $country\nRegion: $region\nPostal Code: $postal_code\nLatitude: $lat\nLongitude: $lon"
 }
 
-parse_arguments() {
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            -h|--h)
-                help && exit 1
+main() {
+    include_public_ip=true
+    include_private_ip=true
+    include_location=true
+
+    while (( $# )); do
+        case $1 in
+            --help)
+                display_usage
+                exit 0
                 ;;
-            -public|--public)
-                include_public_ip=true
+            --public)
+                include_private_ip=false
+                include_location=false
                 ;;
-            -private|--private)
-                include_private_ip=true
+            --private)
+                include_public_ip=false
+                include_location=false
                 ;;
-            -location|--location)
-                include_location=true
+            --location)
+                include_public_ip=false
+                include_private_ip=false
                 ;;
             *)
-                echo "$1 is not a valid argument! Use -h to display all valid arguments."
+                echo "Invalid option: $1" >&2
+                display_usage >&2
                 exit 1
         esac
         shift
     done
-}
 
-main() {
-    parse_arguments "$@"
+    if [[ $include_public_ip == true ]]; then
+        display_public_ip
+    fi
 
-    display_public_ip
-    display_private_ip
-    display_location
+    if [[ $include_private_ip == true ]]; then
+        display_private_ip
+    fi
+
+    if [[ $include_location == true ]]; then
+        display_location
+    fi
 }
 
 main "$@"
-

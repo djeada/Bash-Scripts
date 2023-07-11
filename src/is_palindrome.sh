@@ -2,8 +2,8 @@
 
 # Script Name: is_palindrome.sh
 # Description: Checks if a string is a palindrome.
-# Usage: is_palindrome.sh [string]
-#       [string] - the string to check
+# Usage: is_palindrome.sh string
+#        string - The string to check
 # Example: is_palindrome.sh "racecar"
 # Output: true
 
@@ -23,14 +23,14 @@ is_palindrome() {
 }
 
 main() {
-    if [[ $# -ne 1 ]]; then
-        echo "Usage: is_palindrome.sh [string]"
-        echo "       [string] - the string to check"
+    if (( $# != 1 )); then
+        echo "Usage: is_palindrome.sh string"
+        echo "       string - The string to check"
         exit 1
     fi
 
-    result=$(is_palindrome "$1")
-    if [[ "$result" -eq 0 ]]; then
+    local string="$1"
+    if is_palindrome "$string"; then
         echo "true"
     else
         echo "false"
@@ -38,4 +38,3 @@ main() {
 }
 
 main "$@"
-

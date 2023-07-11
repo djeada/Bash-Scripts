@@ -1,39 +1,44 @@
 #!/usr/bin/env bash
 
 # Script Name: christmas_tree.sh
-# Description: Prints a christmas tree of a given height to the standard output.
-# Usage: christmas_tree.sh [height]
-#        [height] - the height of the christmas tree.
-# Example: ./christmas_tree.sh 10
+# Description: Prints a Christmas tree of a given height and character to the standard output.
+# Usage: christmas_tree.sh height character
+#        height - the height of the Christmas tree.
+#        character - the character to be used to draw the Christmas tree.
+# Example: ./christmas_tree.sh 10 '*'
 
+draw_level() {
+    local level_size=$1
+    local character=$2
 
-triangle() {
-
-    a=$1
-
-    for (( i=0; i<a; i++ )); do
-        for (( j=0; j<=i; j++ )); do
-            echo -n "x"
-        done
-        echo ""
+    for ((i = 0; i < level_size; i++)); do
+        printf "%*s" $((level_size - i)) # print spaces
+        printf "%0.s$character" $(seq 1 $((2*i + 1))) # print characters
+        printf "\n"
     done
-
 }
 
-christmas_tree() {
+draw_trunk() {
+    local tree_height=$1
+    local character=$2
 
-    n=$1
+    printf "%*s" $tree_height
+    printf "$character\n"
+}
 
-    for (( i=1; i<=n; i++ )); do
-        triangle "$i"
+draw_christmas_tree() {
+    local tree_height=$1
+    local character=$2
+
+    for ((i = 1; i <= tree_height; i++)); do
+        draw_level "$i" "$character"
     done
-
+    draw_trunk "$tree_height" "|" # print the trunk
 }
 
 main() {
-
-    if [ $# -ne 1 ]; then
-        echo "Must provide exactly one number!"
+    if [ $# -ne 2 ]; then
+        echo "Must provide exactly two arguments: tree height and character to draw the tree!"
         exit 1
     fi
 
@@ -43,9 +48,7 @@ main() {
         exit 1
     fi
 
-    christmas_tree "$1"
-
+    draw_christmas_tree "$1" "$2"
 }
 
 main "$@"
-
