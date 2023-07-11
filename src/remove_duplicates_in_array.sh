@@ -15,9 +15,9 @@ remove_duplicates() {
         ((histogram[$element]++))
     done
 
-    for element in "${!histogram[@]}"; do
-        echo -n "$element "
-    done
+for element in $(printf '%s\n' "${!histogram[@]}" | sort); do
+    echo -n "$element "
+done
 
     echo
 }
