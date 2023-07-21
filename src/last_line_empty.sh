@@ -2,33 +2,37 @@
 
 # Script Name: assert_last_line_empty.sh
 # Description: Checks if the last line of a file is empty and appends an empty line if it's not.
-# Usage: assert_last_line_empty.sh <file_path>
+# Usage: assert_last_line_empty.sh [--check] <file_path>
+#        --check - When specified, script will only check if the last line is empty without actually appending a new line
 #        <file_path> - the path to the file to be processed.
-# Example: ./assert_last_line_empty.sh path/to/file.txt
+# Example: ./assert_last_line_empty.sh --check path/to/file.txt
+
+checkonly=0
+status=0
 
 assert_last_line_empty() {
-    # Checks if the last line of the file is empty and appends an empty line if it's not.
-    # $1: file path
-
     local file="$1"
+    local last_line
 
     echo "Checking if the last line of ${file} is empty..."
 
-    local last_line=$(tail -n 1 "${file}")
+    last_line=$(tail -n 1 "${file}")
 
     if [ -z "${last_line}" ]; then
         echo "Last line is empty!"
     else
         echo "Last line is not empty!"
-        echo "" >> "${file}"
-        echo "An empty line has been appended."
+        if [[ $checkonly -ne 1 ]]; then
+            echo "" >> "${file}"
+            echo "An empty line has been appended."
+        else
+            echo "${file} requires an empty line at the end"
+            status=1
+        fi
     fi
 }
 
 process_file() {
-    # Processes a single file by calling the assert_last_line_empty function.
-    # $1: file path
-
     local file="$1"
 
     if [ ! -f "${file}" ]; then
@@ -40,9 +44,6 @@ process_file() {
 }
 
 process_directory() {
-    # Processes all files in a directory (including subdirectories) by calling the process_file function.
-    # $1: directory path
-
     local directory="$1"
 
     if [ ! -d "${directory}" ]; then
@@ -58,15 +59,15 @@ process_directory() {
 }
 
 main() {
-    # Main function to execute the script
-
     if [ $# -eq 0 ]; then
         echo "Error: No path provided."
-        echo "Usage: assert_last_line_empty.sh <file_path>"
+        echo "Usage: assert_last_line_empty.sh [--check] <file_path>"
         exit 1
-    elif [ $# -gt 1 ]; then
-        echo "Error: Only one path is supported."
-        exit 1
+    fi
+
+    if [[ $1 == "--check" ]]; then
+        checkonly=1
+        shift
     fi
 
     local path="$1"
@@ -79,6 +80,11 @@ main() {
         echo "Error: ${path} is not a valid file or directory."
         exit 1
     fi
+
+    if [[ $status -eq 1 ]]; then
+        exit 1
+    fi
 }
 
 main "$@"
+

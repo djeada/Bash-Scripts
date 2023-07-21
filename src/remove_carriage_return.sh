@@ -1,15 +1,28 @@
 #!/usr/bin/env bash
 
 # Script Name: remove_carriage_return.sh
-# Description: Removes the carriage return from all the files in a given directory.
-# Usage: remove_carriage_return.sh directory_path
+# Description: Checks and removes the carriage return from all the files in a given directory.
+# Usage: remove_carriage_return.sh [--check] directory_path
+#        --check - When specified, script will only check if the files contain carriage returns without actually removing them
 #        directory_path - the path to the directory to process.
-# Example: ./remove_carriage_return.sh path/to/directory
+# Example: ./remove_carriage_return.sh --check path/to/directory
+
+checkonly=0
+status=0
 
 remove_carriage_return() {
     # Removes carriage return from a file
     # $1: file path
-    sed -i 's/\r//g' "$1"
+    local file="$1"
+
+    if [[ $checkonly -ne 1 ]]; then
+        sed -i 's/\r//g' "$file"
+    else
+        if grep -q $'\r' "$file"; then
+            echo "File $file contains carriage return"
+            status=1
+        fi
+    fi
 }
 
 process_directory() {
@@ -33,6 +46,11 @@ process_single_file() {
 main() {
     # Main function to orchestrate the script
 
+    if [[ $1 == "--check" ]]; then
+        checkonly=1
+        shift
+    fi
+
     if [ $# -eq 0 ]; then
         echo "Must provide a path!"
         exit 1
@@ -49,7 +67,12 @@ main() {
         exit 1
     fi
 
-    echo "Carriage return removed successfully."
+    if [[ $status -eq 1 ]]; then
+        exit 1
+    fi
+
+    echo "Carriage return checked successfully."
 }
 
 main "$@"
+

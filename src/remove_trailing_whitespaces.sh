@@ -1,26 +1,42 @@
 #!/usr/bin/env bash
 
+# Global variables
+checkonly=0
+status=0
+
 remove_trailing_whitespaces() {
     local file="$1"
 
-    touch  "${file}".tmp
     echo "Checking each line of ${file} for trailing whitespaces..."
+
+    touch "${file}".tmp
 
     while IFS= read -r line; do
         if [[ $line == *[[:space:]] ]]; then
             echo "Found trailing whitespaces in line: ${line}"
-            echo "${line}" | sed 's/[ \t]*$//' >> "${file}".tmp
+            if [[ $checkonly -eq 0 ]]; then
+                echo "${line}" | sed 's/[ \t]*$//' >> "${file}".tmp
+            else
+                status=1
+            fi
         else
-            echo "${line}"  >> "${file}".tmp
+            if [[ $checkonly -eq 0 ]]; then
+                echo "${line}" >> "${file}".tmp
+            fi
         fi
     done < <(grep '' "${file}")
 
-    mv "${file}.tmp" "${file}"
-
-    echo "Done!"
+    if [[ $checkonly -eq 0 ]]; then
+        mv "${file}".tmp "${file}"
+        echo "Done!"
+    fi
 }
 
 main() {
+    if [[ $1 == "--check" ]]; then
+        checkonly=1
+        shift
+    fi
 
     if [ $# -eq 0 ]; then
         echo "Must provide a path!"
@@ -30,17 +46,23 @@ main() {
         exit 1
     fi
 
-    if [ "$1" == '.' ] || [ -d "${1}" ]; then
-        for file in $(find $1 -maxdepth 10 -type f)
-        do
-            remove_trailing_whitespaces $file
+    local path="$1"
+
+    if [ "$path" == '.' ] || [ -d "$path" ]; then
+        for file in $(find "$path" -maxdepth 10 -type f); do
+            remove_trailing_whitespaces "$file"
         done
-    elif [ -f "${1}" ]; then
-        remove_trailing_whitespaces $1
+    elif [ -f "$path" ]; then
+        remove_trailing_whitespaces "$path"
     else
-        echo "$1 is not a valid path!"
+        echo "$path is not a valid path!"
+        exit 1
     fi
 
+    if [[ $status -eq 1 ]]; then
+        exit 1
+    fi
 }
 
 main "$@"
+

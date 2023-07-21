@@ -2,38 +2,71 @@
 
 # Script Name: beautify_script.sh
 # Description: This script will format shell scripts using Beautysh and then perform a ShellCheck analysis.
-# Usage: code_formatter.sh path
-#        path - The path can be a directory or a single file. For a directory, the script will recursively format and check all shell script files within it.
+# Usage: beautify_script.sh [--check] path
+#        --check - When specified, script will only check if formatting is needed without actually formatting
+#        path - The path can be a directory or a single file.
 # Example: ./beautify_script.sh ./my_directory
 
-# Function: Apply formatting using Beautysh and then perform a ShellCheck analysis
+status=0
+
 format() {
     local filepath=$1
+    local checkonly=$2
+    local origfile
+    local fmtfile
 
     if [[ $filepath == *.sh ]]; then
-        echo "Formatting and performing shellcheck on $filepath"
+        echo "Processing $filepath"
 
-        # Ensure that beautysh and shellcheck are installed
-        if command -v beautysh > /dev/null; then
-            beautysh "$filepath"
-        else
-            echo "beautysh is not installed. Please install it to format shell scripts."
-        fi
+        if [[ $checkonly -ne 1 ]]; then
+            if ! beautysh "$filepath"; then
+                echo "An error occurred while formatting $filepath."
+                status=1
+            fi
 
-        if command -v shellcheck > /dev/null; then
-            shellcheck "$filepath"
+            if ! shellcheck "$filepath"; then
+                echo "ShellCheck reported issues in $filepath."
+                status=1
+            fi
         else
-            echo "shellcheck is not installed. Please install it to perform shell script analysis."
+            origfile=$(cat "$filepath")
+            fmtfile=$(beautysh - < "$filepath")
+            if [[ "$origfile" != "$fmtfile" ]]; then
+                echo "$filepath requires formatting"
+                status=1
+            fi
+
+            if ! shellcheck "$filepath"; then
+                echo "ShellCheck reported issues in $filepath."
+                status=1
+            fi
         fi
     fi
 }
 
-# Function: Main function to control the flow of the script
+# Check for the necessary tools before starting
+if ! command -v beautysh > /dev/null; then
+    echo "beautysh is not installed. Please install it to format shell scripts."
+    exit 1
+fi
+
+if ! command -v shellcheck > /dev/null; then
+    echo "shellcheck is not installed. Please install it to perform shell script analysis."
+    exit 1
+fi
+
 main() {
-    # Ensure that a path is provided
+    local checkonly=0
+
+    if [[ $1 == "--check" ]]; then
+        checkonly=1
+        shift
+    fi
+
     if [ $# -eq 0 ]; then
         echo "Error: No arguments provided."
-        echo "Usage: code_formatter.sh path"
+        echo "Usage: beautify_script.sh [--check] path"
+        echo "       --check - When specified, script will only check if formatting is needed without actually formatting"
         echo "       path - The path can be a directory or a single file."
         echo "Example: ./beautify_script.sh ./my_directory"
         exit 1
@@ -41,20 +74,22 @@ main() {
 
     local path="$1"
 
-    # Check if the path is a directory
     if [ -d "$path" ]; then
-        # Format all .sh files in the directory and subdirectories
         while IFS= read -r -d '' file
         do
-            format "$file"
+            format "$file" "$checkonly"
         done < <(find "$path" -name '*.sh' -print0)
-        # Check if the path is a file
     elif [ -f "$path" ]; then
-        format "$path"
+        format "$path" "$checkonly"
     else
         echo "Error: '$path' is not a valid path!"
+        exit 1
+    fi
+
+    if [[ $status -eq 1 ]]; then
         exit 1
     fi
 }
 
 main "$@"
+

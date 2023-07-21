@@ -1,0 +1,1 @@
+../src/beautify_script.sh
