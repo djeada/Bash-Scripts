@@ -20,7 +20,7 @@ remove_carriage_return() {
     else
         if grep -q $'\r' "$file"; then
             echo "File $file contains carriage return"
-            status=1
+            return 1
         fi
     fi
 }
@@ -31,7 +31,7 @@ process_directory() {
     local directory="$1"
 
     while IFS= read -r -d $'\0' file; do
-        remove_carriage_return "$file"
+        remove_carriage_return "$file" && status=$? || status=$?
     done < <(find "$directory" -type f -print0)
 }
 
@@ -40,7 +40,7 @@ process_single_file() {
     # $1: file path
     local file="$1"
 
-    remove_carriage_return "$file"
+    remove_carriage_return "$file" && status=$? || status=$?
 }
 
 main() {
