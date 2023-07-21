@@ -16,21 +16,21 @@ download_repos() {
 
     temp_dir=$(mktemp -d -q /tmp/repo_archive_XXXXXX)
 
-    if [ $? -ne 0 ]; then
+    if ! [ $? -eq 0 ]; then
         echo "Error: Can't create a temp dir!"
         exit 1
     fi
 
     echo "Using the following temp dir: $temp_dir"
 
-    cd "$temp_dir" &&
+    cd "$temp_dir" || exit
     virtualenv env &&
-    source env/bin/activate &&
+    source env/bin/activate || { echo 'Could not source activate' ; exit 1; }
     pip install ghcloneall &&
     ghcloneall --init --user "$user_name" &&
     ghcloneall &&
     deactivate &&
-    cd ~
+    cd ~ || exit
 
     destination="${user_name}_repo_archive.tar"
 
@@ -53,4 +53,5 @@ main() {
 }
 
 main "$@"
+
 
