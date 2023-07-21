@@ -28,7 +28,8 @@ calculate_sum() {
 main() {
     print_arguments "$@"
 
-    local sum=$(calculate_sum "$@")
+    local sum=0
+    sum=$(calculate_sum "$@")
 
     echo "Sum of the arguments: $sum"
 }

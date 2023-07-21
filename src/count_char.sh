@@ -17,7 +17,8 @@ count_char() {
     # NF returns the number of fields (i.e., the number of occurrences of the character)
     # Subtract 1 because awk splits the string into fields,
     # thus creating an extra field. Subtracting 1 gives the number of occurrences of the character.
-    local count=$(awk -F"$character" '{print NF-1}' <<< "$string")
+    local count=0
+    count=$(awk -F"$character" '{print NF-1}' <<< "$string")
 
     echo "$count"
 }

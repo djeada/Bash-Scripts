@@ -24,7 +24,7 @@ number_to_month() {
     fi
 
     # Check if the argument is in the range of months
-    if [ $1 -lt 1 ] || [ $1 -gt 12 ]; then
+    if [ "$1" -lt 1 ] || [ "$1" -gt 12 ]; then
         echo "Error: argument must be in the range of months"
         return 1
     fi

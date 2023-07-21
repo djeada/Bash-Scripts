@@ -30,7 +30,8 @@ main() {
     fi
 
     local number=$1
-    local result=$(calculate_factorial "$number")
+    local result='-1'
+    result=$(calculate_factorial "$number")
 
     echo "The factorial of $number is: $result"
 }

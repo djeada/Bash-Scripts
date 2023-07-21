@@ -12,6 +12,11 @@ paths=(src)
 # Status variable to track if any check fails
 status=0
 
+# Define color codes
+RED=`tput setaf 1`
+GREEN=`tput setaf 2`
+RESET=`tput sgr0`
+
 # Process each path
 for path in "${paths[@]}"; do
     # Find all scripts (not starting with _) in 'hooks' directory
@@ -19,7 +24,12 @@ for path in "${paths[@]}"; do
         echo -e "\nExecuting "$script""
 
         # Execute the script with '--check' option
-        "$script" --check "$path" || { echo "$script check on $path failed"; status=1; }
+        if "$script" --check "$path"; then
+            echo "${GREEN}$script check on $path was successful${RESET}"
+        else 
+            echo "${RED}$script check on $path failed${RESET}"
+            status=1
+        fi
     done
 done
 

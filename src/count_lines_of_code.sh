@@ -28,7 +28,8 @@ count_lines_of_code() {
 }
 
 main() {
-    local repository_path="$(get_repository_path "$@")"
+    local repository_path=""
+    repository_path="$(get_repository_path "$@")"
     count_lines_of_code "$repository_path"
 }
 

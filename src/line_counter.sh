@@ -42,7 +42,8 @@ main() {
 
     validate_file "$file_name"
 
-    local line_count=$(count_lines "$file_name")
+    local line_count=0
+    line_count=$(count_lines "$file_name")
 
     echo "Number of lines in $file_name: $line_count"
 }

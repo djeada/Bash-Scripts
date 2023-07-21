@@ -21,7 +21,8 @@ is_prime() {
         return 1
     fi
 
-    local sqrt=$(echo "sqrt($num)" | bc)
+    local sqrt='-1'
+    sqrt=$(echo "sqrt($num)" | bc)
     sqrt=${sqrt%.*}  # Remove decimal part
 
     for ((i = 3; i <= sqrt; i += 2)); do

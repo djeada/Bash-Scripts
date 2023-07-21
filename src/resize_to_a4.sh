@@ -10,7 +10,8 @@ readonly TARGET_WIDTH=2480
 readonly TARGET_HEIGHT=3508
 
 # Find all JPG files in the current directory, up to one level deep
-readonly FILES=$(find . -maxdepth 1 -type f -iname "*.jpg")
+readonly FILES=''
+FILES=$(find . -maxdepth 1 -type f -iname "*.jpg")
 
 # Check for ImageMagick's 'convert' command
 if ! command -v convert >/dev/null 2>&1; then
@@ -28,8 +29,7 @@ fi
 resize_image() {
     local file=$1
     echo "Resizing ${file}..."
-    convert "${file}" -resize "${TARGET_WIDTH}x${TARGET_HEIGHT}!" "${file}"
-    if [[ $? -ne 0 ]]; then
+    if ! "$(convert "${file}" -resize "${TARGET_WIDTH}x${TARGET_HEIGHT}!" "${file}")"; then
         echo "Error resizing ${file}. Skipping..."
     fi
 }

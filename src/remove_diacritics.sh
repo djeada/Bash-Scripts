@@ -19,8 +19,7 @@ main() {
     fi
 
     if [ "$1" == '.' ] || [ -d "${1}" ]; then
-        for file in $(find "$1" -maxdepth 10 -type f)
-        do
+        find "$1" -maxdepth 10 -type f -print0 | while IFS= read -r -d '' file; do
             remove_diacritics "$file"
         done
     elif [ -f "${1}" ]; then

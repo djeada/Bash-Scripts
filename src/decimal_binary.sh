@@ -60,10 +60,10 @@ main() {
 
     if [ "$operation" == "-d2b" ]; then
         echo "Conversion of decimal number $number to binary:"
-        echo "$(decimal_to_binary "$number")"
+        decimal_to_binary "$number"
     elif [ "$operation" == "-b2d" ]; then
         echo "Conversion of binary number $number to decimal:"
-        echo "$(binary_to_decimal "$number")"
+        binary_to_decimal "$number"
     else
         echo "Error: Invalid operation $operation!"
         print_usage

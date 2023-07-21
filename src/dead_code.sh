@@ -32,7 +32,7 @@ counts=()
 
 # Count the occurrences of each name in the .py files
 for name in "${names[@]}"; do
-    count=$(grep -c "$name" $files)
+    count=$(grep -c "$name" "$files")
     counts+=("$count")
 done
 

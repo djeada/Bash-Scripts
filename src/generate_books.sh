@@ -28,7 +28,7 @@ for file in $md_files; do
 done
 
 # Convert Markdown files to PDF using Pandoc
-pandoc $md_files --from markdown --to pdf --output "$output_file"
+pandoc "$md_files" --from markdown --to pdf --output "$output_file"
 
 echo "PDF generated successfully."
 

@@ -33,7 +33,8 @@ set_working_directory() {
 }
 
 check_git_repository() {
-    local is_git_repo=$(git rev-parse --git-dir > /dev/null 2>&1)
+    local is_git_repo=0
+    is_git_repo=$(git rev-parse --git-dir > /dev/null 2>&1)
 
     if [ ${#is_git_repo} -gt 0 ]; then
         echo "Not inside a git repo! Please provide a correct path."
@@ -44,7 +45,8 @@ check_git_repository() {
 check_branch() {
     if [ $# -eq 3 ]; then
         local branch_name="$2"
-        local is_local_branch=$(git branch -l | grep -Fw "$branch_name")
+        local is_local_branch=0
+        is_local_branch=$(git branch -l | grep -Fw "$branch_name")
 
         if [ ${#is_local_branch} -eq 0 ]; then
             echo "Provided branch doesn't exist."

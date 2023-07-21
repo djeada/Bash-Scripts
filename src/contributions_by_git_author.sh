@@ -20,8 +20,7 @@ process_git_log() {
 process_git_log_for_user() {
     echo "Processing git log for user $1..."
     git log --pretty="%an" |
-    grep "$1" |
-    wc -l |
+    grep -c "$1" |
     awk -v user="$1" '{print user": "$1" commits"}'
 }
 

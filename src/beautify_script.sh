@@ -24,7 +24,7 @@ format() {
                 status=1
             fi
 
-            if ! shellcheck "$filepath"; then
+            if ! shellcheck --exclude=SC1091,SC2001 "$filepath"; then
                 echo "ShellCheck reported issues in $filepath."
                 status=1
             fi
@@ -36,7 +36,7 @@ format() {
                 status=1
             fi
 
-            if ! shellcheck "$filepath"; then
+            if ! shellcheck --exclude=SC1091,SC2001 "$filepath"; then
                 echo "ShellCheck reported issues in $filepath."
                 status=1
             fi

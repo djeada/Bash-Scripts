@@ -16,7 +16,7 @@ ask_question_and_get_response() {
     fi
 
     echo -e "$1"
-    read -p "[$2]"$'\n' response
+    read -rp "[$2]"$'\n' response
 
     if [ $# -eq 2 ]; then
         if [ -z "$response" ]; then

@@ -5,7 +5,7 @@
 # Usage: ./conditionals.sh
 # Example: ./conditionals.sh
 
-read -p "Please type a 'y' for YES or 'n' for NO: " input
+read -rp "Please type a 'y' for YES or 'n' for NO: " input
 
 case "$input" in
     [nN] )

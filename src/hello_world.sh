@@ -18,7 +18,7 @@ echo "My home directory is: $HOME"
 
 # Demonstrating that quotes aren't necessary to display the output of a command
 # date command will output the current date and time
-echo Here is the current date and time: $(date)
+echo Here is the current date and time: "$(date)"
 
 # Introducing a conditional statement
 # Checking if the USER environment variable is set

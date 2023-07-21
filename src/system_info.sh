@@ -8,7 +8,8 @@
 set -euo pipefail
 
 # Constants
-readonly SCRIPT_NAME=$(basename "${0}")
+readonly SCRIPT_NAME=''
+SCRIPT_NAME=$(basename "${0}")
 
 # Function to print script usage
 print_usage() {

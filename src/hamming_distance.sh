@@ -38,7 +38,8 @@ main() {
     local string_a="$1"
     local string_b="$2"
 
-    local distance=$(calculate_hamming_distance "$string_a" "$string_b")
+    local distance='-1'
+    distance=$(calculate_hamming_distance "$string_a" "$string_b")
 
     echo "The Hamming Distance between \"$string_a\" and \"$string_b\" is: $distance"
 }

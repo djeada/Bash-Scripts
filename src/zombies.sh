@@ -26,7 +26,7 @@ check_zombies() {
     ps -eo pid,stat | awk 'NR>1 && $2 ~ /^Z/ {print $1 " " $2}' > "$TMP_FILE"
 
     # Check if each process is a zombie
-    while read -r pid stat; do
+    while read -r pid; do
         echo "Process $pid is a zombie"
     done < "$TMP_FILE"
 }

@@ -39,7 +39,8 @@ main() {
 
     local number="$1"
 
-    local sum=$(calculate_sum "$number")
+    local sum=0
+    sum=$(calculate_sum "$number")
 
     echo "The sum of integers smaller than $number is $sum."
 }

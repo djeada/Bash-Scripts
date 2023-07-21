@@ -52,7 +52,7 @@ download_repos() {
     fi
 
     deactivate &&
-    cd ~
+    cd ~ || exit
 
     destination="${user_name}_repo_archive.tar"
 

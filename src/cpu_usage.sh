@@ -27,7 +27,7 @@ get_top_processes_for_user() {
 get_process_cpu_usage() {
     local process="$1"
     echo "CPU usage for processes matching '$process':"
-    pgrep -fl "$process" | while read -r pid cmd; do
+    pgrep -fl "$process" | while read -r pid; do
         ps -p "$pid" -o user=,pid=,%cpu=,cmd= --no-headers | awk '{print $1, $2, $3, $4}'
     done
 }

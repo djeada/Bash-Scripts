@@ -8,7 +8,7 @@
 
 # Function: Returns absolute value of a number
 abs() {
-    echo ${1#-}
+    echo "${1#-}"
 }
 
 # Function: Convert the input date into a weekday string
@@ -69,9 +69,12 @@ main() {
     local date="$1"
     validate_date "$date"
     IFS='-' read -r day month year <<< "$date"
-    local day_string=$(day_string_converter "$day" "$month" "$year")
-    local month_string=$(month_string_converter "$month")
-    local time_string=$(random_time)
+    local day_string
+    local month_string
+    local time_string
+    day_string=$(day_string_converter "$day" "$month" "$year")
+    month_string=$(month_string_converter "$month")
+    time_string=$(random_time)
 
     GIT_COMMITTER_DATE="$day_string $month_string $day $time_string $year +0100" git commit --amend --no-edit --date "$day_string $month_string $day $time_string $year +0100"
     echo "Commit date modified to $day_string $month_string $day $time_string $year"

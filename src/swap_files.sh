@@ -25,7 +25,8 @@ check_file_existence() {
 swap_file_contents() {
     local file1="$1"
     local file2="$2"
-    local temp=$(mktemp)
+    local temp=''
+    temp=$(mktemp)
 
     cp "$file1" "$temp"
     cp "$file2" "$file1"

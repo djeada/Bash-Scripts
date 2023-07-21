@@ -24,7 +24,7 @@ main() {
 
     total="0.0"
     TIMEFORMAT=%0lR
-    for i in $(seq 1 "$N"); do
+    for _ in $(seq 1 "$N"); do
         time_slice=$( { time -p $command; } 2>&1 | grep real | awk '{print $2}')
         time_slice=$(sed -r 's/[,]+/./g' <<< "$time_slice")
         total=$(echo "scale=10; $total + $time_slice" | bc)
