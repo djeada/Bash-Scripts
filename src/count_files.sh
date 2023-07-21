@@ -22,9 +22,13 @@ count_files() {
 
     echo -e "\nCounting files in directory: $dir"
 
-    local num_dirs=$(find "$dir" -maxdepth "$depth" -type d | wc -l)
-    local num_files=$(find "$dir" -maxdepth "$depth" -type f | wc -l)
-    local total_count=$((num_dirs + num_files))
+    local num_dirs
+    local num_files
+    local total_count
+
+    num_dirs=$(find "$dir" -maxdepth "$depth" -type d | wc -l)
+    num_files=$(find "$dir" -maxdepth "$depth" -type f | wc -l)
+    total_count=$((num_dirs + num_files))
 
     echo "Number of directories: $num_dirs"
     echo "Number of files: $num_files"
@@ -32,11 +36,13 @@ count_files() {
 }
 
 main() {
-    local current_dir="$(pwd)"
+    local current_dir
     local home_dir="$HOME"
     local root_dir="/"
     local specified_dir=""
     local specified_depth=""
+
+    current_dir="$(pwd)"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in

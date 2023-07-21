@@ -26,8 +26,11 @@ are_anagrams() {
     fi
 
     # Sort strings
-    local string_a_sorted=$(sort_string "$string_a")
-    local string_b_sorted=$(sort_string "$string_b")
+    local string_a_sorted
+    local string_b_sorted
+
+    string_a_sorted=$(sort_string "$string_a")
+    string_b_sorted=$(sort_string "$string_b")
 
     # Compare sorted strings
     if [ "$string_a_sorted" == "$string_b_sorted" ]; then
@@ -50,4 +53,5 @@ main() {
 }
 
 main "$@"
+
 

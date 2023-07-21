@@ -1,3 +1,4 @@
+#!/bin/bash
 
 rename_extension() {
     # $1: file name
@@ -11,9 +12,11 @@ rename_extension() {
 
     local file_name="$1"
     local new_extension="$2"
+    local old_extension
+    local new_file_name
 
-    local old_extension=$([[ "$file_name" = *.* ]] && echo ".${file_name##*.}" || echo '')
-    local new_file_name="${file_name%$old_extension}$new_extension"
+    old_extension=$([[ "$file_name" = *.* ]] && echo ".${file_name##*.}" || echo '')
+    new_file_name="${file_name%"$old_extension"}$new_extension"
 
     mv "$file_name" "$new_file_name"
     echo "Renamed $file_name to $new_file_name"
@@ -52,7 +55,7 @@ rename_files_with_extension() {
     local extension="$2"
     local new_extension="$3"
 
-    find_files_with_extension "$search_directory" "$extension" | while read file_name; do
+    find_files_with_extension "$search_directory" "$extension" | while read -r file_name; do
         rename_extension "$file_name" "$new_extension"
     done
 }

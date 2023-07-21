@@ -17,9 +17,13 @@ main() {
         exit 1
     fi
 
-    local file_path=$1
-    local file_name=$(basename "$file_path")
-    local temp_file="$(mktemp)"
+    local file_path
+    local temp_file
+
+    file_path=$1
+    # file_name is not used in the script so I've removed it.
+
+    temp_file=$(mktemp)
 
     sed -r 's/[^[:space:]]*[0-9][^[:space:]]* ?//g' "$file_path" > "$temp_file"
     mv "$temp_file" "$file_path"

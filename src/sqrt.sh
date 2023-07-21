@@ -11,12 +11,16 @@
 calculate_sqrt() {
     local number=$1
     local precision=$2
-    local scale=$(($precision + 1))
-    local guess=$(bc -l <<< "$number / 2")
+    local scale
+    scale=$((precision + 1))
+    local guess
+    guess=$(bc -l <<< "$number / 2")
 
     while true; do
-        local new_guess=$(bc -l <<< "scale=$scale;($guess + $number / $guess) / 2")
-        local difference=$(bc -l <<< "scale=$scale; $guess - $new_guess")
+        local new_guess
+        new_guess=$(bc -l <<< "scale=$scale;($guess + $number / $guess) / 2")
+        local difference
+        difference=$(bc -l <<< "scale=$scale; $guess - $new_guess")
 
         if (( $(echo "$difference < 0" | bc -l) )); then
             difference=$(bc -l <<< "-1 * $difference")
@@ -30,7 +34,7 @@ calculate_sqrt() {
     done
 
     # Use bc to round the result
-    echo $(bc -l <<< "scale=$precision; $new_guess / 1")
+    bc -l <<< "scale=$precision; $new_guess / 1"
 }
 
 main() {
@@ -59,9 +63,11 @@ main() {
         exit 1
     fi
 
-    local result=$(calculate_sqrt "$number" "$precision")
+    local result
+    result=$(calculate_sqrt "$number" "$precision")
     echo "$result"
 }
 
 main "$@"
+
 

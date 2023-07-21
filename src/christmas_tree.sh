@@ -12,8 +12,8 @@ draw_level() {
     local character=$2
 
     for ((i = 0; i < level_size; i++)); do
-        printf "%*s" $((level_size - i)) # print spaces
-        printf "%0.s$character" $(seq 1 $((2*i + 1))) # print characters
+        printf "%*s" $((level_size - i)) "" # print spaces
+        printf "%0.s%s" $(seq 1 $((2*i + 1))) "$character" # print characters
         printf "\n"
     done
 }
@@ -22,8 +22,7 @@ draw_trunk() {
     local tree_height=$1
     local character=$2
 
-    printf "%*s" $tree_height
-    printf "$character\n"
+    printf "%*s%s\n" "$tree_height" "" "$character"
 }
 
 draw_christmas_tree() {
@@ -52,4 +51,5 @@ main() {
 }
 
 main "$@"
+
 

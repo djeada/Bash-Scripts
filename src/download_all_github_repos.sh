@@ -16,7 +16,7 @@ download_repos() {
 
     temp_dir=$(mktemp -d -q /tmp/repo_archive_XXXXXX)
 
-    if ! [ $? -eq 0 ]; then
+    if ! temp_dir; then
         echo "Error: Can't create a temp dir!"
         exit 1
     fi
@@ -24,13 +24,35 @@ download_repos() {
     echo "Using the following temp dir: $temp_dir"
 
     cd "$temp_dir" || exit
-    virtualenv env &&
-    source env/bin/activate || { echo 'Could not source activate' ; exit 1; }
-    pip install ghcloneall &&
-    ghcloneall --init --user "$user_name" &&
-    ghcloneall &&
+
+    if ! virtualenv env; then
+        echo "Error: Couldn't create virtual environment"
+        exit 1
+    fi
+
+    # shellcheck disable=SC1091
+    if ! source env/bin/activate; then
+        echo 'Could not source activate'
+        exit 1
+    fi
+
+    if ! pip install ghcloneall; then
+        echo "Error: Couldn't install ghcloneall"
+        exit 1
+    fi
+
+    if ! ghcloneall --init --user "$user_name"; then
+        echo "Error: Couldn't clone all repositories"
+        exit 1
+    fi
+
+    if ! ghcloneall; then
+        echo "Error: Couldn't clone all repositories"
+        exit 1
+    fi
+
     deactivate &&
-    cd ~ || exit
+    cd ~
 
     destination="${user_name}_repo_archive.tar"
 
@@ -53,5 +75,4 @@ main() {
 }
 
 main "$@"
-
 

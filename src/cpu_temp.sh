@@ -16,7 +16,7 @@ get_linux_cpu_temp() {
     local path temp
     for potential in "${temp_paths[@]}"; do
         # Use the first accessible and readable file
-        for file in $(ls $potential 2> /dev/null); do
+        for file in "$potential"/*; do
             if [ -r "$file" ]; then
                 path="$file"
                 break 2

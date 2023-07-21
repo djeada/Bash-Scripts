@@ -12,11 +12,11 @@ if [ $# -eq 0 ]; then
 fi
 
 # Check out the specified branch
-git checkout $1
+git checkout "$1"
 
 # Get the number of commits on the branch
 num_commits=$(git rev-list HEAD --count)
 
 # Squash all commits on the branch into a single commit
-git rebase -i HEAD~$num_commits
+git rebase -i HEAD~"$num_commits"
 

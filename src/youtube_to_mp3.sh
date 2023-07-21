@@ -11,7 +11,6 @@ check_dependencies() {
     return 0
 }
 
-
 try_to_install_dependencies() {
     local dependencies=("youtube-dl" "ffmpeg")
 
@@ -29,7 +28,7 @@ try_to_install_dependencies() {
     for dependency in "${dependencies[@]}"; do
         if ! command -v "$dependency" >/dev/null 2>&1; then
             echo "Trying to install '$dependency'."
-            sudo $command_to_instal "$dependency"
+            sudo "$command_to_instal" "$dependency"
         fi
     done
 }
@@ -42,7 +41,6 @@ download_video() {
     echo "Saving video to '$output_file'"
 }
 
-
 convert_video_to_mp3() {
     local input_file="$1"
     local output_file="${input_file%.*}.mp3"
@@ -54,13 +52,13 @@ convert_video_to_mp3() {
 }
 
 download_video_and_convert_to_mp3() {
-
     local url="$1"
+    local output_file
     if [ -z "$2" ]; then
-        local output_file=$(youtube-dl --get-title "$url")
-        local output_file=$(echo "$output_file" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
+        output_file=$(youtube-dl --get-title "$url")
+        output_file=$(echo "$output_file" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
     else
-        local output_file="$2"
+        output_file="$2"
     fi
 
     download_video "$url" "$output_file"
@@ -69,7 +67,8 @@ download_video_and_convert_to_mp3() {
 
 read_playlist_to_array() {
     local url="$1"
-    local temp_file="$(mktemp)"
+    local temp_file
+    temp_file="$(mktemp)"
     youtube-dl -j --flat-playlist --skip-download "$url" | jq -r '.id' | sed 's_^_https://youtu.be/_' > "$temp_file"
     IFS=$'\n'
     read -d '' -r -a all_videos_urls < "$temp_file"
@@ -103,7 +102,6 @@ main() {
     fi
 
 }
-
 
 main "$@"
 

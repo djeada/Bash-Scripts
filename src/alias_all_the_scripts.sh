@@ -32,7 +32,8 @@ main() {
     # Add aliases to .bashrc for each .sh file in the destination directory
     echo "Adding aliases to .bashrc file..."
     for file in "$destination_dir"/*.sh; do
-        local alias_name=$(basename "$file" .sh)
+        local alias_name
+        alias_name=$(basename "$file" .sh)
         echo "alias $alias_name=\". $file\"" >> "$HOME/.bashrc"
         echo "Added alias: $alias_name -> $file"
     done

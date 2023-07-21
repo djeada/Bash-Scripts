@@ -13,14 +13,14 @@ if [ $# -lt 1 ] || [ $# -gt 2 ]; then
 fi
 
 # Check if file exists
-if [ ! -f $1 ]; then
+if [ ! -f "$1" ]; then
     echo "File $1 not found."
     exit 1
 fi
 
 # If second argument is present, set min_word_length
 min_word_length=0
-if [ ! -z "$2" ]; then
+if [ -n "$2" ]; then
     min_word_length=$2
 fi
 
@@ -34,7 +34,7 @@ do
     for word in $line
     do
         word=${word,,} # convert to lowercase
-        if [ ${#word} -ge $min_word_length ]; then
+        if [ ${#word} -ge "$min_word_length" ]; then
             ((wordcounts[$word]++))
         fi
     done
