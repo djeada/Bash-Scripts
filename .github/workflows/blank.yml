@@ -25,6 +25,16 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      # Installing shellcheck
+      - name: Install ShellCheck
+        run: sudo apt-get install shellcheck
+
+      # Installing beautysh
+      - name: Install Beautysh
+        run: |
+          sudo apt-get install python3-pip
+          pip3 install beautysh
+
       # Execute defined hooks
       - name: Run all hooks
         run: ${GITHUB_WORKSPACE}/hooks/_run_all.sh
