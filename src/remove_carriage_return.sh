@@ -67,12 +67,13 @@ main() {
         exit 1
     fi
 
-    if [[ $status -eq 1 ]]; then
+    if [[ $checkonly -eq 1 && $status -eq 1 ]]; then
+        echo "One or more files contain carriage return."
         exit 1
     fi
 
     echo "Carriage return checked successfully."
+    exit 0
 }
 
 main "$@"
-
