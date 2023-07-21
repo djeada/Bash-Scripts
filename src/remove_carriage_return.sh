@@ -30,9 +30,9 @@ process_directory() {
     # $1: directory path
     local directory="$1"
 
-    find "$directory" -type f -print0 | while IFS= read -r -d $'\0' file; do
+    while IFS= read -r -d $'\0' file; do
         remove_carriage_return "$file"
-    done
+    done < <(find "$directory" -type f -print0)
 }
 
 process_single_file() {
