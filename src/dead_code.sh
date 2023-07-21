@@ -42,3 +42,4 @@ for i in "${!names[@]}"; do
         echo "${names[$i]} occurred ${counts[$i]} times"
     fi
 done
+

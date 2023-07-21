@@ -40,3 +40,4 @@ for file in ${FILES}; do
 done
 
 echo "Resizing complete."
+

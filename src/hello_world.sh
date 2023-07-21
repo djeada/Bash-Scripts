@@ -27,3 +27,4 @@ if [[ -z "${USER}" ]]; then
 else
     echo "The USER environment variable is set to: $USER"
 fi
+

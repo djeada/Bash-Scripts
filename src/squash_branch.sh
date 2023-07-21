@@ -19,3 +19,4 @@ num_commits=$(git rev-list HEAD --count)
 
 # Squash all commits on the branch into a single commit
 git rebase -i HEAD~$num_commits
+

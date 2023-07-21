@@ -31,3 +31,4 @@ done
 pandoc $md_files --from markdown --to pdf --output "$output_file"
 
 echo "PDF generated successfully."
+

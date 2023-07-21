@@ -3,6 +3,7 @@
 # Global variables
 checkonly=0
 status=0
+scriptname=$(basename "$0")
 
 remove_trailing_whitespaces() {
     local file="$1"
@@ -49,11 +50,14 @@ main() {
     local path="$1"
 
     if [ "$path" == '.' ] || [ -d "$path" ]; then
-        for file in $(find "$path" -maxdepth 10 -type f); do
+        for file in $(find "$path" -maxdepth 10 -type f ! -name "*.tmp" ! -regex ".*/`basename "$0"`"); do
+
             remove_trailing_whitespaces "$file"
         done
     elif [ -f "$path" ]; then
-        remove_trailing_whitespaces "$path"
+        if [ "$(basename "$path")" != "$scriptname" ]; then
+            remove_trailing_whitespaces "$path"
+        fi
     else
         echo "$path is not a valid path!"
         exit 1

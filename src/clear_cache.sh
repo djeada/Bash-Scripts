@@ -28,3 +28,4 @@ if [[ "$dry_run" -eq 1 ]]; then
 else
     find ~/.cache -depth -type f -mtime +"$days" -delete
 fi
+

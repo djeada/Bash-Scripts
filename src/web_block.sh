@@ -59,3 +59,4 @@ function modify_hosts {
 require_root
 validate_args "$@"
 modify_hosts
+

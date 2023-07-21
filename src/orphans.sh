@@ -45,3 +45,4 @@ trap cleanup EXIT
 
 # Run the main function
 check_orphans
+

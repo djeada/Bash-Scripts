@@ -45,3 +45,4 @@ echo "Printing sorted word frequencies..."
 for word in "${!wordcounts[@]}"; do
     echo "$word:${wordcounts[$word]}"
 done | sort -rn -t":" -k2
+
