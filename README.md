@@ -433,7 +433,7 @@ shellcheck **/*.sh
 | 11	| Clears the local caches in the user's cache directory (e.g. `~/.cache`) that are older than a specified number of days. | [clear_cache.sh](https://github.com/djeada/Bash-scripts/blob/master/src/clear_cache.sh) |
 | 12 | Resizes all JPG files in the current directory to a specified dimension (A4). | [resize_to_a4](https://github.com/djeada/Bash-Scripts/edit/master/src/resize_to_a4.sh) |
 
-## Refrences
+## References
 
 * https://www.gnu.org/software/bash/manual/bash.html
 * http://mywiki.wooledge.org/BashGuide
