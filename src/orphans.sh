@@ -2,7 +2,7 @@
 
 # Script Name: orphans.sh
 # Description: This script displays processes that might be orphans, i.e. processes that have no parent process.
-# Usage: `./orphans.sh`
+# Usage: `chmod +x orphans.sh && ./orphans.sh`
 # Example: `./orphans.sh` displays a list of processes that might be orphans.
 
 # Temporary files
@@ -24,17 +24,15 @@ error_exit() {
 
 # Function to check for orphan processes
 check_orphans() {
-    # Get a list of all processes
-    ps -eo ppid,pid,comm | sed 1d | awk '{print $1 " " $2}' > "$TMP_FILE"
+    # Get a list of all processes' PID and PPID
+    ps -eo ppid,pid | sed 1d > "$TMP_FILE"
 
-    # Create a list of parent process IDs
-    awk '{print $1}' "$TMP_FILE" > "$PPID_TMP_FILE"
+    # Create a list of all parent process IDs
+    awk '{print $1}' "$TMP_FILE" | sort -u > "$PPID_TMP_FILE"
 
     # Check if each process has a parent process
-    while read -r line; do
-        ppid=$(echo "$line" | awk '{print $1}')
-        pid=$(echo "$line" | awk '{print $2}')
-        if ! grep -q "$ppid" "$PPID_TMP_FILE"; then
+    while read -r ppid pid; do
+        if ! grep -q -w "^$ppid$" "$PPID_TMP_FILE"; then
             echo "Process $pid might be an orphan"
         fi
     done < "$TMP_FILE"
@@ -50,4 +48,3 @@ trap cleanup EXIT
 
 # Run the main function
 check_orphans
-
