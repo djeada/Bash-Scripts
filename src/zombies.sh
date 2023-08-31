@@ -2,7 +2,7 @@
 
 # Script Name: zombies.sh
 # Description: This script displays zombie processes, i.e., processes that have terminated but have not been fully removed from the system.
-# Usage: ./zombies.sh
+# Usage: bash zombies.sh or chmod +x zombies.sh && ./zombies.sh
 # Example: ./zombies.sh displays a list of zombie processes.
 
 # Define temporary file
@@ -26,7 +26,7 @@ check_zombies() {
     ps -eo pid,stat | awk 'NR>1 && $2 ~ /^Z/ {print $1 " " $2}' > "$TMP_FILE"
 
     # Check if each process is a zombie
-    while read -r pid; do
+    while read -r pid status; do
         echo "Process $pid is a zombie"
     done < "$TMP_FILE"
 }
@@ -41,4 +41,3 @@ trap cleanup EXIT
 
 # Run the main function
 check_zombies
-
