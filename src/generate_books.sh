@@ -7,16 +7,23 @@
 output_file="output.pdf"
 
 # Discover all Markdown files in the current directory
-md_files=$(find . -maxdepth 1 -type f -name "*.md" | sort)
+md_files=( $(find . -maxdepth 1 -type f -name "*.md" | sort) )
 
 # Check if any Markdown file is found
-if [ -z "$md_files" ]; then
+if [ -z "${md_files[*]}" ]; then
     echo "No Markdown files found in the current directory."
     exit 1
 fi
 
+# Create a directory for backups
+backup_dir="./backup_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$backup_dir"
+
 # Iterate over Markdown files
-for file in $md_files; do
+for file in "${md_files[@]}"; do
+    # Backup the original file
+    cp "$file" "$backup_dir"
+
     # Check if the page break command exists in the file
     if grep -q '\\newpage' "$file"; then
         echo "Page break already exists in $file"
@@ -28,7 +35,7 @@ for file in $md_files; do
 done
 
 # Convert Markdown files to PDF using Pandoc
-pandoc "$md_files" --from markdown --to pdf --output "$output_file"
+pandoc "${md_files[@]}" --from markdown --to pdf --output "$output_file"
 
-echo "PDF generated successfully."
+echo "PDF generated successfully. Original files have been backed up in $backup_dir."
 
