@@ -5,7 +5,7 @@
 # Usage: hamming_distance.sh string_a string_b
 #        string_a - First string to compare
 #        string_b - Second string to compare
-# Example: hamming_distance.sh "xxbab" "wokka bbabb"
+# Example: hamming_distance.sh "xxbab" "bbabb"
 # Output: 4
 
 calculate_hamming_distance() {
