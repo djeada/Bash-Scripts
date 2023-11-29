@@ -37,6 +37,15 @@ for file in "${md_files[@]}"; do
     fi
 done
 
+# Concatenate all Markdown files
+cat "${md_files[@]}" > "$concatenated_md"
+
+# Check if concatenated file is created and not empty
+if [ ! -s "$concatenated_md" ]; then
+    echo "Failed to create concatenated Markdown file or file is empty."
+    exit 1
+fi
+
 # Convert Markdown files to PDF using Pandoc
 pandoc "$concatenated_md" --from markdown --to pdf --output "$OUTPUT_FILE" -V papersize=$PAPER_SIZE -V geometry="top=$MARGIN_TOP, right=$MARGIN_RIGHT, bottom=$MARGIN_BOTTOM, left=$MARGIN_LEFT"
 
