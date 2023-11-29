@@ -4,13 +4,14 @@
 # Description: Converts Markdown files to PDF with page breaks between chapters
 
 # Constants
-OUTPUT_FILE="output.pdf"        # Name of the output PDF file
-PAPER_SIZE="a5"                # Paper size (e.g., a5, a4, letter)
-BACKUP_DIR_PREFIX="./backup_"  # Prefix for backup directory
-MARGIN_TOP="1cm"    # Top margin
-MARGIN_RIGHT="1cm"  # Right margin
-MARGIN_BOTTOM="1cm" # Bottom margin
-MARGIN_LEFT="1cm"   # Left margin
+OUTPUT_FILE="output.pdf"         # Name of the output PDF file
+PAPER_SIZE="a5"                  # Paper size (e.g., a5, a4, letter)
+BACKUP_DIR_PREFIX="./backup_"    # Prefix for backup directory
+MARGIN_TOP="1cm"                 # Top margin
+MARGIN_RIGHT="1cm"               # Right margin
+MARGIN_BOTTOM="1cm"              # Bottom margin
+MARGIN_LEFT="1cm"                # Left margin
+CONCATENATED_MD="concatenated.md" # Temporary file for concatenated Markdown
 
 # Discover all Markdown files in the current directory
 md_files=( $(find . -maxdepth 1 -type f -name "*.md" | sort) )
@@ -38,15 +39,15 @@ for file in "${md_files[@]}"; do
 done
 
 # Concatenate all Markdown files
-cat "${md_files[@]}" > "$concatenated_md"
+cat "${md_files[@]}" > "$CONCATENATED_MD"
 
 # Check if concatenated file is created and not empty
-if [ ! -s "$concatenated_md" ]; then
+if [ ! -s "$CONCATENATED_MD" ]; then
     echo "Failed to create concatenated Markdown file or file is empty."
     exit 1
 fi
 
-# Convert Markdown files to PDF using Pandoc
-pandoc "$concatenated_md" --from markdown --to pdf --output "$OUTPUT_FILE" -V papersize=$PAPER_SIZE -V geometry="top=$MARGIN_TOP, right=$MARGIN_RIGHT, bottom=$MARGIN_BOTTOM, left=$MARGIN_LEFT"
+# Convert Markdown files to PDF using Pandoc with custom margins
+pandoc "$CONCATENATED_MD" --from markdown --to pdf --output "$OUTPUT_FILE" -V papersize=$PAPER_SIZE -V geometry="top=$MARGIN_TOP, right=$MARGIN_RIGHT, bottom=$MARGIN_BOTTOM, left=$MARGIN_LEFT"
 
 echo "PDF generated successfully. Original files have been backed up in $backup_dir."
