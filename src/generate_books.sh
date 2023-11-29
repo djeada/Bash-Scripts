@@ -1,10 +1,12 @@
 #!/bin/bash
 
 # Script: generate_pdf.sh
-# Description: This script adds a page break between chapters in Markdown files and converts them to PDF using Pandoc.
+# Description: Converts Markdown files to PDF with page breaks between chapters
 
-# Define the output filename
-output_file="output.pdf"
+# Constants
+OUTPUT_FILE="output.pdf"        # Name of the output PDF file
+PAPER_SIZE="a5"                # Paper size (e.g., a5, a4, letter)
+BACKUP_DIR_PREFIX="./backup_"  # Prefix for backup directory
 
 # Discover all Markdown files in the current directory
 md_files=( $(find . -maxdepth 1 -type f -name "*.md" | sort) )
@@ -15,8 +17,8 @@ if [ -z "${md_files[*]}" ]; then
     exit 1
 fi
 
-# Create a directory for backups
-backup_dir="./backup_$(date +%Y%m%d_%H%M%S)"
+# Create a backup directory
+backup_dir="${BACKUP_DIR_PREFIX}$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$backup_dir"
 
 # Iterate over Markdown files
@@ -24,18 +26,14 @@ for file in "${md_files[@]}"; do
     # Backup the original file
     cp "$file" "$backup_dir"
 
-    # Check if the page break command exists in the file
-    if grep -q '\\newpage' "$file"; then
-        echo "Page break already exists in $file"
-    else
-        # Add the page break command to the file
+    # Add a page break if it does not exist
+    if ! grep -q '\\newpage' "$file"; then
         awk '/^#/ && !f {print "\\newpage"; f=1} 1' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
         echo "Added page break to $file"
     fi
 done
 
 # Convert Markdown files to PDF using Pandoc
-pandoc "${md_files[@]}" --from markdown --to pdf --output "$output_file"
+pandoc "${md_files[@]}" --from markdown --to pdf --output "$OUTPUT_FILE" -V papersize=$PAPER_SIZE
 
 echo "PDF generated successfully. Original files have been backed up in $backup_dir."
-
