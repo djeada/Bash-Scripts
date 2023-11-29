@@ -1,53 +1,65 @@
 #!/bin/bash
 
 # Script: generate_pdf.sh
-# Description: Converts Markdown files to PDF with page breaks between chapters
+# Description: Converts Markdown files to PDF, treating each file as a chapter and headers as subchapters.
 
 # Constants
-OUTPUT_FILE="output.pdf"         # Name of the output PDF file
-PAPER_SIZE="a5"                  # Paper size (e.g., a5, a4, letter)
-BACKUP_DIR_PREFIX="./backup_"    # Prefix for backup directory
-MARGIN_TOP="1cm"                 # Top margin
-MARGIN_RIGHT="1cm"               # Right margin
-MARGIN_BOTTOM="1cm"              # Bottom margin
-MARGIN_LEFT="1cm"                # Left margin
-CONCATENATED_MD="concatenated.md" # Temporary file for concatenated Markdown
+OUTPUT_FILE="output.pdf"
+PAPER_SIZE="a5"
+BACKUP_DIR_PREFIX="./backup_"
+MARGIN="top=2cm, right=1.5cm, bottom=2cm, left=1.5cm, footskip=8mm"
+CONCATENATED_MD="concatenated.md"
 
-# Discover all Markdown files in the current directory
+# Function to create a backup of files
+backup_files() {
+    local backup_dir="${BACKUP_DIR_PREFIX}$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$backup_dir" || { echo "Failed to create backup directory."; exit 1; }
+    for file in "$@"; do
+        cp "$file" "$backup_dir" || { echo "Failed to copy file $file to backup."; continue; }
+    done
+    echo "$backup_dir"
+}
+
+# Function to add page breaks and concatenate Markdown files
+concatenate_md_files() {
+    local files=("$@")
+    : > "$CONCATENATED_MD" # Safely truncate file
+    for file in "${files[@]}"; do
+        if ! grep -q '\\newpage' "$file"; then
+            awk '/^#/ && !f {print "\\newpage\n"; f=1} 1' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+        fi
+        cat "$file" >> "$CONCATENATED_MD" || { echo "Failed to concatenate file $file."; continue; }
+    done
+}
+
+# Function to convert Markdown to PDF
+convert_to_pdf() {
+    pandoc "$CONCATENATED_MD" --from markdown --to pdf \
+        --output "$OUTPUT_FILE" -V papersize="$PAPER_SIZE" -V geometry="$MARGIN" || { echo "Failed to convert to PDF."; exit 1; }
+}
+
+# Cleanup function
+cleanup() {
+    echo "Cleaning up temporary files..."
+    [ -f "$CONCATENATED_MD" ] && rm "$CONCATENATED_MD"
+}
+
+# Main logic
+trap cleanup EXIT
+
 md_files=( $(find . -maxdepth 1 -type f -name "*.md" | sort) )
 
-# Check if any Markdown file is found
-if [ -z "${md_files[*]}" ]; then
+if [ ${#md_files[@]} -eq 0 ]; then
     echo "No Markdown files found in the current directory."
     exit 1
 fi
 
-# Create a backup directory
-backup_dir="${BACKUP_DIR_PREFIX}$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$backup_dir"
+backup_dir=$(backup_files "${md_files[@]}")
+concatenate_md_files "${md_files[@]}"
+convert_to_pdf
 
-# Iterate over Markdown files
-for file in "${md_files[@]}"; do
-    # Backup the original file
-    cp "$file" "$backup_dir"
-
-    # Add a page break if it does not exist
-    if ! grep -q '\\newpage' "$file"; then
-        awk '/^#/ && !f {print "\\newpage"; f=1} 1' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-        echo "Added page break to $file"
-    fi
-done
-
-# Concatenate all Markdown files
-cat "${md_files[@]}" > "$CONCATENATED_MD"
-
-# Check if concatenated file is created and not empty
-if [ ! -s "$CONCATENATED_MD" ]; then
-    echo "Failed to create concatenated Markdown file or file is empty."
-    exit 1
+if [ -f "$OUTPUT_FILE" ]; then
+    echo "PDF generated successfully. Original files have been backed up in $backup_dir."
+else
+    echo "PDF generation failed."
 fi
-
-# Convert Markdown files to PDF using Pandoc with custom margins
-pandoc "$CONCATENATED_MD" --from markdown --to pdf --output "$OUTPUT_FILE" -V papersize=$PAPER_SIZE -V geometry="top=$MARGIN_TOP, right=$MARGIN_RIGHT, bottom=$MARGIN_BOTTOM, left=$MARGIN_LEFT"
-
-echo "PDF generated successfully. Original files have been backed up in $backup_dir."
