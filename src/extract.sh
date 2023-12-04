@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
 
 # Script Name: extract.sh
-# Description: Script to extract files based on extension
+# Description: Extracts files based on their extension.
 # Usage: extract.sh [archive file] [optional: output directory]
-#       [archive file] - archive file to be extracted
-# Example: ./extract.sh example-14-09-12.tar /home/user/output
-
-extensions=(.tar.xz .tar.gz .tar.bz2 .tar .tgz .bz .bz2 .tbz .tbz2 .gz .zip .jar .Z .rar .7z)
 
 main() {
     if [ $# -lt 1 ] || [ $# -gt 2 ]; then
         echo "Usage: extract.sh [archive file] [optional: output directory]"
-        echo "       [archive file] - archive file to be extracted"
-        echo "Example: ./extract.sh example-14-09-12.tar /home/user/output"
         exit 1
     fi
 
@@ -25,21 +19,35 @@ main() {
     fi
 
     if ! [ -d "$output_dir" ]; then
-        echo "Output directory $output_dir does not exist."
-        exit 1
+        mkdir -p "$output_dir" || { echo "Failed to create output directory $output_dir"; exit 1; }
+        echo "Created output directory $output_dir"
     fi
 
+    extract_file "$file" "$output_dir"
+}
+
+extract_file() {
+    local file=$1
+    local output_dir=$2
+
     case "$file" in
-        *.tar.xz|*.tar.gz|*.tar.bz2|*.tar|*.tgz) tar -xvf "$file" -C "$output_dir" ;;
-        *.bz|*.bz2|*.tbz|*.tbz2) bzip2 -d -k "$file" ;;
-        *.gz) gunzip "$file" -c > "$output_dir" ;;
-        *.zip|*.jar) unzip "$file" -d "$output_dir" ;;
-        *.Z) zcat "$file" | tar -xvf - -C "$output_dir" ;;
-        *.rar) rar x "$file" "$output_dir" ;;
-        *.7z) 7z x "$file" -o"$output_dir" ;;
-        *) echo "Unsupported archive format. Supported formats: ${extensions[*]}" ;;
+        *.tar.xz)  command_exists "tar" && tar -xvf "$file" -C "$output_dir" ;;
+        *.tar.gz)  command_exists "tar" && tar -xzf "$file" -C "$output_dir" ;;
+        *.tar.bz2) command_exists "tar" && tar -xjf "$file" -C "$output_dir" ;;
+        *.tar)     command_exists "tar" && tar -xf "$file" -C "$output_dir" ;;
+        *.tgz)     command_exists "tar" && tar -xzf "$file" -C "$output_dir" ;;
+        *.bz|*.bz2) command_exists "bzip2" && bzip2 -d -k "$file" ;;
+        *.gz)      command_exists "gunzip" && gunzip "$file" -c > "$output_dir" ;;
+        *.zip|*.jar) command_exists "unzip" && unzip "$file" -d "$output_dir" ;;
+        *.Z)      command_exists "zcat" && zcat "$file" | tar -xvf - -C "$output_dir" ;;
+        *.rar)    command_exists "rar" && rar x "$file" "$output_dir" ;;
+        *.7z)     command_exists "7z" && 7z x "$file" -o"$output_dir" ;;
+        *) echo "Unsupported archive format." ;;
     esac
 }
 
-main "$@"
+command_exists() {
+    command -v "$1" >/dev/null 2>&1 || { echo >&2 "I require $1 but it's not installed. Aborting."; exit 1; }
+}
 
+main "$@"
