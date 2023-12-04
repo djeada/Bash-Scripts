@@ -1,14 +1,43 @@
 #!/usr/bin/env bash
 
-# Script Name: html_table_to_markdown
-# Description: This script converts an HTML table to a Markdown table.
+# Script Name: html_table_to_markdown.sh
+# Description: Converts an HTML table to a Markdown table.
 # Usage: ./html_table_to_markdown.sh [html_file]
-# Example: ./html_table_to_markdown.sh table.html
 
-# Function to print script usage
 print_usage() {
     echo "Usage: $0 [html_file]"
     echo "Converts an HTML table in the specified file to a Markdown table."
+}
+
+convert_row_to_markdown() {
+    local row=$1
+    local row_type=$2 # 'header' or 'data'
+
+    # Detect if the row is a header or data
+    if [[ $row =~ "<th" ]]; then
+        row_type="header"
+    else
+        row_type="data"
+    fi
+
+    # Extract cells and convert to Markdown
+    row=$(echo "$row" | sed -e 's/<\/\?\(th\|td\)[^>]*>//g' -e 's/^\s*//g' -e 's/\s*$//g')
+    local IFS=$'\n'
+    local cells=($(grep -o '<td>.*</td>\|<th>.*</th>' <<< "$row"))
+    local markdown_cells=()
+
+    for cell in "${cells[@]}"; do
+        # Strip HTML tags and escape pipes
+        cell=$(echo "$cell" | sed -e 's/<[^>]*>//g' -e 's/|/\\|/g')
+        markdown_cells+=("$cell")
+    done
+
+    if [ "$row_type" == "header" ]; then
+        echo "| ${markdown_cells[*]} |"
+        echo "|$(printf ' --- |' $(seq 1 ${#markdown_cells[@]}))"
+    else
+        echo "| ${markdown_cells[*]} |"
+    fi
 }
 
 # Check the number of arguments
@@ -20,7 +49,6 @@ fi
 
 html_file="$1"
 
-# Check if file exists
 if [[ ! -f $html_file ]]; then
     echo "Error: File $html_file not found."
     exit 1
@@ -29,33 +57,7 @@ fi
 # Extract the table rows from the HTML file
 rows=$(grep -oP '<tr>.+?</tr>' "$html_file")
 
-# Initialize an empty array to store the Markdown table rows
-declare -a markdown_rows
-
 # Convert each table row to Markdown
 while IFS= read -r row; do
-    # Extract the table cells from the row
-    cells=$(grep -oP '<td>.+?</td>' <<< "$row")
-
-    # Initialize an empty array to store the Markdown table cells
-    declare -a markdown_cells
-
-    # Convert each table cell to Markdown
-    while IFS= read -r cell; do
-        # Strip the HTML tags from the cell
-        cell=$(sed 's/<[^>]*>//g' <<< "$cell")
-        # Escape pipes and dashes in the cell
-        cell=$(sed 's/|/\\|/g; s/-/\\-/g' <<< "$cell")
-        # Add the cell to the array
-        markdown_cells+=("$cell")
-    done <<< "$cells"
-
-    # Join the Markdown cells with pipes and add the row to the array
-    markdown_row=$(IFS='|'; printf '| %s |\n' "${markdown_cells[*]}")
-    markdown_rows+=("$markdown_row")
+    convert_row_to_markdown "$row"
 done <<< "$rows"
-
-# Join the Markdown rows with newlines and print the table
-markdown_table=$(IFS=$'\n'; echo "${markdown_rows[*]}")
-echo -e "$markdown_table"
-
