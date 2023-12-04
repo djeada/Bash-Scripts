@@ -1,45 +1,72 @@
 #!/usr/bin/env bash
 
 # Script Name: find_dead_code.sh
-# Description: This script searches for function and class definitions in Python files in the current directory and all subdirectories, and counts their occurrences. It then displays a list of functions and classes that occur less than a specified number of times, which may indicate dead code.
-# Usage: `find_dead_code.sh [n]`
-# Example: `find_dead_code.sh 3` displays a list of functions and classes that occur less than 3 times in the Python files in the current directory and all subdirectories.
+# Description: This script searches for function and class definitions in Python files within a specified directory and displays those with occurrences less than a specified threshold. It can also exclude certain files or directories and offers a verbose mode for detailed logging.
+# Usage: find_dead_code.sh [threshold] [path] [--exclude=path1,path2] [--verbose]
+# Example: find_dead_code.sh 3 /path/to/project --exclude=tests,venv --verbose
 
-# Set default value for n if no argument is provided
+# Default threshold for minimum occurrences
 n="${1:-3}"
+# Directory to search in, defaults to current directory
+dir="${2:-.}"
 
-# Find all .py files in the current directory and all subdirectories
-files=$(find . -name '*.py')
+excluded_paths=()
+verbose_mode=false
 
-# Initialize an empty array to store the names of functions and classes
-names=()
+shift 2
+for arg in "$@"; do
+    case $arg in
+        --exclude=*)
+            IFS=',' read -r -a excluded_paths <<< "${arg#*=}"
+            ;;
+        --verbose)
+            verbose_mode=true
+            ;;
+        *)
+            echo "Warning: Unrecognized option '$arg'"
+            ;;
+    esac
+done
 
-# Extract the names of functions and classes from the .py files
-for file in $files; do
-    while IFS= read -r line; do
-        # Check if the line starts with "def" or "class"
-        if [[ "$line" == def* ]] || [[ "$line" == class* ]]; then
-            # Extract the first word after "def" or "class"
-            name=$(echo "$line" | awk '{print $2}' | awk -F '[: (]' '{print $1}')
-            # Add the name to the array
-            names+=("$name")
+if [ ! -d "$dir" ]; then
+    echo "Error: Specified directory does not exist."
+    exit 1
+fi
+
+# Function to recursively find all Python files in the specified directory
+find_python_files() {
+    find "$dir" -type f -name '*.py' | {
+        for excluded_path in "${excluded_paths[@]}"; do
+            grep -v "$dir/$excluded_path"
+        done
+    }
+}
+
+# Function to extract function and class names
+extract_names() {
+    local file
+    while IFS= read -r file; do
+        if $verbose_mode; then
+            echo "Processing file: $file"
         fi
-    done < "$file"
-done
+        grep -Eho '^class [a-zA-Z_][a-zA-Z0-9_]*|^def [a-zA-Z_][a-zA-Z0-9_]*' "$file" | awk '{print $2}'
+    done < <(find_python_files) | sort | uniq
+}
 
-# Initialize an empty array to store the counts of functions and classes
-counts=()
+# Function to count occurrences and display names under threshold
+count_and_display() {
+    local name
+    while IFS= read -r name; do
+        if [[ $name =~ ^test ]]; then
+            continue
+        fi
 
-# Count the occurrences of each name in the .py files
-for name in "${names[@]}"; do
-    count=$(grep -c "$name" "$files")
-    counts+=("$count")
-done
+        local count=$(grep -RhoP "\b${name}\b" "$dir" | wc -l)
+        if [ "$count" -lt "$n" ]; then
+            echo "$name occurred $count times"
+        fi
+    done
+}
 
-# Display the names and counts of functions and classes that occur less than n times
-for i in "${!names[@]}"; do
-    if [ "${counts[$i]}" -lt "$n" ]; then
-        echo "${names[$i]} occurred ${counts[$i]} times"
-    fi
-done
-
+# Main execution
+extract_names | count_and_display
