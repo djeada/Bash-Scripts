@@ -8,64 +8,33 @@ A collection of Bash scripts for automating routine tasks and streamlining your 
 
 ![Screenshot](https://user-images.githubusercontent.com/37275728/186024435-7edf1be2-ca64-4841-98bf-d07cbb362715.png)
 
-## Table of Contents
-<!--ts-->
-
-  - [About Bash](#about-bash)
-    - [What's the purpose of shell scripts?](#whats-the-purpose-of-shell-scripts)
-    - [When should you not use Bash?](#when-should-you-not-use-bash)
-    - [Hello world](#hello-world)
-    - [Executing a script](#executing-a-script)
-    - [The shebang](#the-shebang)
-    - [Variables](#variables)
-    - [Command line arguments](#command-line-arguments)
-    - [If statements](#if-statements)
-    - [For loops](#for-loops)
-    - [Arrays](#arrays)
-    - [Functions](#functions)
-    - [Pipes](#pipes)
-    - [Redirections](#redirections)
-    - [Formatting and linting](#formatting-and-linting)
-  - [Available scripts](#available-scripts)
-    - [Intro](#intro)
-    - [Math](#math)
-    - [Strings](#strings)
-    - [Arrays](#arrays-1) 
-    - [Files](#files)
-    - [System administration](#system-administration)
-    - [Programming workflow](#programming-workflow)
-    - [Git](#git)
-    - [Utility](#utility)
-  - [References](#references)
-
-<!--te-->
-
 ## About Bash
 
-* Scripting languages originated as extensions of command interpreters in operating systems.
-* Bourne shell (sh) was the first significant shell. Bash, today's most used Unix shell, is a GNU/FSF enhancement on the Bourne shell.
-* Other shells include: C shell (csh), TC shell (tcsh), Dash (dash), Korn shell (ksh), Z shell (zsh).
+Bash (Bourne Again SHell) is an essential component of Unix-like operating systems. It's a powerful scripting language and command interpreter that has evolved from its predecessors in the Unix world. Here's an overview:
 
-###  What's the purpose of shell scripts? 
+### Historical Background
+- **Origin of Scripting Languages**: These languages began as enhancements to command interpreters in operating systems.
+- **The Bourne Shell (sh)**: Developed in the 1970s, it was the first significant shell in Unix.
+- **Evolution to Bash**: Bash, now the most widely used Unix shell, was developed by the GNU Project as an improvement upon the Bourne shell.
+- **Other Shells**: There are several other shells like the C shell (csh), TC shell (tcsh), Dash (dash), Korn shell (ksh), and Z shell (zsh).
 
-* When working on programming projects or doing administrative tasks on servers, usually several command sequences are regularly repeated. This is especially true when working with files and directories, processing text, or configuring the network. Numerous times, those command sequences exist in many forms and must be adjusted with user input, necessitating the usage of scripts.
-* Scripting languages such as Bash improve our processes by including variables, if statements, loops, arrays, and functions, allowing for more sophisticated program flow.
-* The actual power of shell script comes from all of the accessible Unix commands.
-* Eventually, scripts get too complicated for basic languages such as Bash. At this stage, you should consider utilizing more powerful programming languages, such as Python.
-* Shell scripts may also be used to "glue" together more complex Python scripts.
+### Purpose of Shell Scripts
+- **Automating Tasks**: Shell scripts are invaluable for automating repetitive command sequences, particularly in programming and server administration. This is especially relevant for file and directory operations, text processing, and network configuration.
+- **Enhanced Functionality**: Bash and other scripting languages incorporate features like variables, conditional statements, loops, arrays, and functions for more sophisticated control flow.
+- **Leveraging Unix Commands**: The true strength of shell scripting lies in its ability to utilize the vast array of Unix commands.
+- **Transition to Advanced Languages**: When scripts become overly complex for Bash, transitioning to more powerful languages like Python is advisable.
+- **Integration with Other Scripts**: Bash scripts can be used to integrate or 'glue' together complex scripts written in languages such as Python.
 
-###  When should you not use Bash? 
+### Limitations of Bash
+- **Complex Applications**: Bash is not well-suited for developing complex applications.
+- **Graphical User Interface (GUI)**: It's not designed for building GUI applications.
+- **Cross-Platform Portability**: Bash scripts may not be portable across different operating systems without modification.
+- **Performing Calculations**: It's less efficient for complex calculations compared to languages like Python.
+- **Network Programming**: Bash has limitations in handling advanced network programming tasks.
 
-* Complex applications.
-* GUI.
-* Cross-platform portability.
-* Calculations.
-* Network programming.
+### "Hello World" in Bash
 
-
-### Hello world 
-
-This is a simple example of a Bash script. It prints the string "Hello World" to the standard output (stdout). 
+A basic example of a Bash script is the famous "Hello World". It demonstrates how to output text to the console.
 
 ```bash
 #!/usr/bin/env bash
@@ -74,70 +43,99 @@ echo "Hello world"
 
 ### Executing a script 
 
-To run this script, open the terminal in the directory where the script is located and type the following command:
+To execute a Bash script, you need to make it executable and then run it from the terminal. Here's how you can do it:
 
 ```bash
-chmod u+x filename.sh
-./filename.sh
+chmod u+x filename.sh  # Make the script executable
+./filename.sh          # Execute the script
 ```
 
-### The shebang
+### The Shebang
 
-In the first line of a script, the shebang (#!) is used to specify the interpreter to be used when the script is executed. To use the bash interpreter, the first line of a script file must specify the absolute path to the bash executable:
+The shebang (`#!`) line at the beginning of a script is crucial for defining the script's interpreter. It's more than just a convention; it's an essential aspect of script execution in Unix-like systems. Here's an expanded view:
+  
+Example Shebang for Bash:
 
 ```bash
 #!/usr/bin/env bash
 ```
 
-The bash path in the shebang is resolved and utilized only when a script is launched directly from a terminal. If the script is launched from a shell script, the interpreter is not resolved and the script is executed using the shell interpreter.
+Execution Contexts
 
-```bash
-./filename.sh
-```
+- **Direct Execution**: When a script is executed directly from a terminal, the shebang's specified interpreter is used. Example: `./filename.sh`
+- **Nested in Another Script**: If the script is invoked from another shell script, the parent script's interpreter is used, and the shebang in the child script is ignored.
+- **Explicit Interpreter Invocation**: When a script is executed with an explicit interpreter command (like `bash ./filename.sh`), the shebang line is bypassed.
 
-When a bash interpreter is explicitly specified to execute a script, the shebang is ignored:
+Shebang in Other Languages
 
-```bash
-bash ./filename.sh
-```
-
-Scripts may also be created in a variety of different "scripting languages," thus a Perl script might begin with `#!/usr/bin/env perl` and one in Python with ` #!/usr/bin/env python3`.
+- **Versatility**: The shebang is not limited to Bash scripts. It's used in various scripting languages to specify their respective interpreters.
+- **Perl Example**: `#!/usr/bin/env perl`
+- **Python Example**: `#!/usr/bin/env python3`
 
 ### Variables 
   
-* Assign the value: `var="Test"`.
-* Retrive the value: `$x` or `${x}`.
-* Variables can be defined explicitly as int or array:
+Variables in Bash are not just simple placeholders for values; they can be used in more complex ways:
+
+- **Assignment**: To assign a value to a variable: `var="Test"`
+
+- **Retrieval**: To retrieve the value stored in a variable: Using `$var` or `${var}`.
+
+- **Integers and Arrays**: Bash supports explicitly defining variable types such as integers and arrays.
 
 ```bash
-declare -i var      # var is an int
-declare -a arr      # arr in an array
-declare -r var2=5   # var2 is read only
+declare -i var    # 'var' is an integer
+declare -a arr    # 'arr' is an array
+declare -r var2=5 # 'var2' is a read-only variable
 ```
 
-* Variables can store the value of executed command:
+- **Command Substitution**: Bash allows storing the output of a command in a variable. `var=$(whoami)`
+
+- Environment variables are global and can be accessed by any process running in the shell session. Example: `PATH`, `HOME`, and `USER`.
+
+- **Sharing Variables**: To make a variable available to child processes, it needs to be exported. `export var`
+
+- **Local Variables in Functions**: Variables in functions can be made local to avoid affecting the global scope.
 
 ```bash
-var=$(whoami)
+function myFunc() {
+    local localVar="value"
+}
 ```
 
-### Command line arguments 
+### Command Line Arguments in Bash
 
-* First argument: `$1`
-* All command line arguments as array: `$@`
-* Number of command line arguments: `$#`
-* The exit status of the last executed command: `$?`
+Command line arguments in Bash scripts are accessed using special variables:
 
-### If statements 
+- **First Argument**: `$1` represents the first argument passed to the script.
+- **All Arguments**: `$@` is an array-like construct that holds all command line arguments.
+- **Arguments Count**: `$#` gives the number of command line arguments passed.
+- **Last Command's Exit Status**: `$?` contains the exit status of the last executed command.
 
-If statements are used to execute a block of code if a certain condition is met. Comparison of strings and ints differs. Assume that all values are strings, unless proven otherwise.
+### If Statements in Bash
+
+If statements in Bash are crucial for decision-making processes based on conditions.
+
+Basic Syntax:
 
 ```bash
-if [ $i -eq 10 ]; then echo True; fi         # int comparison
-if [ "$name" == "10" ]; then echo True; fi   # string comparison
+if [ condition ]; then
+  # commands
+fi
 ```
 
-Integer comparison:
+- **Integer Comparisons**: Use specific operators for comparing integer values.
+
+```bash
+if [ $i -eq 10 ]; then echo True; fi  # Integer comparison
+```
+
+- **String Comparisons**: Strings are compared differently from integers.
+
+```bash
+if [ "$name" == "10" ]; then echo True; fi  # String comparison
+```
+
+Operators for Integer Comparison
 
 | Operator | Description |
 | --- | --- |
@@ -148,7 +146,7 @@ Integer comparison:
 | `-lt` | less than |
 | `-le` | less than or equal to |
 
-String comparison:
+Operators for String Comparison
 
 | Operator | Description |
 | --- | --- |
@@ -159,30 +157,152 @@ String comparison:
 | `-n` | string is not null |
 | `-z` | string is null |
 
-Single [] are condition tests that are compatible with the posix shell.
+Single vs Double Square Brackets:
 
-Bash and other shells (e.g. zsh, ksh) allow double [[]] as an enhancement to the usual []. They expand the standard possix operations with other operations. For example, instead of -o, it is possible to use || and do regex matching with =~.
+- **Single Brackets** `[ ]`: Compatible with POSIX shell, suitable for basic tests.
+- **Double Brackets** `[[ ]]`: Bash and other shells like Zsh and Ksh offer enhanced test constructs.
+  - Support logical operators like || and regex matching with `=~`.
+  - Do not perform word splitting or filename expansion.
 
-If you need to perform word splitting or filename expansion, you'd use single square brackets. Assuming there is just one csv file named 'file.csv' in the current directory, the following line of code will not print True:
+Filename Expansion Example:
+
+- No Globbing with Double Brackets:
 
 ```bash
-if [[ -f *.csv ]]; then echo True; fi
+if [[ -f *.csv ]]; then echo True; fi  # Checks for a file named "*.csv"
 ```
 
-The reason for this is that the test condition checks for a file with the name '\*.txt' and no globbing is performed. This line of code, on the other hand, will print True:
+- Globbing with Single Brackets:
 
 ```bash
-if [ -f *.csv ]; then echo True; fi
+if [ -f *.csv ]; then echo True; fi  # Performs filename expansion
 ```
 
-### For loops
+### Loops
 
-A for loop repeats a sequence of steps a number of times.
+Loops are used in Bash to execute a series of commands multiple times. There are several types of loops, each serving different purposes.
+
+#### For Loop
+
+The `for` loop is used to iterate over a list of items or a range of values.
+
+Syntax:
 
 ```bash
-for number in {1..10}
-do
-  echo "$number "
+for var in list; do
+  # commands
+done
+```
+
+Example with a List:
+
+```bash
+for i in 1 2 3; do
+  echo $i
+done
+```
+
+Example with a Range:
+
+```bash
+for i in {1..3}; do
+  echo $i
+done
+```
+
+Example with Command Output:
+
+```bash
+for file in $(ls); do
+  echo $file
+done
+```
+
+#### While Loop
+
+The while loop executes as long as a specified condition is true.
+
+Syntax:
+
+```bash
+while [ condition ]; do
+  # commands
+done
+```
+
+Example:
+
+```bash
+i=1
+while [ $i -le 3 ]; do
+  echo $i
+  ((i++))
+done
+```
+
+#### Until Loop
+
+The until loop is similar to the while loop but runs until a condition becomes true.
+
+Syntax:
+
+```bash
+until [ condition ]; do
+  # commands
+done
+```
+
+Example:
+
+```bash
+i=1
+until [ $i -gt 3 ]; do
+  echo $i
+  ((i++))
+done
+```
+
+#### Loop Control: Break and Continue
+
+- **break**: Exits the loop.
+
+```bash
+for i in 1 2 3 4 5; do
+  if [ $i -eq 3 ]; then
+    break
+  fi
+  echo $i
+done
+```
+
+- **continue**: Skips the rest of the loop iteration and continues with the next one.
+
+```bash
+for i in 1 2 3 4 5; do
+  if [ $i -eq 3 ]; then
+    continue
+  fi
+  echo $i
+done
+```
+
+#### C-Style For Loop
+
+Bash also supports a C-style syntax for for loops, which provides more control over the iteration process.
+
+Syntax:
+
+```bash
+for (( initialisation; condition; increment )); do
+  # commands
+done
+```
+
+Example:
+
+```bash
+for (( i=1; i<=3; i++ )); do
+  echo $i
 done
 ```
 
