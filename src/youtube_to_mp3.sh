@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 check_dependencies() {
-    local dependencies=("youtube-dl" "ffmpeg")
+    local dependencies=("yt-dlp" "ffmpeg")
     for dependency in "${dependencies[@]}"; do
-        if ! command -v "$dependency" >/dev/null 2>&1; then
+        if ! which "$dependency" >/dev/null 2>&1; then
             echo "Error: '$dependency' is not installed."
             return 1
         fi
@@ -12,13 +12,13 @@ check_dependencies() {
 }
 
 try_to_install_dependencies() {
-    local dependencies=("youtube-dl" "ffmpeg")
+    local dependencies=("yt-dlp" "ffmpeg")
 
     if [ -f /etc/os-release ]; then
         if grep -q "debian" /etc/os-release; then
-            local command_to_instal="apt install"
+            local command_to_install="apt install"
         elif grep -q "arch" /etc/os-release; then
-            local command_to_instal="pacman -S"
+            local command_to_install="pacman -S"
         else
             echo "Error: Unknown OS"
             return 1
@@ -26,9 +26,9 @@ try_to_install_dependencies() {
     fi
 
     for dependency in "${dependencies[@]}"; do
-        if ! command -v "$dependency" >/dev/null 2>&1; then
+        if ! which "$dependency" >/dev/null 2>&1; then
             echo "Trying to install '$dependency'."
-            sudo "$command_to_instal" "$dependency"
+            sudo "$command_to_install" "$dependency"
         fi
     done
 }
@@ -37,7 +37,7 @@ download_video() {
     local url="$1"
     local output_file="$2"
     echo "Attempting to download video from '$url'"
-    youtube-dl -f bestaudio -o "$output_file" "$url"
+    yt-dlp -f bestaudio -o "$output_file" "$url"
     echo "Saving video to '$output_file'"
 }
 
@@ -55,7 +55,7 @@ download_video_and_convert_to_mp3() {
     local url="$1"
     local output_file
     if [ -z "$2" ]; then
-        output_file=$(youtube-dl --get-title "$url")
+        output_file=$(yt-dlp --get-title "$url")
         output_file=$(echo "$output_file" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
     else
         output_file="$2"
@@ -69,9 +69,8 @@ read_playlist_to_array() {
     local url="$1"
     local temp_file
     temp_file="$(mktemp)"
-    youtube-dl -j --flat-playlist --skip-download "$url" | jq -r '.id' | sed 's_^_https://youtu.be/_' > "$temp_file"
-    IFS=$'\n'
-    read -d '' -r -a all_videos_urls < "$temp_file"
+    yt-dlp -j --flat-playlist --skip-download "$url" | jq -r '.id' | sed 's_^_https://youtu.be/_' > "$temp_file"
+    IFS=$'\n' read -d '' -r -a all_videos_urls < "$temp_file"
     unset IFS
 }
 
@@ -92,6 +91,11 @@ main() {
     local url="$1"
     read_playlist_to_array "$url"
 
+    if [ "${#all_videos_urls[@]}" -eq 0 ]; then
+        echo "No videos found in the playlist."
+        return 1
+    fi
+
     if [ "${#all_videos_urls[@]}" -gt "1" ]; then
         echo "Downloading playlist..."
         for video_url in "${all_videos_urls[@]}"; do
@@ -100,8 +104,6 @@ main() {
     else
         download_video_and_convert_to_mp3 "$url" "$2"
     fi
-
 }
 
 main "$@"
-
