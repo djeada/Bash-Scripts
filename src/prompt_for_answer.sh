@@ -2,8 +2,8 @@
 
 # Script Name: promt_for_answer.sh
 # Description: Asks a question and gets a user's response.
-# Usage: promt_for_answer.sh
-# Example: ./promt_for_answer.sh
+# Usage: prompt_for_answer.sh
+# Example: ./prompt_for_answer.sh
 
 ask_question_and_get_response() {
     # $1 is the question
