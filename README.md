@@ -442,7 +442,7 @@ shellcheck **/*.sh
 | 5 | Displays the digits of a given number, one digit per line.           | [digits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/digits.sh) |
 | 6 | Prints all of the numbers within a specified range, one number per line. | [numbers_in_interval.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/numbers_in_interval.sh) |
 | 7 | Prints a Christmas tree pattern to the console.                       | [christmas_tree.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh) |
-| 8 | Prompts the user for a response to a given question and stores their response in a variable. | [promt_for_answer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/promt_for_answer.sh) |
+| 8 | Prompts the user for a response to a given question and stores their response in a variable. | [prompt_for_answer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/prompt_for_answer.sh) |
 
 ### Math
 
