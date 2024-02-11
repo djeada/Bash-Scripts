@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: count_files.sh
-# Description: Counts the number of directories, files, and total count in a specified directory, current directory, home directory, and root directory with a specified depth.
+# Description: Counts the number of directories, files, and total count in a specified directory.
 # Usage: count_files.sh [--directory <dir>] [--depth <depth>]
 #        --directory <dir> (optional) - the directory to count files in
 #        --depth <depth> (optional) - the maximum depth of directory traversal (default: 1)
@@ -10,25 +10,18 @@
 
 count_files() {
     local dir="$1"
-    local depth="$2"
+    local depth="${2:-1}"
 
-    if [[ -z "$dir" ]]; then
-        dir="."
+    if [ ! -d "$dir" ]; then
+        echo "Error: Directory '$dir' does not exist."
+        exit 1
     fi
 
-    if [[ -z "$depth" ]]; then
-        depth=1
-    fi
+    echo -e "\nCounting files in directory: $dir (Depth: $depth)"
 
-    echo -e "\nCounting files in directory: $dir"
-
-    local num_dirs
-    local num_files
-    local total_count
-
-    num_dirs=$(find "$dir" -maxdepth "$depth" -type d | wc -l)
-    num_files=$(find "$dir" -maxdepth "$depth" -type f | wc -l)
-    total_count=$((num_dirs + num_files))
+    local num_dirs=$(find "$dir" -maxdepth "$depth" -type d | wc -l)
+    local num_files=$(find "$dir" -maxdepth "$depth" -type f | wc -l)
+    local total_count=$((num_dirs + num_files))
 
     echo "Number of directories: $num_dirs"
     echo "Number of files: $num_files"
@@ -36,39 +29,18 @@ count_files() {
 }
 
 main() {
-    local current_dir
-    local home_dir="$HOME"
-    local root_dir="/"
-    local specified_dir=""
-    local specified_depth=""
+    local dir=""
+    local depth=""
 
-    current_dir="$(pwd)"
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --directory)
-                specified_dir="$2"
-                shift 2
-                ;;
-            --depth)
-                specified_depth="$2"
-                shift 2
-                ;;
-            *)
-                echo "Invalid option: $1"
-                exit 1
-                ;;
+    while getopts ":d:p:" opt; do
+        case "$opt" in
+            d) dir=$OPTARG ;;
+            p) depth=$OPTARG ;;
+            *) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
         esac
     done
 
-    if [[ -n "$specified_dir" ]]; then
-        count_files "$specified_dir" "$specified_depth"
-    else
-        count_files "$current_dir" "$specified_depth"
-        count_files "$home_dir" "$specified_depth"
-        count_files "$root_dir" "$specified_depth"
-    fi
+    count_files "${dir:-$(pwd)}" "$depth"
 }
 
 main "$@"
-
