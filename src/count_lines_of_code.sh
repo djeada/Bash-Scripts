@@ -8,30 +8,25 @@
 # Example: ./count_lines_of_code.sh path/to/repository
 
 get_repository_path() {
-    if [ $# -eq 0 ]; then
-        echo "."
-    else
-        local path="$1"
-        if [ -d "$path" ]; then
-            echo "$path"
-        else
-            echo "Provided path is not valid!"
-            exit 1
-        fi
+    local path=${1:-"."}
+    if [ ! -d "$path" ] || [ ! -d "$path/.git" ]; then
+        echo "Error: '$path' is not a valid Git repository directory."
+        exit 1
     fi
+    echo "$path"
 }
 
 count_lines_of_code() {
     local repository_path="$1"
-    cd "$repository_path" || return
-    git ls-files -z | xargs -0 wc -l | awk 'END{print}'
+    local lines
+    lines=$(git -C "$repository_path" ls-files | xargs wc -l | awk '/total/{print $1}')
+    echo "Total lines of code: $lines"
 }
 
 main() {
-    local repository_path=""
+    local repository_path
     repository_path="$(get_repository_path "$@")"
     count_lines_of_code "$repository_path"
 }
 
 main "$@"
-
