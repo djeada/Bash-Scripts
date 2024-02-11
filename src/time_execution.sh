@@ -2,38 +2,30 @@
 
 # Script Name: time_execution.sh
 # Description: Displays the average time it takes for a command to execute.
-# Usage: time_execution.sh command [number of runs]
-#        command is the command to execute.
+# Usage: time_execution.sh 'command' [number of runs]
+#        'command' is the command to execute.
 #        number of runs is optional and defaults to 10 if not provided.
 # Example: ./time_execution.sh 'sleep 1' 20
 
 main() {
-
-    command="$1"
-    N=${2:-10}
-
-    if [ -z "$command" ]; then
-        echo "Usage: time_execution.sh command [number of runs]"
+    if [ -z "$1" ]; then
+        echo "Usage: $0 'command' [number of runs]"
         exit 1
     fi
 
-    if ! command -v bc >/dev/null; then
-        echo "This script requires 'bc'. Please install 'bc' and run this script again."
-        exit 1
-    fi
+    local command="$1"
+    local N=${2:-10}
+    local total_time=0
 
-    total="0.0"
-    TIMEFORMAT=%0lR
     for _ in $(seq 1 "$N"); do
-        time_slice=$( { time -p $command; } 2>&1 | grep real | awk '{print $2}')
-        time_slice=$(sed -r 's/[,]+/./g' <<< "$time_slice")
-        total=$(echo "scale=10; $total + $time_slice" | bc)
+        local start_time=$(date +%s.%N)
+        eval "$command"
+        local end_time=$(date +%s.%N)
+        total_time=$(echo "$total_time + ($end_time - $start_time)" | bc)
     done
-    unset TIMEFORMAT
 
-    avg=$(echo "scale=10;$total / $N" | bc)
-    echo "Average execution time for \"$command\" over $N runs: $avg sec"
+    local avg_time=$(echo "scale=3; $total_time / $N" | bc)
+    echo "Average execution time for \"$command\" over $N runs: $avg_time seconds"
 }
 
 main "$@"
-
