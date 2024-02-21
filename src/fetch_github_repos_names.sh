@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Script Name: fetch_github_repos_names.sh
+# Description: Fetches and lists all repositories of a GitHub user. 
+#              It lists both public and private repositories if a personal access token is provided.
+# Usage: fetch_github_repos.sh github_username [github_token]
+#        github_username - The GitHub username for which to fetch repositories.
+#        github_token - Optional. A GitHub personal access token for accessing private repositories.
+# Example: ./fetch_github_repos_names.sh johnsmith [token]
+
 echo "GitHub Repository Fetcher"
 
 # Function to check if jq is installed
