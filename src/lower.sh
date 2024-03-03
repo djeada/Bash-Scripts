@@ -8,30 +8,23 @@
 # Output: hello world
 
 convert_to_lowercase() {
-    # Converts a string to lowercase
-    # $1: string to convert
-
-    # Check if exactly one argument is given
-    if [ $# -ne 1 ]; then
-        echo "Usage: lower.sh string"
-        return 1
-    fi
-
-    # Use tr to convert the string to lowercase
+    # Converts a string to lowercase using tr
     echo "$1" | tr '[:upper:]' '[:lower:]'
 }
 
 main() {
+    # Main function to handle script logic
+
     # Check if exactly one argument is provided
-    if [ $# -ne 1 ]; then
-        echo "Usage: lower.sh string"
+    if [ "$#" -ne 1 ]; then
+        echo "Error: Exactly one argument is required." >&2
+        echo "Usage: lower.sh string" >&2
         exit 1
     fi
 
-    # Call the convert_to_lowercase function and pass the argument
-    converted_string=$(convert_to_lowercase "$1")
-    echo "$converted_string"
+    # Call the convert_to_lowercase function with the provided argument
+    convert_to_lowercase "$1"
 }
 
+# Call the main function with all passed arguments
 main "$@"
-
