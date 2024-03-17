@@ -37,8 +37,11 @@ FILENAME="${BASENAME%.*}"
 # Set the output file name
 OUTPUT_FILE="${FILENAME}.gif"
 
-# Convert the file
-if ffmpeg -i "$FILE_PATH" -f gif "$OUTPUT_FILE"; then
+# Maximum dimension for 200 megapixels
+MAX_DIMENSION=$(echo "sqrt(200*1000000)" | bc)
+
+# Convert the file with resize if necessary
+if ffmpeg -i "$FILE_PATH" -vf "scale='min(iw,$MAX_DIMENSION)':'min(ih,$MAX_DIMENSION)':force_original_aspect_ratio=decrease" -f gif "$OUTPUT_FILE"; then
     echo "Successfully converted $FILE_PATH to $OUTPUT_FILE"
 else
     echo "Error: Conversion failed."
