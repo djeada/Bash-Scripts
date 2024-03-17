@@ -1,8 +1,24 @@
 #!/bin/bash
 
+# Function to check if a command exists
+command_exists() {
+    type "$1" &> /dev/null
+}
+
+# Check for required dependencies
+if ! command_exists ffmpeg; then
+    echo "Error: ffmpeg is not installed. Please install it and try again."
+    exit 1
+fi
+
+# Usage function
+usage() {
+    echo "Usage: $0 <file_path>"
+}
+
 # Check if an argument was provided
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <file_path>"
+    usage
     exit 1
 fi
 
@@ -22,6 +38,9 @@ FILENAME="${BASENAME%.*}"
 OUTPUT_FILE="${FILENAME}.mp4"
 
 # Convert the file
-ffmpeg -i "$FILE_PATH" -vcodec libx264 -acodec aac "$OUTPUT_FILE"
-
-echo "Converted $FILE_PATH to $OUTPUT_FILE"
+if ffmpeg -i "$FILE_PATH" -vcodec libx264 -acodec aac "$OUTPUT_FILE"; then
+    echo "Successfully converted $FILE_PATH to $OUTPUT_FILE"
+else
+    echo "Error: Conversion failed."
+    exit 1
+fi
