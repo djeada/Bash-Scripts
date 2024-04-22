@@ -55,24 +55,32 @@ while getopts ":l:j" opt; do
     esac
 done
 shift $((OPTIND -1))
+# Define the temporary file
+temp_file=$(mktemp)
 
-# Correct the usage of parallel to ensure file names are treated correctly and outputs are merged
+# Check if files are provided
 if [ "$#" -eq 0 ]; then
     # No files provided, reading from stdin
     input="/dev/stdin"
     if $output_json; then
-        process_text "$input" "$min_word_length" | jq -Rn '[inputs | split(":") | {(.[0]): .[1]|tonumber}] | add'
+        process_text "$input" "$min_word_length" > "$temp_file"
+        jq -Rn '[inputs | split(":") | {(.[0]): (. [1] | tonumber)}] | add' < "$temp_file"
     else
-        process_text "$input" "$min_word_length" | sort -t: -k2,2nr
+        process_text "$input" "$min_word_length"
     fi
 else
-    # Process files in parallel and merge results
+    # Process files in parallel
     export min_word_length
     export output_json
     if $output_json; then
-        parallel --will-cite 'process_text {} $min_word_length | jq -Rsn "[inputs | split(\":\") | {(.[0]): .[1]|tonumber}]" | add' ::: "$@" | jq -s 'add | to_entries | sort_by(.value) | .[] | "\(.[key]):\(.[value])"' | jq -s 'from_entries'
+        parallel --will-cite "process_text {} $min_word_length" ::: "$@" > "$temp_file"
+        jq -Rn '[inputs | split(":") | {(.[0]): (. [1] | tonumber)}] | add' < "$temp_file"
     else
-        parallel --will-cite 'process_text {} $min_word_length' ::: "$@" | sort -t: -k2,2nr
+        parallel --will-cite "process_text {} $min_word_length" ::: "$@" > "$temp_file"
+        cat "$temp_file" | sort -t: -k2,2nr
     fi
 fi
+
+# Clean up the temporary file
+rm "$temp_file"
 
