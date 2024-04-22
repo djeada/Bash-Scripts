@@ -65,11 +65,11 @@ if [ "$#" -eq 0 ]; then
     fi
 else
     # Process files in parallel
-    parallel --will-cite process_text {} $min_word_length ::: "$@" | sort -rn -t":" -k2 |
     if $output_json; then
-        jq -Rn '[inputs | split(":") | {(.[0]): .[1]|tonumber}] | add'
+        parallel --will-cite "process_text {} $min_word_length | jq -Rn '[inputs | split(\":\") | {(.[0]): .[1]|tonumber}] | add'" ::: "$@" | jq -s 'add'
     else
-        cat
+        parallel --will-cite process_text {} $min_word_length ::: "$@"
     fi
 fi
+
 
