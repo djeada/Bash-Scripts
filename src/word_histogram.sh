@@ -8,6 +8,7 @@ remove_diacritics()
 
 # Process text to calculate word frequencies
 process_text() {
+    local file=$1
     local min_word_length=$2
     declare -A wordcounts
 
@@ -21,22 +22,27 @@ process_text() {
                 ((wordcounts[$word]++))
             fi
         done
-    done
+    done < "$file"
 
-    # Print word frequencies
+    # Output word frequencies
     for word in "${!wordcounts[@]}"; do
         echo "$word:${wordcounts[$word]}"
-    done | sort -rn -t":" -k2
+    done
 }
+
+export -f remove_diacritics process_text
 
 # Main program starts here
 min_word_length=0
-file_mode=false
+output_json=false
 
-while getopts ":l:" opt; do
+while getopts ":l:j" opt; do
     case $opt in
         l)
             min_word_length=$OPTARG
+            ;;
+        j)
+            output_json=true
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -50,19 +56,20 @@ while getopts ":l:" opt; do
 done
 shift $((OPTIND -1))
 
-# Check input method
 if [ "$#" -eq 0 ]; then
-    # Reading from standard input (pipe or redirection)
-    process_text "/dev/stdin" "$min_word_length"
+    # No files provided, reading from stdin
+    if $output_json; then
+        process_text "/dev/stdin" "$min_word_length" | jq -Rn '[inputs | split(":") | {(.[0]): .[1]|tonumber}] | add'
+    else
+        process_text "/dev/stdin" "$min_word_length"
+    fi
 else
-    # Reading from files
-    for filename in "$@"; do
-        if [ -f "$filename" ]; then
-            echo "Processing $filename..."
-            process_text "$filename" "$min_word_length"
-        else
-            echo "File $filename not found."
-            exit 1
-        fi
-    done
+    # Process files in parallel
+    parallel --will-cite process_text {} $min_word_length ::: "$@" | sort -rn -t":" -k2 |
+    if $output_json; then
+        jq -Rn '[inputs | split(":") | {(.[0]): .[1]|tonumber}] | add'
+    else
+        cat
+    fi
 fi
+
