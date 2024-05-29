@@ -8,11 +8,11 @@ LOG_FILE="/var/log/check_os.log"
 JSON_OUTPUT=0
 LOG_ENABLED=0
 
-function log_action {
+log_action() {
     [ $LOG_ENABLED -eq 1 ] && echo "$(date +"%Y-%m-%d %T"): $1" >> $LOG_FILE
 }
 
-function output {
+output() {
     if [ $JSON_OUTPUT -eq 1 ]; then
         echo "{\"platform\":\"$1\", \"distro\":\"$2\", \"version\":\"$3\"}"
     else
@@ -23,7 +23,7 @@ function output {
     log_action "Detected OS: Platform=$1, Distro=$2, Version=$3"
 }
 
-function check_os {
+check_os() {
     local os_name=$(uname)
     local distro=""
     local version=""
@@ -43,11 +43,13 @@ function check_os {
             fi
             output "GNU/Linux" "$distro" "$version"
             ;;
-        MINGW32_NT*)
-            output "Windows NT" "" "32-bit"
-            ;;
-        MINGW64_NT*)
-            output "Windows NT" "" "64-bit"
+        MINGW32_NT* | MINGW64_NT*)
+            arch=$(uname -m)
+            if [ "$arch" == "x86_64" ]; then
+                output "Windows NT" "" "64-bit"
+            else
+                output "Windows NT" "" "32-bit"
+            fi
             ;;
         *)
             output "Unsupported" "" ""
