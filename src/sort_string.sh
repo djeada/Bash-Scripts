@@ -17,16 +17,15 @@ validate_arguments() {
 }
 
 sort_string() {
+    local input_string="$1"
     local sorted_string
-    sorted_string=$(echo "$1" | grep -o . | sort -V | tr -d "\n")
+    sorted_string=$(echo "$input_string" | grep -o . | sort | tr -d "\n")
     echo "$sorted_string"
 }
 
 main() {
     validate_arguments "$@"
-
     sort_string "$1"
 }
 
 main "$@"
-
