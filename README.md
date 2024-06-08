@@ -555,14 +555,53 @@ shellcheck **/*.sh
 
 ## References
 
-* https://www.gnu.org/software/bash/manual/bash.html
-* http://mywiki.wooledge.org/BashGuide
-* https://wiki.bash-hackers.org/
+### Official Documentation
+- [GNU Bash Manual](https://www.gnu.org/software/bash/manual/bash.html): The official documentation for GNU Bash, detailing built-in commands, syntax, and features.
+- [Linux Documentation Project](https://www.tldp.org/): Comprehensive collection of HOWTOs, guides, and FAQs for Linux users and administrators.
 
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+### Guides and Tutorials
+- [Bash Guide by Greg's Wiki](http://mywiki.wooledge.org/BashGuide): An excellent resource for learning Bash scripting, written in an approachable and detailed manner.
+- [Advanced Bash-Scripting Guide](https://tldp.org/LDP/abs/html/): A thorough guide for mastering advanced Bash scripting techniques and best practices.
+- [Bash Hackers Wiki](https://wiki.bash-hackers.org/): In-depth explanations and tips for Bash scripting, focusing on practical usage and pitfalls.
 
-Please make sure to update tests as appropriate.
+### Learning Platforms
+- [Codecademy's Learn the Command Line](https://www.codecademy.com/learn/learn-the-command-line): An interactive platform for beginners to learn basic command line skills.
+- [edX's Linux Foundation Courses](https://www.edx.org/school/linuxfoundationx): Online courses covering various aspects of Linux, including command line proficiency and system administration.
+
+### Community and Support
+- [Unix & Linux Stack Exchange](https://unix.stackexchange.com/): A Q&A site for users of Linux, FreeBSD, and other Un*x-like operating systems.
+- [Reddit's r/bash](https://www.reddit.com/r/bash/): A subreddit dedicated to discussions and questions about Bash scripting and shell programming.
+
+### Tools and Utilities
+- [ShellCheck](https://www.shellcheck.net/): An online tool that helps you find and fix bugs in your shell scripts.
+- [Explainshell](https://explainshell.com/): A web application that breaks down complex command lines into simple explanations.
+- [Oh My Zsh](https://ohmyz.sh/): A framework for managing your Zsh configuration, making it easier to customize your shell.
+
+### Books
+- "Learning the bash Shell" by Cameron Newham: A comprehensive guide to Bash programming, suitable for beginners and experienced users alike.
+- "Linux Command Line and Shell Scripting Bible" by Richard Blum and Christine Bresnahan: A detailed book covering Linux command line and shell scripting from the basics to advanced topics.
+- "Bash Cookbook" by Carl Albing, JP Vossen, and Cameron Newham: A collection of useful Bash scripting recipes for various tasks and problems.
+
+### Blogs and Articles
+- [Linux Journal's Bash Articles](https://www.linuxjournal.com/tag/bash): A series of articles covering various Bash scripting topics and tips.
+- [DigitalOcean's Bash Tutorials](https://www.digitalocean.com/community/tutorial_series/understanding-bash): Tutorials and guides to help you understand and use Bash effectively.
+- [Bash-One-Liners Explained](https://www.bashoneliners.com/): A collection of Bash one-liners, with explanations on how they work and when to use them.
+
+## How to Contribute
+
+We encourage contributions that enhance the repository's value. To contribute:
+
+1. Fork the repository.
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
 
 ## License
-[MIT](https://choosealicense.com/licenses/mit/)
+
+This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=djeada/Bash-Scripts&type=Date)](https://star-history.com/#djeada/Bash-Scripts&Date)
+
