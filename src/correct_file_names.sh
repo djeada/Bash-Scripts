@@ -82,7 +82,10 @@ main() {
 
     local dir="$1"
 
-    if [ "$dir" == '.' ] || [ -d "$dir" ]; then
+    # Convert the provided directory to an absolute path
+    dir=$(realpath "$dir")
+
+    if [ -d "$dir" ]; then
         find_files "$dir" "$include_hidden" "$exclusions"
     elif [ -f "$dir" ]; then
         local base_file=$(basename "$dir")
