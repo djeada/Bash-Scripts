@@ -41,7 +41,7 @@ find_files() {
     local find_options="-maxdepth 1"
     
     if [ "$include_hidden" != true ]; then
-        find_options="$find_options \( ! -regex '.*/\..*' \)"
+        find_options="$find_options ! -path '*/.*'"
     fi
 
     find "$dir" $find_options -print0 | while IFS= read -r -d $'\0' file; do
