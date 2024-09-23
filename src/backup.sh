@@ -1,154 +1,264 @@
 #!/usr/bin/env bash
 
 # Script Name: backup.sh
-# Description: Create a backup of the provided directory based on a configuration file.
-# Usage: backup.sh <config_file>
-#        <config_file> is the path to the configuration file.
+# Description: Create a backup of the specified directory based on a configuration file.
+# Supports compression, encryption, and backup retention policies.
+# Usage: backup.sh [-c config_file] [-v]
 #        If not provided, the default configuration file is used.
 
-set -e
-trap cleanup INT
+set -euo pipefail
+IFS=$'\n\t'
 
+trap cleanup INT TERM EXIT
+
+# Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
+
 DEFAULT_CONFIG_FILE="config.sh"
+CURRENT_BACKUP_FILE=""
+VERBOSE=0
 
 cleanup() {
-    echo -e "${RED}Script interrupted. Cleaning up...${NC}"
-
-    if [[ -n "${BACKUP_DIR}" ]]; then
-        echo "Removing incomplete backup files in ${BACKUP_DIR}"
-        find "${BACKUP_DIR}" -name 'backup_*' -mmin -5 -delete
+    if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+        return
     fi
 
-    # Add any additional cleanup operations here.
+    if [[ "$?" -ne 0 ]]; then
+        log ERROR "Script encountered an error. Cleaning up..."
+    else
+        log INFO "Script completed successfully."
+    fi
+
+    if [[ -n "${CURRENT_BACKUP_FILE:-}" && -f "${CURRENT_BACKUP_FILE}" ]]; then
+        log INFO "Removing incomplete backup file: ${CURRENT_BACKUP_FILE}"
+        rm -f "${CURRENT_BACKUP_FILE}"
+    fi
 
     exit 1
 }
 
+log() {
+    local level="$1"
+    shift
+    local message="$*"
+
+    case "$level" in
+        ERROR)
+            echo -e "${RED}[ERROR] $message${NC}" >&2
+            ;;
+        WARN)
+            echo -e "${RED}[WARN] $message${NC}"
+            ;;
+        INFO)
+            if [[ "${VERBOSE}" -ge 0 ]]; then
+                echo -e "${GREEN}[INFO] $message${NC}"
+            fi
+            ;;
+        DEBUG)
+            if [[ "${VERBOSE}" -ge 1 ]]; then
+                echo -e "[DEBUG] $message"
+            fi
+            ;;
+    esac
+}
 
 check_dependencies() {
-    dependencies=("rsync" "tar" "gpg")
-
-    for i in "${dependencies[@]}"; do
-        command -v "$i" >/dev/null 2>&1 || { echo -e "${RED}$i is required but it's not installed. Aborting.${NC}" >&2; exit 1; }
+    local dependencies=("rsync" "tar" "gpg" "date")
+    for dep in "${dependencies[@]}"; do
+        if ! command -v "$dep" >/dev/null 2>&1; then
+            log ERROR "$dep is required but not installed. Aborting."
+            exit 1
+        fi
     done
 }
 
 validate_config_file() {
-    # SC1090: ShellCheck can't follow non-constant source. Use a directive to specify location.
+    local config_file="$1"
     # shellcheck source=/dev/null
-    source "$1"
+    source "$config_file"
 
-    variables=("BACKUP_DIR" "SOURCE_DIR" "EXCLUDE_DIRS" "EXCLUDE_FILES" "EXCLUDE_EXTENSIONS" "WITH_COMPRESSION" "WITH_ENCRYPTION" "GPG_PASSPHRASE")
-
-    for i in "${variables[@]}"; do
-        if [ -z "${!i}" ]; then
-            echo -e "${RED}$i is not set${NC}"
+    local variables=("BACKUP_DIR" "SOURCE_DIR" "WITH_COMPRESSION" "WITH_ENCRYPTION")
+    for var in "${variables[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            log ERROR "Variable $var is not set in config file."
             exit 1
         fi
     done
 
-    echo -e "${GREEN}Validation complete${NC}"
+    if [[ "${WITH_ENCRYPTION}" == "true" ]] && [[ -z "${GPG_PASSPHRASE:-}" ]]; then
+        log ERROR "GPG_PASSPHRASE is required for encryption but not set."
+        exit 1
+    fi
+
+    echo "${EXCLUDE_DIRS[@]:-}" >/dev/null # Force arrays to be initialized
+
+    log INFO "Configuration validation complete."
 }
 
 create_config_file() {
-    config_file="$1"
-    if [ -f "$config_file" ]; then
-        echo -e "${RED}Config file already exists at: $config_file. Not overwriting.${NC}"
+    local config_file="$1"
+    if [[ -f "$config_file" ]]; then
+        log WARN "Config file already exists at: $config_file. Not overwriting."
         return
     fi
 
-    echo "Creating a default config file at: $config_file"
+    log INFO "Creating default config file at: $config_file"
 
-    cat << EOF > "$config_file"
+    cat << 'EOF' > "$config_file"
+# Backup configuration file
+
 # Backup directory path where the backup will be stored.
-BACKUP_DIR=/path/to/backup/dir
+BACKUP_DIR="/path/to/backup/dir"
 
 # Source directory path that needs to be backed up.
-SOURCE_DIR=/path/to/source/dir
+SOURCE_DIR="/path/to/source/dir"
 
-# Array of directories to exclude from the backup. Format: ('dir1' 'dir2')
+# Array of directories to exclude from the backup.
 EXCLUDE_DIRS=()
 
-# Array of specific files to exclude from the backup. Format: ('file1' 'file2')
+# Array of specific files to exclude from the backup.
 EXCLUDE_FILES=()
 
-# Array of file extensions to exclude from the backup. Format: ('.ext1' '.ext2')
+# Array of file extensions to exclude from the backup.
 EXCLUDE_EXTENSIONS=()
 
 # Set to 'true' to enable backup compression, 'false' to disable.
 WITH_COMPRESSION=true
 
-# Optional: Set to 'true' to enable backup encryption, 'false' to disable.
+# Set to 'true' to enable backup encryption, 'false' to disable.
 WITH_ENCRYPTION=false
 
-# Optional: Passphrase for encryption. Required if WITH_ENCRYPTION is set to true.
-GPG_PASSPHRASE=your_passphrase_here
+# Passphrase for encryption. Required if WITH_ENCRYPTION is set to true.
+GPG_PASSPHRASE="your_passphrase_here"
+
+# Number of days to keep backups. Backups older than this will be deleted.
+BACKUP_RETENTION_DAYS=7
 EOF
 
-    echo "Config file created at $config_file"
+    log INFO "Config file created at $config_file"
 }
 
 compress_backup() {
-    echo "Compressing backup"
-    tar -czf "${BACKUP_DIR}/backup_$(date +%Y%m%d%H%M%S).tar.gz" -C "${BACKUP_DIR}" .
-    echo -e "${GREEN}Compression complete${NC}"
+    local backup_file="$1"
+    log INFO "Compressing backup file: $backup_file"
+    tar -czf "${backup_file}.tar.gz" -C "$(dirname "$backup_file")" "$(basename "$backup_file")"
+    rm -rf "$backup_file"
+    CURRENT_BACKUP_FILE="${backup_file}.tar.gz"
+    log INFO "Compression complete."
 }
 
 encrypt_backup() {
-    echo "Encrypting backup"
-    gpg --batch --yes --passphrase="${GPG_PASSPHRASE}" --symmetric "${BACKUP_DIR}/backup_$(date +%Y%m%d%H%M%S).tar.gz"
-    echo -e "${GREEN}Encryption complete${NC}"
+    local backup_file="$1"
+    log INFO "Encrypting backup file: $backup_file"
+    echo "${GPG_PASSPHRASE}" | gpg --batch --yes --passphrase-fd 0 --symmetric "$backup_file"
+    rm -f "$backup_file"
+    CURRENT_BACKUP_FILE="${backup_file}.gpg"
+    log INFO "Encryption complete."
+}
+
+clean_old_backups() {
+    log INFO "Cleaning backups older than ${BACKUP_RETENTION_DAYS} days."
+    find "${BACKUP_DIR}" -type f -mtime +"${BACKUP_RETENTION_DAYS}" -name 'backup_*' -exec rm -f {} \;
+    log INFO "Old backups cleaned."
 }
 
 create_backup() {
-    echo "Creating backup"
-    backup_filename="backup_$(date -u +%Y-%m-%dT%H:%M:%SZ).tar.gz"
+    log INFO "Creating backup..."
+    local timestamp
+    timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    local backup_filename="backup_${timestamp}"
+    local backup_filepath="${BACKUP_DIR}/${backup_filename}"
+    CURRENT_BACKUP_FILE="$backup_filepath"
+
     mkdir -p "${BACKUP_DIR}"
 
-    # Convert array to rsync exclude format
-    for dir in "${EXCLUDE_DIRS[@]}"; do
-        rsync_exclude_params+=" --exclude=$dir"
+    # Build rsync exclude parameters
+    local rsync_exclude_params=()
+    for dir in "${EXCLUDE_DIRS[@]:-}"; do
+        rsync_exclude_params+=(--exclude="$dir")
+    done
+    for file in "${EXCLUDE_FILES[@]:-}"; do
+        rsync_exclude_params+=(--exclude="$file")
+    done
+    for ext in "${EXCLUDE_EXTENSIONS[@]:-}"; do
+        rsync_exclude_params+=(--exclude="*${ext}")
     done
 
-    if ! rsync -av $rsync_exclude_params --exclude-from="${EXCLUDE_FILES}" --exclude-from="${EXCLUDE_EXTENSIONS}" "${SOURCE_DIR}" "${BACKUP_DIR}"; then
-        echo -e "${RED}Error during rsync. Aborting.${NC}"
+    if ! rsync -a "${rsync_exclude_params[@]}" "${SOURCE_DIR}/" "${backup_filepath}/"; then
+        log ERROR "Error during rsync. Aborting."
         exit 1
     fi
 
-    if [ "${WITH_COMPRESSION}" = true ]; then
-        compress_backup "$backup_filename"
+    if [[ "${WITH_COMPRESSION}" == "true" ]]; then
+        compress_backup "$backup_filepath"
     fi
 
-    if [ "${WITH_ENCRYPTION}" = true ]; then
-        encrypt_backup "$backup_filename"
+    if [[ "${WITH_ENCRYPTION}" == "true" ]]; then
+        encrypt_backup "${CURRENT_BACKUP_FILE}"
     fi
 
-    echo -e "${GREEN}Backup created${NC}"
+    log INFO "Backup created successfully at ${CURRENT_BACKUP_FILE}"
+
+    if [[ "${BACKUP_RETENTION_DAYS:-0}" -gt 0 ]]; then
+        clean_old_backups
+    fi
+}
+
+usage() {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  -c CONFIG_FILE   Specify configuration file to use. Defaults to config.sh
+  -v               Enable verbose output
+  -h               Show this help message and exit
+EOF
 }
 
 main() {
+    local config_file="$DEFAULT_CONFIG_FILE"
+
+    while getopts ":c:vh" opt; do
+        case $opt in
+            c)
+                config_file="$OPTARG"
+                ;;
+            v)
+                VERBOSE=1
+                ;;
+            h)
+                usage
+                exit 0
+                ;;
+            \?)
+                log ERROR "Invalid option: -$OPTARG"
+                usage
+                exit 1
+                ;;
+            :)
+                log ERROR "Option -$OPTARG requires an argument."
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
     check_dependencies
 
-    config_file="${1:-$DEFAULT_CONFIG_FILE}"
-    if [ ! -f "$config_file" ]; then
-        if [ "$1" ]; then
-            echo -e "${RED}Config file not found: $1${NC}"
+    if [[ ! -f "$config_file" ]]; then
+        if [[ "$config_file" != "$DEFAULT_CONFIG_FILE" ]]; then
+            log ERROR "Config file not found: $config_file"
             exit 1
         else
-            if [ -f "$DEFAULT_CONFIG_FILE" ]; then
-                echo -e "${RED}Default config file already exists. Please edit it and rerun the script.${NC}"
-                exit 1
-            fi
-            create_config_file "$DEFAULT_CONFIG_FILE"
-            echo "Fill the config file with the desired values and run the script again."
+            create_config_file "$config_file"
+            log INFO "Please edit the config file with desired values and run the script again."
             exit 1
         fi
     fi
 
-    echo "Using config file: $config_file"
+    log INFO "Using config file: $config_file"
     validate_config_file "$config_file"
     create_backup
 }
