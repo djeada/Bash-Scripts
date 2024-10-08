@@ -20,9 +20,6 @@
 #   clear_cache.sh --age 14 -d ~/.cache
 #   clear_cache.sh --all-users --force
 #   clear_cache.sh --simulate --verbose
-#
-# Author: Your Name
-# Version: 1.0.0
 
 set -euo pipefail
 
