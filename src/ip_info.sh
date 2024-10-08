@@ -27,9 +27,7 @@
 # Dependencies:
 #   - curl
 #   - jq (optional, for JSON parsing)
-#
-# Author: Your Name
-# Version: 1.0.0
+
 
 set -euo pipefail
 
