@@ -1,148 +1,85 @@
 #!/usr/bin/env bash
 #
-# assert_last_line_empty.sh
+# Usage: ./last_line_empty.sh <file> > <output-file>
 #
-# Ensures that each (text) file ends with exactly one trailing empty line,
-# matching the original Perl logic:
-#   - If the file is empty (0 bytes), leave it empty.
-#   - If the file contains only whitespace/newlines, replace it with exactly
-#     one blank line (a single "\n").
-#   - Otherwise:
-#       * Strip trailing spaces/tabs from each line.
-#       * Remove multiple trailing blank lines, leaving only one.
-#       * If there was no final newline at all, add one.
+# 1) Reads <file> line by line into memory.
+# 2) Counts trailing *completely empty* lines (no characters at all).
+# 3) If trailing empty lines == 0, add 1 empty line.
+#    If trailing empty lines == 1, leave as is.
+#    If trailing empty lines  > 1, remove extras so exactly 1 remains.
+# 4) Writes the result to stdout.
 #
-# Binary files are skipped.
-#
-# Usage: ./assert_last_line_empty.sh [--check] <file-or-directory>
-#   --check   : Only report which files need changes; do not modify.
-#   <path>    : File or directory to process.
+# Example:
+#   ./last_line_empty.sh myfile.txt > myfile_fixed.txt
+#   mv myfile_fixed.txt myfile.txt
 #
 
-checkonly=0   # 1 if we only check (report), 0 if we actually fix
-status=0      # Will be set to 1 if any file requires fixing in --check mode
+file="$1"
 
-###############################################################################
-# normalize_file_content
-#   Reads a file $1 and prints its normalized content to stdout:
-#     1) If empty => print nothing (stay empty).
-#     2) If file is all whitespace => print exactly one "\n".
-#     3) Else => remove trailing spaces, remove trailing blank lines,
-#                then end with exactly one "\n".
-###############################################################################
-normalize_file_content() {
-    local file="$1"
+# Basic argument check
+if [[ -z "$file" ]]; then
+  echo "Error: no file specified." >&2
+  exit 1
+fi
 
-    # If empty file (0 bytes), output as-is (which is nothing):
-    if [ ! -s "$file" ]; then
-        cat "$file"
-        return
-    fi
+# Must be a regular file
+if [[ ! -f "$file" ]]; then
+  echo "Error: '$file' is not a regular file." >&2
+  exit 1
+fi
 
-    # If the file has no non-whitespace characters => turn into one blank line:
-    if ! grep -q '[^[:space:]]' "$file" 2>/dev/null; then
-        printf "\n"
-        return
-    fi
+# Read the entire file into an array, one line per element
+# (Note: This will strip trailing newline(s) from the last line read,
+#  which is normal mapfile behavior.)
+mapfile -t lines < "$file"
 
-    # Otherwise, file has real content:
-    #
-    # 1) Remove trailing spaces/tabs from each line.
-    # 2) Remove *all* trailing blank lines.
-    # 3) Finally, add exactly one newline at the end.
+# Number of lines in the file
+num_lines="${#lines[@]}"
 
-    sed 's/[ \t]*$//' "$file" \
-      | sed -e ':a' -e '/^$/{$d;N;ba}' \
-      && printf "\n"
-}
+# If file is empty (no lines), just output one empty line
+# (since we have 0 trailing empty lines, we add 1)
+if (( num_lines == 0 )); then
+  echo ""
+  exit 0
+fi
 
-###############################################################################
-# assert_last_line_empty
-#   Checks (and possibly fixes) a single file to ensure it meets our policy.
-###############################################################################
-assert_last_line_empty() {
-    local file="$1"
-    echo "Processing: $file"
+# Count how many empty lines from the end
+empty_count=0
+for (( i=num_lines-1; i>=0; i-- )); do
+  if [[ "${lines[$i]}" == "" ]]; then
+    (( empty_count++ ))
+  else
+    break
+  fi
+done
 
-    # Skip if not a regular file:
-    if [ ! -f "$file" ]; then
-        echo "  [ERROR] Not a regular file: $file"
-        return 1
-    fi
+# Decide how many lines to keep
+# Cases:
+#   empty_count == 0  => add one empty line
+#   empty_count == 1  => unchanged
+#   empty_count > 1   => remove extras so that only one remains
+if (( empty_count == 0 )); then
+  # Print all lines, then add exactly one empty line
+  for line in "${lines[@]}"; do
+    echo "$line"
+  done
+  echo ""
 
-    # Skip if binary:
-    if ! grep -Iq . "$file"; then
-        echo "  [SKIP] Binary file: $file"
-        return 0
-    fi
+elif (( empty_count == 1 )); then
+  # Just print all lines as is
+  for line in "${lines[@]}"; do
+    echo "$line"
+  done
 
-    # Create a temporary normalized version:
-    local tmp
-    tmp="$(mktemp -t assert_last_line_empty.XXXXXX)"
-    normalize_file_content "$file" > "$tmp"
-
-    # Compare:
-    if diff -q "$file" "$tmp" >/dev/null; then
-        echo "  [OK] Already normalized."
-        rm -f "$tmp"
-    else
-        if [ "$checkonly" -eq 1 ]; then
-            echo "  [CHECK] Needs normalization."
-            status=1
-            rm -f "$tmp"
-        else
-            mv "$tmp" "$file"
-            echo "  [FIXED] File updated."
-        fi
-    fi
-}
-
-###############################################################################
-# process_directory
-#   Recursively processes all regular files in a given directory.
-###############################################################################
-process_directory() {
-    local directory="$1"
-
-    if [ ! -d "$directory" ]; then
-        echo "Error: $directory is not a directory."
-        return 1
-    fi
-
-    echo "Recursively processing directory: $directory"
-    find "$directory" -type f -print0 2>/dev/null \
-    | while IFS= read -r -d '' f; do
-        assert_last_line_empty "$f"
-    done
-}
-
-###############################################################################
-# main
-###############################################################################
-main() {
-    if [ $# -eq 0 ]; then
-        echo "Usage: $0 [--check] <file-or-directory>"
-        exit 1
-    fi
-
-    if [[ "$1" == "--check" ]]; then
-        checkonly=1
-        shift
-    fi
-
-    local path="$1"
-
-    if [ -d "$path" ]; then
-        process_directory "$path"
-    elif [ -f "$path" ]; then
-        assert_last_line_empty "$path"
-    else
-        echo "Error: $path is not a valid file or directory."
-        exit 1
-    fi
-
-    # If in --check mode and anything needs changes => exit 1
-    exit "$status"
-}
-
-main "$@"
+else
+  # Keep everything up to the last (empty_count - 1) lines
+  # We want to remove extra empty lines, leaving exactly 1 trailing
+  # So we keep lines from 0 .. (num_lines - empty_count)
+  keep_last_index=$(( num_lines - empty_count ))
+  # Print lines up to that point
+  for (( i=0; i<keep_last_index; i++ )); do
+    echo "${lines[$i]}"
+  done
+  # Then print exactly one empty line
+  echo ""
+fi
