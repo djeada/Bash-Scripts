@@ -15,40 +15,43 @@
 # Example: ./assert_last_line_empty.sh --check path/to/file.txt
 #
 
-checkonly=0
-status=0
+checkonly=0    # Flag indicating if we're only checking (no fixes)
+status=0       # Global exit status to track if any file needs fixing
 
-# normalize_file_content outputs the normalized content for a file:
-#   - For a non-empty file that isn’t “all whitespace,” it removes any trailing
-#     newline(s) and/or trailing whitespace so that the file ends with exactly one newline.
-#   - If the file is all whitespace, it normalizes it to a single newline.
-#   - Empty files (zero length) are left unchanged.
+###############################################################################
+# normalize_file_content: outputs the normalized content for a file:
+#   1. If the file is empty (0 bytes), we output it as-is (no changes).
+#   2. If the file is non-empty but contains only whitespace/newlines,
+#      we normalize it to exactly one empty line.
+#   3. Otherwise, we remove trailing whitespace on every line, remove all
+#      trailing blank lines, and then add exactly one trailing newline.
+###############################################################################
 normalize_file_content() {
     local file="$1"
-    perl -0777 -pe '
-      # Only process nonempty files.
-      if (length($_)) {
-         # If the file consists solely of whitespace and newlines,
-         # normalize it to just a single newline.
-         if ($_ =~ /^[ \t\n]*\z/) {
-              $_ = "\n";
-         } else {
-              if (/\n/) {
-                  # If there is at least one newline, remove any extra trailing
-                  # newlines and any trailing whitespace after the final newline.
-                  s/([ \t]*\n)+[ \t]*\z/\n/;
-              } else {
-                  # For files that have no newline at the end but may end in spaces/tabs,
-                  # remove the trailing whitespace and then append a newline.
-                  s/[ \t]+\z//;
-                  $_ .= "\n";
-              }
-         }
-      }
-    ' "$file"
+
+    # If the file is empty (0 bytes), do nothing:
+    if [ ! -s "$file" ]; then
+        cat "$file"
+        return
+    fi
+
+    # Check if the file has any non-whitespace character:
+    if ! grep -q '[^[:space:]]' "$file" 2>/dev/null; then
+        # The file contains only whitespace / newlines => normalize to one empty line
+        printf "\n"
+    else
+        # 1) Remove trailing spaces/tabs from each line
+        # 2) Remove all trailing blank lines
+        # 3) Add exactly one newline at the end
+        sed 's/[ \t]*$//' "$file" \
+        | sed -e ':a' -e '/^$/{$d;N;ba}' \
+        ; printf "\n"
+    fi
 }
 
-# assert_last_line_empty checks (and optionally fixes) a single file.
+###############################################################################
+# assert_last_line_empty: Checks (and optionally fixes) a single file.
+###############################################################################
 assert_last_line_empty() {
     local file="$1"
     echo "Processing file: ${file}"
@@ -58,11 +61,14 @@ assert_last_line_empty() {
         return 1
     fi
 
-    # In check mode, generate the normalized version and compare.
+    # Create a temporary normalized version of the file
+    local norm
+    norm="$(mktemp)"
+
+    normalize_file_content "${file}" > "${norm}"
+
     if [ $checkonly -eq 1 ]; then
-        local norm
-        norm=$(mktemp)
-        normalize_file_content "${file}" > "${norm}"
+        # Compare the normalized file with the original
         if diff -q "${file}" "${norm}" >/dev/null; then
             echo "Already normalized: ${file}"
         else
@@ -71,27 +77,28 @@ assert_last_line_empty() {
         fi
         rm -f "${norm}"
     else
-        # In fix mode, generate the normalized content and overwrite the file
-        # only if there is a change.
-        local norm
-        norm=$(mktemp)
-        normalize_file_content "${file}" > "${norm}"
+        # In fix mode, overwrite the file only if there is a change
         if diff -q "${file}" "${norm}" >/dev/null; then
             echo "No changes needed: ${file}"
+            rm -f "${norm}"
         else
             mv "${norm}" "${file}"
             echo "File fixed: ${file}"
         fi
-        # Clean up any temporary file (if still present).
-        [ -f "${norm}" ] && rm -f "${norm}"
     fi
 }
 
+###############################################################################
+# process_file: Wrapper to normalize a single file.
+###############################################################################
 process_file() {
     local file="$1"
     assert_last_line_empty "${file}"
 }
 
+###############################################################################
+# process_directory: Recursively process all files in a directory.
+###############################################################################
 process_directory() {
     local directory="$1"
 
@@ -101,11 +108,15 @@ process_directory() {
     fi
 
     echo "Processing directory: ${directory}"
+    # Use find to locate all regular files
     while IFS= read -r -d '' file; do
         process_file "${file}"
     done < <(find "${directory}" -type f -print0)
 }
 
+###############################################################################
+# main: Script entry point
+###############################################################################
 main() {
     if [ $# -eq 0 ]; then
         echo "Error: No path provided."
@@ -129,6 +140,7 @@ main() {
         exit 1
     fi
 
+    # If any file required normalization in --check mode, exit non-zero
     if [ $status -ne 0 ]; then
         exit 1
     fi
