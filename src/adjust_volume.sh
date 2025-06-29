@@ -82,3 +82,4 @@ done
 echo "Volume adjusted by $input_value for all sinks."
 
 exit 0
+

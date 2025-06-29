@@ -469,3 +469,4 @@ if [[ "${1:-}" == "--auto" ]]; then
 fi
 
 main_menu
+

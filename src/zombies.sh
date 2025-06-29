@@ -51,3 +51,4 @@ fi
 
 # Execute the zombie check
 check_zombies
+

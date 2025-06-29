@@ -280,3 +280,4 @@ list_disks
 
 # Log the action
 log_action "Disk usage information displayed."
+

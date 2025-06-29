@@ -21,3 +21,4 @@ while true; do
     # Wait for one second before the next update
     sleep 1
 done
+

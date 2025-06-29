@@ -28,3 +28,4 @@ padding=$(printf '%.0f' "$(echo "($new_height - $original_height) / 2" | bc -l)"
 
 # Run ffmpeg to add padding
 ffmpeg -i "$input_video" -vf "pad=width=iw:height=$new_height:x=0:y=$padding:color=black" "$output_video"
+

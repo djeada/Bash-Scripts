@@ -63,3 +63,4 @@ rows=$(grep -oP '<tr>.+?</tr>' "$html_file")
 while IFS= read -r row; do
     convert_row_to_markdown "$row"
 done <<< "$rows"
+

@@ -51,3 +51,4 @@ command_exists() {
 }
 
 main "$@"
+

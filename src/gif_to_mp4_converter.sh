@@ -54,3 +54,4 @@ ffmpeg -i "$TEMP_FILE2" -c:v mpeg4 -q:v 5 "$OUTPUT_FILE"
 check_error "during the final formatting process."
 
 echo "Conversion completed successfully. Output file: $OUTPUT_FILE"
+

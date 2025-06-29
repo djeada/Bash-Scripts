@@ -178,3 +178,4 @@ while [[ "$#" -gt 0 ]]; do
     done
 
     echo "The strings are anagrams."
+

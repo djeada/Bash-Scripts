@@ -251,3 +251,4 @@ fi
 clear_cache "${CACHE_DIRS[@]}"
 
 log_action "Cache clearing completed."
+

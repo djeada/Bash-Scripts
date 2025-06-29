@@ -276,3 +276,4 @@ if [[ "$OUTPUT_JSON" == true ]]; then
 }
 EOF
 fi
+

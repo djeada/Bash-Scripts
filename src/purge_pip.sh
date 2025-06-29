@@ -228,3 +228,4 @@ uninstall_packages "${INSTALLED_PACKAGES[@]}"
 
 log_action "Package uninstallation completed."
 echo "Package uninstallation completed."
+

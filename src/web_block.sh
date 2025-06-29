@@ -265,3 +265,4 @@ fi
 modify_hosts "$OPERATION" "${DOMAINS[@]}"
 
 exit 0
+

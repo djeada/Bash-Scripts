@@ -64,3 +64,4 @@ if [ -f "$OUTPUT_FILE" ]; then
 else
     echo "PDF generation failed."
 fi
+

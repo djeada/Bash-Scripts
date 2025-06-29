@@ -246,3 +246,4 @@ fi
 empty_trash "${TRASH_PATHS[@]}"
 
 log_action "Trash emptying completed."
+

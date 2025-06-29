@@ -26,3 +26,4 @@ OUTPUT="${FILENAME}_x${SPEED}.${EXTENSION}"
 ffmpeg -i "$VIDEO_PATH" -filter:v "setpts=PTS/${SPEED}" -an "$OUTPUT"
 
 echo "Output saved as $OUTPUT"
+

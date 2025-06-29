@@ -76,3 +76,4 @@ fi
 pdftk "$PDF_FILE" cat "${START_PAGE}"-"${END_PAGE}" output "$OUTPUT_FILE"
 
 echo "New PDF saved as $OUTPUT_FILE"
+

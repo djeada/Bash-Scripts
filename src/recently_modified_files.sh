@@ -213,3 +213,4 @@ echo "$RESULTS"
 # Log results
 log "Found files:"
 log "$RESULTS"
+

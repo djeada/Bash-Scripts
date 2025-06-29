@@ -138,3 +138,4 @@ function main() {
 
 # Execute the main function with all script arguments
 main "$@"
+

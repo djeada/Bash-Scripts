@@ -75,3 +75,4 @@ while [ $# -gt 0 ]; do
 done
 
 check_os
+

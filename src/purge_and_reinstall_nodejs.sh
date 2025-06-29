@@ -60,3 +60,4 @@ for home_dir in /home/*; do
 done
 
 echo "Permissions adjusted for user-specific directories."
+

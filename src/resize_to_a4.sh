@@ -211,3 +211,4 @@ else
 fi
 
 echo "Image resizing complete."
+
