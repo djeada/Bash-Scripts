@@ -68,7 +68,6 @@ log() {
 }
 
 # Parse command-line arguments
-ARGS=("$@")
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
@@ -182,17 +181,14 @@ case "$TIME_TYPE" in
     mtime)
         TIME_FLAG="-printf"
         TIME_FORMAT='%TY-%Tm-%Td %TT %p\n'
-        TIME_FIELD=1
         ;;
     atime)
         TIME_FLAG="-printf"
         TIME_FORMAT='%AY-%Am-%Ad %AT %p\n'
-        TIME_FIELD=1
         ;;
     ctime)
         TIME_FLAG="-printf"
         TIME_FORMAT='%CY-%Cm-%Cd %CT %p\n'
-        TIME_FIELD=1
         ;;
 esac
 

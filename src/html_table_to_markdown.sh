@@ -23,7 +23,8 @@ convert_row_to_markdown() {
     # Extract cells and convert to Markdown
     row=$(echo "$row" | sed -e 's/<\/\?\(th\|td\)[^>]*>//g' -e 's/^\s*//g' -e 's/\s*$//g')
     local IFS=$'\n'
-    local cells=($(grep -o '<td>.*</td>\|<th>.*</th>' <<< "$row"))
+    local cells
+    mapfile -t cells < <(grep -o '<td>.*</td>\|<th>.*</th>' <<< "$row")
     local markdown_cells=()
 
     for cell in "${cells[@]}"; do
@@ -34,7 +35,8 @@ convert_row_to_markdown() {
 
     if [ "$row_type" == "header" ]; then
         echo "| ${markdown_cells[*]} |"
-        echo "|$(printf ' --- |' $(seq 1 ${#markdown_cells[@]}))"
+        printf '|%s' "$(yes ' --- |' | head -n ${#markdown_cells[@]})"
+        echo '|'
     else
         echo "| ${markdown_cells[*]} |"
     fi

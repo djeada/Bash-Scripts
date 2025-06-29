@@ -98,7 +98,7 @@ list_disks() {
     fi
 
     local df_output
-    df_output=$(df $df_options)
+    df_output=$(df "$df_options")
 
     # Exclude unwanted filesystems
     local awk_script='NR>1'
@@ -149,14 +149,14 @@ list_disks() {
 
     # Process and output the data
     echo "$df_output" | awk "$awk_script" | \
-    {
+        {
         if [[ "$output_format" == "json" ]]; then
             awk 'BEGIN { ORS=""; print "[" }
                  {
                      if (NR > 1) print ","
                      printf "{ \"filesystem\": \"%s\", \"size\": \"%s\", \"used\": \"%s\", \"avail\": \"%s\", \"use%%\": \"%s\", \"mount\": \"%s\" }", $1, $2, $3, $4, $5, $6
                  }
-                 END { print "]" }'
+            END { print "]" }'
         elif [[ "$output_format" == "csv" ]]; then
             if [[ "$NO_HEADER" == false ]]; then
                 echo "Filesystem,Size,Used,Avail,Use%,Mounted on"
@@ -168,11 +168,10 @@ list_disks() {
             fi
             column -t
         fi
-    } | sort $sort_options
+    } | sort "$sort_options"
 }
 
 # Parse command-line arguments
-ARGS=("$@")
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in

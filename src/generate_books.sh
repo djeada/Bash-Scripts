@@ -12,7 +12,8 @@ CONCATENATED_MD="concatenated.md"
 
 # Function to create a backup of files
 backup_files() {
-    local backup_dir="${BACKUP_DIR_PREFIX}$(date +%Y%m%d_%H%M%S)"
+    local backup_dir
+    backup_dir="${BACKUP_DIR_PREFIX}$(date +%Y%m%d_%H%M%S)"
     mkdir -p "$backup_dir" || { echo "Failed to create backup directory."; exit 1; }
     for file in "$@"; do
         cp "$file" "$backup_dir" || { echo "Failed to copy file $file to backup."; continue; }
@@ -47,7 +48,7 @@ cleanup() {
 # Main logic
 trap cleanup EXIT
 
-md_files=( $(find . -maxdepth 1 -type f -name "*.md" | sort) )
+mapfile -t md_files < <(find . -maxdepth 1 -type f -name "*.md" | sort)
 
 if [ ${#md_files[@]} -eq 0 ]; then
     echo "No Markdown files found in the current directory."

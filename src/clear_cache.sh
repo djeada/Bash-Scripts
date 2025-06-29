@@ -73,7 +73,7 @@ confirm_deletion() {
     if [[ "$FORCE" == true ]]; then
         return 0
     fi
-    read -p "Are you sure you want to delete these files? [y/N] " -n 1 -r
+    read -r -p "Are you sure you want to delete these files? [y/N] " -n 1 -r
     echo
     [[ "$REPLY" =~ ^[Yy]$ ]]
 }
@@ -122,7 +122,6 @@ clear_cache() {
 }
 
 # Parse command-line arguments
-ARGS=("$@")
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -d|--directory)

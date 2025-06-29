@@ -179,7 +179,6 @@ get_cpu_temp() {
 }
 
 # Parse command-line arguments
-ARGS=("$@")
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in

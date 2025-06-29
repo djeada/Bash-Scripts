@@ -117,9 +117,9 @@ get_top_processes_for_user() {
 get_process_cpu_usage() {
     local proc="$1"
     if [[ "$OS_TYPE" == "Linux" ]]; then
-        ps -eo user,pid,%cpu,comm | grep -i "$proc" | grep -v grep
+        ps -eo user,pid,%cpu,comm | awk -v proc="$proc" 'tolower($4) ~ tolower(proc)'
     elif [[ "$OS_TYPE" == "macOS" ]]; then
-        ps -Ao user,pid,%cpu,comm | grep -i "$proc" | grep -v grep
+        ps -Ao user,pid,%cpu,comm | awk -v proc="$proc" 'tolower($4) ~ tolower(proc)'
     else
         echo "Unsupported OS type."
     fi

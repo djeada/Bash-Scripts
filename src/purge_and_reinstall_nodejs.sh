@@ -11,11 +11,11 @@ echo "Starting Node.js cleanup and reinstallation script..."
 echo "Removing system-wide Node.js, npm, and global node_modules..."
 node_bin_path=$(which node)
 npm_bin_path=$(which npm)
-sudo rm -rf $node_bin_path \
-             $npm_bin_path \
-             /usr/local/lib/node_modules \
-             /usr/local/share/man/man1/node* \
-             /usr/local/share/man/man1/npm*
+sudo rm -rf "$node_bin_path" \
+    "$npm_bin_path" \
+    /usr/local/lib/node_modules \
+    /usr/local/share/man/man1/node* \
+    /usr/local/share/man/man1/npm*
 
 # Fetch the latest Node.js version
 echo "Fetching the latest Node.js version..."
@@ -48,12 +48,12 @@ for home_dir in /home/*; do
         for dir in .npm .nvm .node-gyp .config/node_modules .config/configstore/update-notifier-npm.json package.json package-lock.json; do
             if [ -d "$home_dir/$dir" ] || [ -f "$home_dir/$dir" ]; then
                 echo "Removing $dir in $home_dir"
-                rm -rf "$home_dir/$dir"
+                rm -rf "${home_dir:?}/$dir"
             fi
         done
 
         # Using find to change ownership and permissions
-        find "$home_dir" \( -name '.npm' -o -name '.nvm' -o -name '.node-gyp' -o -name '.config' \) -exec chown -R $username:$username {} + -exec chmod -R u+rwX,go+rX,go-w {} +
+        find "$home_dir" \( -name '.npm' -o -name '.nvm' -o -name '.node-gyp' -o -name '.config' \) -exec chown -R "$username":"$username" {} + -exec chmod -R u+rwX,go+rX,go-w {} +
 
         echo "Adjustments completed for $username."
     fi

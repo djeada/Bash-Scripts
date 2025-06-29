@@ -9,7 +9,8 @@
 set -euo pipefail
 
 # Constants
-readonly SCRIPT_NAME=$(basename "${0}")
+readonly SCRIPT_NAME
+SCRIPT_NAME=$(basename "${0}")
 
 print_usage() {
     echo "Usage: ${SCRIPT_NAME} [OPTIONS]"

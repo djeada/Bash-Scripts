@@ -31,11 +31,11 @@ function show_help() {
 # Function to check if a file exists and is a regular file
 function check_file_existence() {
     local file="$1"
-    if [ ! -e "$file" ]; then
+    if [[ ! -e "$file" ]]; then
         echo "Error: File '$file' does not exist."
         exit 1
     fi
-    if [ ! -f "$file" ]; then
+    if [[ ! -f "$file" ]]; then
         echo "Error: '$file' is not a regular file."
         exit 1
     fi
@@ -44,9 +44,10 @@ function check_file_existence() {
 # Function to create a backup of a file
 function create_backup() {
     local file="$1"
-    local backup_file="${file}_backup_$(date +%Y%m%d%H%M%S)"
+    local backup_file
+    backup_file="${file}_backup_$(date +%Y%m%d%H%M%S)"
     cp -- "$file" "$backup_file"
-    [ "$VERBOSE" = true ] && echo "Backup of '$file' created as '$backup_file'."
+    [[ "$VERBOSE" = true ]] && echo "Backup of '$file' created as '$backup_file'."
 }
 
 # Function to swap the contents of two files
@@ -111,7 +112,7 @@ function main() {
     done
 
     # Check for the correct number of arguments
-    if [ $# -ne 2 ]; then
+    if [[ $# -ne 2 ]]; then
         echo "Error: Must provide exactly two file paths."
         show_help
     fi
@@ -124,7 +125,7 @@ function main() {
     check_file_existence "$file2"
 
     # Create backups if requested
-    if [ "$BACKUP" = true ]; then
+    if [[ "$BACKUP" = true ]]; then
         create_backup "$file1"
         create_backup "$file2"
     fi

@@ -14,7 +14,6 @@
 #   -a, --all             Display all available information.
 #   -j, --json            Output in JSON format.
 #   -s, --save FILE       Save output to a file.
-#   -v, --verbose         Enable verbose output.
 #
 # Examples:
 #   ip_info.sh --public
@@ -38,7 +37,6 @@ include_location=false
 interface=""
 output_json=false
 save_file=""
-verbose=false
 version="1.0.0"
 
 # Check for required dependencies
@@ -74,7 +72,6 @@ Options:
   -a, --all             Display all available information.
   -j, --json            Output in JSON format.
   -s, --save FILE       Save output to a file.
-  -v, --verbose         Enable verbose output.
 
 Examples:
   $0 --public
@@ -145,10 +142,6 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: --save requires a file path." >&2
                 exit 1
             fi
-            ;;
-        -v|--verbose)
-            verbose=true
-            shift
             ;;
         *)
             echo "Invalid option: $1" >&2
