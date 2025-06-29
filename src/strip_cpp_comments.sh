@@ -131,7 +131,7 @@ collect_from_dir() {
         # Count slashes → depth
         depth_now=${rel//[^\/]/}
         depth_now=${#depth_now}
-        (( depth_now < depth )) || { continue; }
+        (( depth_now <= depth )) || { continue; }
         [[ $path =~ $regex ]] && COLLECTED+=("$path")
     done
     shopt -u globstar nullglob
