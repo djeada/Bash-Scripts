@@ -39,11 +39,13 @@
 #
 # Miscellaneous
 #   --filter-forks {true|false}  Skip forks when using GitHub API (default false)
+#   --max-repos N              Maximum number of repositories to download (default: unlimited)
 #   -h | --help                Show this help and exit.
 #
 # Examples:
 #   ./download_repos.sh --json-file repos.json --shallow
 #   ./download_repos.sh --user alice --parallel 4 --dest ./backup
+#   ./download_repos.sh --user alice --max-repos 5 --shallow
 #   GITHUB_TOKEN=*** ./download_repos.sh --org mycorp --compression xz
 # ------------------------------------------------------------------------------
 set -euo pipefail
@@ -64,13 +66,14 @@ COMPRESSION="gz"
 SHALLOW=false
 MIRROR=false
 FILTER_FORKS=false
+MAX_REPOS=""
 
 ###############################################################################
 # Pretty printing helpers
 ###############################################################################
 color() { local c=$1; shift; printf "\e[%sm%s\e[0m" "$c" "$*"; }
-info()  { printf "[%s] %s\n" "$(color 34 INFO)"  "$*"; }
-warn()  { printf "[%s] %s\n" "$(color 33 WARN)" "$*"; }
+info()  { printf "[%s] %s\n" "$(color 34 INFO)"  "$*" >&2; }
+warn()  { printf "[%s] %s\n" "$(color 33 WARN)" "$*" >&2; }
 error() { printf "[%s] %s\n" "$(color 31 ERROR)" "$*" >&2; }
 
 ###############################################################################
@@ -117,6 +120,7 @@ parse_args() {
             --shallow)        SHALLOW=true; shift 1;;
             --mirror)         MIRROR=true; shift 1;;
             --filter-forks)   FILTER_FORKS=$(echo "$2" | tr '[:upper:]' '[:lower:]'); shift 2;;
+            --max-repos)      MAX_REPOS="$2"; shift 2;;
             -h|--help)        print_usage; exit 0;;
             *) error "Unknown argument: $1"; print_usage; exit 1;;
         esac
@@ -133,6 +137,11 @@ parse_args() {
     # Parallel validation is numeric
     if ! [[ "$PARALLEL_JOBS" =~ ^[0-9]+$ ]]; then
         error "--parallel expects a positive integer"; exit 1;
+    fi
+
+    # Max repos validation is numeric
+    if [[ -n "$MAX_REPOS" ]] && ! [[ "$MAX_REPOS" =~ ^[0-9]+$ ]]; then
+        error "--max-repos expects a positive integer"; exit 1;
     fi
 }
 
@@ -167,7 +176,12 @@ build_git_clone_cmd() {
 ###############################################################################
 retrieve_repos_from_json() {
     [[ -f "$JSON_FILE" ]] || { error "JSON '$JSON_FILE' not found"; exit 1; }
-    jq -r '.repos[]' "$JSON_FILE"
+    if [[ -n "$MAX_REPOS" ]]; then
+        info "Limiting to first $MAX_REPOS repositories from JSON file"
+        jq -r '.repos[]' "$JSON_FILE" | head -n "$MAX_REPOS"
+    else
+        jq -r '.repos[]' "$JSON_FILE"
+    fi
 }
 
 # Generic GitHub API fetcher supporting pagination via Link header
@@ -176,25 +190,85 @@ github_api_paged() {
     local token_header=()
     [[ -n "$GITHUB_TOKEN" ]] && token_header=(-H "Authorization: token $GITHUB_TOKEN")
 
+    info "Making API request to: $url"
+    
     while [[ -n "$url" ]]; do
-        # Fetch headers + body
-        local response
-        response=$(curl -sSL -H 'Accept: application/vnd.github+json' -D - "${token_header[@]}" "$url")
-        local headers body
-        headers="$(printf '%s\n' "$response" | sed -n '1,/^\r$/p')"
-        body="$(printf '%s\n' "$response" | sed -n '/^\r$/{n;:a;n;ba}' )"
+        # Create temp files for headers and body
+        local temp_headers temp_body
+        temp_headers=$(mktemp)
+        temp_body=$(mktemp)
+        
+        # Make the curl request
+        local http_status
+        http_status=$(curl -sSL -w "%{http_code}" -H 'Accept: application/vnd.github+json' \
+            -D "$temp_headers" "${token_header[@]}" "$url" -o "$temp_body")
+        
+        info "HTTP Status: $http_status"
+        
+        # Read the response body
+        local body
+        body="$(cat "$temp_body")"
+        local body_length="${#body}"
+        info "Response body length: $body_length characters"
+        
+        if [[ $body_length -gt 0 ]]; then
+            info "Response preview: $(echo "$body" | head -c 200)..."
+        fi
 
-        # Rate‑limit handling
-        if echo "$body" | jq -e '.message? | test("rate limit"; "i")' &>/dev/null; then
-            error "GitHub API rate limit exceeded. Provide a valid token."; exit 1;
+        # Check HTTP status
+        if [[ "$http_status" != "200" ]]; then
+            error "GitHub API request failed with HTTP $http_status"
+            info "Response body: $body"
+            rm -f "$temp_headers" "$temp_body"
+            exit 1
+        fi
+
+        # Rate‑limit handling and error checking
+        if echo "$body" | jq -e '.message?' &>/dev/null; then
+            local message
+            message=$(echo "$body" | jq -r '.message?')
+            if echo "$message" | grep -qi "rate limit"; then
+                error "GitHub API rate limit exceeded: $message"
+                error "Provide a valid token with --token or set GITHUB_TOKEN environment variable"
+                error "Documentation: https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting"
+            else
+                error "GitHub API error: $message"
+            fi
+            rm -f "$temp_headers" "$temp_body"
+            exit 1
+        fi
+
+        # Check if response is valid JSON
+        if ! echo "$body" | jq empty 2>/dev/null; then
+            error "Invalid JSON response from GitHub API"
+            info "Raw response: $body"
+            rm -f "$temp_headers" "$temp_body"
+            exit 1
         fi
 
         printf '%s\n' "$body"
 
-        # Parse next link
-        local next
-        next=$(printf '%s\n' "$headers" | grep -i '^Link:' | sed -E 's/.*, <([^>]+)>; rel="next".*/\1/')
-        url="$next"
+        # Parse next link from headers
+        local next link_header
+        link_header=$(grep -i '^Link:' "$temp_headers" || echo "")
+        if [[ -n "$link_header" ]]; then
+            info "Link header: $link_header"
+            # Extract next URL from Link header
+            next=$(echo "$link_header" | sed -n 's/.*<\([^>]*\)>; rel="next".*/\1/p')
+        else
+            next=""
+        fi
+        
+        # Clean up temp files
+        rm -f "$temp_headers" "$temp_body"
+        
+        if [[ -n "$next" && "$next" == *"github.com"* ]]; then
+            info "Found next page: $next"
+            url="$next"
+        else
+            info "No more pages found"
+            url=""
+        fi
     done
 }
 
@@ -202,13 +276,78 @@ retrieve_repos_from_github() {
     local endpoint=""
     if [[ -n "$GITHUB_USER" ]]; then
         endpoint="https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=all"
+        info "Fetching repositories for user: $GITHUB_USER"
     else
         endpoint="https://api.github.com/orgs/${GITHUB_ORG}/repos?per_page=100&type=all"
+        info "Fetching repositories for organization: $GITHUB_ORG"
     fi
 
-    github_api_paged "$endpoint" | jq -r \
-        --argjson skipFork "$FILTER_FORKS" '
-            map(select((.fork|not) or ($skipFork|not))) | .[].clone_url'
+    info "API endpoint: $endpoint"
+    info "Filter forks: $FILTER_FORKS"
+    
+    # Get raw API response first
+    local api_response
+    api_response=$(github_api_paged "$endpoint")
+    
+    # Debug: check what we got from API
+    local response_lines
+    response_lines=$(echo "$api_response" | wc -l)
+    info "API returned $response_lines lines of JSON"
+    
+    # Try to parse as JSON array
+    local repo_count
+    if repo_count=$(echo "$api_response" | jq -s 'map(length) | add' 2>/dev/null); then
+        info "Found $repo_count repositories in API response"
+    else
+        info "Could not count repositories in API response"
+    fi
+    
+    # Show sample of what we're processing
+    info "Sample repository data:"
+    echo "$api_response" | jq -s 'map(.[0:2]) | add | .[] | {name: .name, clone_url: .clone_url, fork: .fork}' 2>/dev/null | head -10 >&2
+    
+    # Process with the jq filter and add debugging
+    local filtered_repos
+    if [[ -n "$MAX_REPOS" ]]; then
+        info "Limiting to first $MAX_REPOS repositories"
+        filtered_repos=$(echo "$api_response" | jq -rs \
+            --argjson skipFork "$FILTER_FORKS" \
+            --argjson maxRepos "$MAX_REPOS" '
+                add | 
+                map(select((.fork|not) or ($skipFork|not))) | 
+                map(select(.clone_url)) |
+                .[:$maxRepos] |
+                .[].clone_url' 2>/dev/null)
+    else
+        filtered_repos=$(echo "$api_response" | jq -rs \
+            --argjson skipFork "$FILTER_FORKS" '
+                add | 
+                map(select((.fork|not) or ($skipFork|not))) | 
+                map(select(.clone_url)) |
+                .[].clone_url' 2>/dev/null)
+    fi
+    
+    if [[ $? -ne 0 ]]; then
+        error "jq filtering failed"
+        info "Raw API response for debugging:"
+        echo "$api_response" | head -20 >&2
+        exit 1
+    fi
+    
+    local final_count
+    final_count=$(echo "$filtered_repos" | grep -c '^https://' || echo "0")
+    info "After filtering: $final_count repositories will be cloned"
+    
+    if [[ $final_count -eq 0 ]]; then
+        warn "No repositories found after filtering. This could be because:"
+        warn "1. The user/org has no repositories"
+        warn "2. All repositories are forks and --filter-forks is true"
+        warn "3. The API response doesn't contain clone_url fields"
+        warn "4. There's an authentication issue (private repos)"
+    fi
+    
+    # Output only the URLs to stdout (no debugging info)
+    echo "$filtered_repos"
 }
 
 ###############################################################################
@@ -295,9 +434,30 @@ main() {
     $is_temp && trap 'rm -rf "$DEST_DIR"' EXIT INT TERM
 
     # Retrieve repo list
+    info "Retrieving repository list..."
     mapfile -t REPOS < <(
-        if [[ -n "$JSON_FILE" ]]; then retrieve_repos_from_json;
-        else retrieve_repos_from_github; fi )
+        if [[ -n "$JSON_FILE" ]]; then 
+            info "Reading repositories from JSON file: $JSON_FILE"
+            retrieve_repos_from_json
+        else 
+            retrieve_repos_from_github
+        fi )
+
+    info "Repository retrieval completed"
+    info "Found ${#REPOS[@]} repositories total"
+    
+    # Debug: show first few repos found
+    if (( ${#REPOS[@]} > 0 )); then
+        info "First few repositories found:"
+        for i in "${!REPOS[@]}"; do
+            if (( i < 5 )); then
+                info "  [$((i+1))] ${REPOS[i]}"
+            fi
+        done
+        if (( ${#REPOS[@]} > 5 )); then
+            info "  ... and $((${#REPOS[@]} - 5)) more"
+        fi
+    fi
 
     if (( ${#REPOS[@]} == 0 )); then
         warn "No repositories found. Exiting."
