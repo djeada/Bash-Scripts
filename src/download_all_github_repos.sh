@@ -393,7 +393,9 @@ clone_repos() {
             dir=$(basename "$converted" .git)
             if [[ -d "$dir" ]]; then exit 0; fi
             flags=()
-            '"$SHALLOW"' && flags+=(--depth 1)
+            if [ "$SHALLOW" = true ]; then
+                flags+=(--depth 1)
+            fi
             '"$MIRROR"' && flags+=(--mirror)
             git clone "${flags[@]}" "$converted"
         '
