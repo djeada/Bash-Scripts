@@ -3,7 +3,6 @@
 # Define colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-CYAN='\033[0;36m'
 NC='\033[0m'  # No Color
 
 
@@ -28,20 +27,21 @@ draw_progress_bar() {
     total_width=$(tput cols)  # Get the width of the terminal
 
     # Deducting 10 to leave space for percentage
-    let bar_length=($total_width-10)*$progress/100
+    bar_length=$(( (total_width - 10) * progress / 100 ))
 
     # Draw the progress bar
-    printf "\r${GREEN}["
-    printf "%0.s=" $(seq 1 $bar_length)
-    printf "%0.s " $(seq 1 $(($total_width-$bar_length-10)))
-    printf "] %3d%%${NC}" $progress
+    printf "\r%s[" "$GREEN"
+    printf "%0.s=" $(seq 1 "$bar_length")
+    printf "%0.s " $(seq 1 "$((total_width - bar_length - 10))")
+    printf "] %3d%%%s" "$progress" "$NC"
 }
 
 # This loop will mock data processing and draw the progress bar
 for i in $(seq 1 100); do
-    draw_progress_bar $i
+    draw_progress_bar "$i"
     sleep 0.05  # Sleep for a short duration to simulate work
 done
 
 echo ""  # Newline for cleaner output
 echo -e "${GREEN}Boss Level unlocked!${NC}"
+

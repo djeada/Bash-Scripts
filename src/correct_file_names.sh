@@ -15,12 +15,15 @@ correct_file_name() {
     local new_name
 
     # Extract filename from the path
-    local filename=$(basename "$old_name")
+    local filename
+    filename=$(basename "$old_name")
 
     # Check if the filename is in the excluded list
-    if [[ " ${excluded_files[@]} " =~ " ${filename} " ]]; then
-        return
-    fi
+    for excluded in "${excluded_files[@]}"; do
+        if [[ $filename =~ $excluded ]]; then
+            return
+        fi
+    done
 
     # Replace all punctuation characters with underscores
     new_name=$(echo "$old_name" | sed -e 's/[^a-zA-Z0-9._\/]/_/g')

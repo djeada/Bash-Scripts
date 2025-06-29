@@ -14,14 +14,14 @@ ROWS=$(tput lines)
 COLUMN_SPEEDS=()
 
 # Initialize speeds for each column
-for (( c=1; c<=$COLS; c++ )); do
-    COLUMN_SPEEDS[$c]=$(( ( RANDOM % 5 ) + 1 ))
+for (( c=1; c<=COLS; c++ )); do
+    COLUMN_SPEEDS[c]=$(( ( RANDOM % 5 ) + 1 ))
 done
 
 print_char() {
     local col=$1
     local char=${CHARS:$(( RANDOM % ${#CHARS} )):1}
-    if [[ $(( RANDOM % 5 )) -eq 1 ]]; then
+    if (( RANDOM % 5 == 1 )); then
         # Occasionally print a brighter green
         echo -ne "\033[$(( RANDOM % ROWS + 1 ));${col}f$LIGHT_GREEN$char$END_COLOR"
     else
@@ -31,8 +31,8 @@ print_char() {
 
 # Infinite loop to keep the matrix going
 while :; do
-    for (( c=1; c<=$COLS; c++ )); do
-        if (( RANDOM % COLUMN_SPEEDS[$c] == 1 )); then
+    for (( c=1; c<=COLS; c++ )); do
+        if (( RANDOM % COLUMN_SPEEDS[c] == 1 )); then
             print_char $c
         fi
     done

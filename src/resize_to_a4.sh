@@ -5,8 +5,8 @@
 # Usage: ./resize_images.sh [options]
 # Dependencies: Requires ImageMagick's 'convert' command.
 
-# Exit immediately if a command exits with a non-zero status.
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
 # Default configurations
 TARGET_WIDTH=2480
@@ -23,7 +23,8 @@ THREADS=1
 
 # Print usage information
 usage() {
-    echo "Usage: $0 [options]
+    cat <<EOF
+Usage: $0 [options]
 Options:
   -i, --input-dir DIR       Specify input directory (default: current directory)
   -o, --output-dir DIR      Specify output directory (default: current directory)
@@ -35,16 +36,18 @@ Options:
   -v, --verbose             Enable verbose output
   -l, --log-file FILE       Log output to specified file
   -t, --threads N           Number of concurrent threads (default: 1)
-  -h, --help                Display this help message and exit"
+  -h, --help                Display this help message and exit
+EOF
 }
 
 # Log function
 log() {
+    local msg="$1"
     if [ "$VERBOSE" = true ]; then
-        echo "$1"
+        echo "$msg"
     fi
     if [ -n "$LOG_FILE" ]; then
-        echo "$1" >> "$LOG_FILE"
+        echo "$msg" >> "$LOG_FILE"
     fi
 }
 
@@ -127,19 +130,19 @@ fi
 
 # Create output directory if it doesn't exist
 if [ "$OVERWRITE" = false ] && [ ! -d "$OUTPUT_DIR" ]; then
-    mkdir -p "$OUTPUT_DIR"
+    mkdir -p -- "$OUTPUT_DIR"
 fi
 
 # Find image files
 FILES=()
 for format in "${IMAGE_FORMATS[@]}"; do
-    while IFS= read -r -d $'\0' file; do
+    while IFS= read -r -d '' file; do
         FILES+=("$file")
     done < <(find "$INPUT_DIR" -type f \( -iname "*.${format}" -o -iname "*.${format^^}" \) -print0)
 done
 
 # Check if there are any image files
-if [ ${#FILES[@]} -eq 0 ]; then
+if [ "${#FILES[@]}" -eq 0 ]; then
     echo "No image files found in '$INPUT_DIR' with formats: ${IMAGE_FORMATS[*]}."
     exit 1
 fi
@@ -149,17 +152,17 @@ resize_image() {
     local file="$1"
     local output_file="$2"
     local options=()
-    
+
     if [ "$PRESERVE_ASPECT_RATIO" = true ]; then
         options+=("-resize" "${TARGET_WIDTH}x${TARGET_HEIGHT}")
     else
         options+=("-resize" "${TARGET_WIDTH}x${TARGET_HEIGHT}!")
     fi
-    
+
     log "Processing '$file'..."
-    
+
     if [ "$BACKUP" = true ] && [ "$OVERWRITE" = true ]; then
-        cp "$file" "${file}.bak"
+        cp -- "$file" "${file}.bak"
         log "Backup created for '$file'."
     fi
 
@@ -184,16 +187,20 @@ fi
 
 # Process images
 if [ "$THREADS" -gt 1 ]; then
-    parallel -j "$THREADS" --bar resize_image "{}" "$(
-        if [ "$OVERWRITE" = true ]; then
-            echo "{}"
-        else
-            echo "$OUTPUT_DIR/{/}"
-        fi
-    )" ::: "${FILES[@]}"
+    # Use a here-string to safely pass arguments to parallel, handling spaces and special characters
+    parallel -j "$THREADS" --bar --colsep '\t' resize_image :::: <(
+        for file in "${FILES[@]}"; do
+            if [ "$OVERWRITE" = true ]; then
+                printf '%s\t%s\n' "$file" "$file"
+            else
+                filename="$(basename -- "$file")"
+                printf '%s\t%s\n' "$file" "$OUTPUT_DIR/$filename"
+            fi
+        done
+    )
 else
     for file in "${FILES[@]}"; do
-        filename=$(basename "$file")
+        filename="$(basename -- "$file")"
         if [ "$OVERWRITE" = true ]; then
             output_file="$file"
         else
@@ -204,3 +211,4 @@ else
 fi
 
 echo "Image resizing complete."
+

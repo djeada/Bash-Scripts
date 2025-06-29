@@ -56,3 +56,4 @@ trap cleanup EXIT
 
 # Run the orphan-check function.
 check_orphans
+

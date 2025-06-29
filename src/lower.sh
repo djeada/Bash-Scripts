@@ -28,3 +28,4 @@ main() {
 
 # Call the main function with all passed arguments
 main "$@"
+

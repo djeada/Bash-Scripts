@@ -136,7 +136,6 @@ empty_trash() {
 }
 
 # Parse command-line arguments
-ARGS=("$@")
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -p|--path)
@@ -247,3 +246,4 @@ fi
 empty_trash "${TRASH_PATHS[@]}"
 
 log_action "Trash emptying completed."
+

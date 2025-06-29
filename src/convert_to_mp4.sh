@@ -33,7 +33,8 @@ usage() {
 # Function to process the video file
 convert_to_mp4() {
     local file_path=$1
-    local basename=$(basename "$file_path")
+    local basename
+    basename=$(basename "$file_path")
     local filename="${basename%.*}"
     local output_file="${filename}.mp4"
 
@@ -68,3 +69,4 @@ main() {
 }
 
 main "$@"
+

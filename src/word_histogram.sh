@@ -77,7 +77,7 @@ else
         jq -Rn '[inputs | split(":") | {(.[0]): (. [1] | tonumber)}] | add' < "$temp_file"
     else
         parallel --will-cite "process_text {} $min_word_length" ::: "$@" > "$temp_file"
-        cat "$temp_file" | sort -t: -k2,2nr
+        sort -t: -k2,2nr < "$temp_file"
     fi
 fi
 

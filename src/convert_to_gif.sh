@@ -67,3 +67,4 @@ else
     log_action "Error: Conversion failed for $FILE_PATH."
     exit 1
 fi
+

@@ -131,7 +131,7 @@ function confirm_version() {
         version=$("$PYTHON_INTERPRETER" setup.py --version 2>/dev/null || echo "Unknown")
     fi
     echo -e "${GREEN}Current package version is: $version${NC}"
-    read -p "Is this the correct version to upload? (y/n): " confirm_version
+    read -r -p "Is this the correct version to upload? (y/n): " confirm_version
     if [ "$confirm_version" != "y" ]; then
         echo -e "${RED}Please update your package version before proceeding.${NC}"
         exit 1
@@ -278,3 +278,4 @@ function main() {
 
 # Run the main function
 main "$@"
+

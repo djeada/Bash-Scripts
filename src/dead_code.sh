@@ -121,3 +121,4 @@ count_and_display() {
 
 # Main execution
 extract_names | count_and_display
+

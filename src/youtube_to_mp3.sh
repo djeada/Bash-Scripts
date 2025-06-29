@@ -31,7 +31,7 @@ try_to_install_dependencies() {
     for dependency in "${dependencies[@]}"; do
         if ! which "$dependency" >/dev/null 2>&1; then
             echo "Trying to install '$dependency'."
-            eval sudo $command_to_install "$dependency"
+            eval sudo "$command_to_install" "$dependency"
         fi
     done
 }
@@ -110,3 +110,4 @@ main() {
 }
 
 main "$@"
+

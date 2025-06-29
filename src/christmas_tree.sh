@@ -13,7 +13,7 @@ draw_level() {
 
     for ((i = 0; i < level_size; i++)); do
         printf "%*s" $((level_size - i)) "" # print spaces
-        printf "%*s\n" $((2 * i + 1)) | tr " " "$character" # print characters
+        printf '%*s\n' $((2 * i + 1)) "" | tr ' ' "$character" # print characters
     done
 }
 
@@ -50,3 +50,4 @@ main() {
 }
 
 main "$@"
+

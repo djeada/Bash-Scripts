@@ -26,9 +26,9 @@ NC='\033[0m'
 
 # DEFAULT DIRECTORIES
 DEFAULT_DIRS=(
-  "$HOME/Documents"
-  "$HOME/Downloads"
-  "$HOME/Desktop"
+    "$HOME/Documents"
+    "$HOME/Downloads"
+    "$HOME/Desktop"
 )
 
 # TRAP FOR CLEANUP
@@ -116,7 +116,7 @@ select_target_directory() {
                 return
                 ;;
             2)
-                local usb_drives=($(detect_usb_drives))
+                mapfile -t usb_drives < <(detect_usb_drives)
                 if [[ ${#usb_drives[@]} -eq 0 ]]; then
                     log WARN "No USB drives detected. Connect a USB or select a custom path."
                     continue
@@ -167,7 +167,8 @@ select_source_directories() {
             ;;
         [Aa]*)
             read -r -p "Enter additional directories (space-separated): " extra_dirs
-            echo "${DEFAULT_DIRS[@]} $extra_dirs"
+            echo "${DEFAULT_DIRS[@]}"
+            echo "$extra_dirs"
             ;;
         [Cc]*)
             read -r -p "Enter the directories you want to back up (space-separated): " custom_dirs
@@ -324,9 +325,9 @@ configure_cron_job() {
 
     # Example environment-based line in crontab:
     #   DAILY_RETENTION=7 WEEKLY_RETENTION=4 MONTHLY_RETENTION=12 \
-    #   SOURCE_DIRS=\"/home/user/Documents /home/user/Desktop\" \
-    #   TARGET_DIR=\"/media/usb\" COMPRESS=true ENCRYPT=false \
-    #   GPG_PASSPHRASE=\"secret\" bash /path/to/backup.sh --auto
+        #   SOURCE_DIRS=\"/home/user/Documents /home/user/Desktop\" \
+        #   TARGET_DIR=\"/media/usb\" COMPRESS=true ENCRYPT=false \
+        #   GPG_PASSPHRASE=\"secret\" bash /path/to/backup.sh --auto
     #
     # The user should place their chosen environment variables in the line below.
     #
@@ -380,7 +381,7 @@ main_menu() {
         read -r -p "Enter your choice [1-3]: " main_choice
         case "$main_choice" in
             1)
-                local source_dirs=($(select_source_directories))
+                mapfile -t source_dirs < <(select_source_directories)
                 if [[ ${#source_dirs[@]} -eq 0 ]]; then
                     log WARN "No directories selected. Backup canceled."
                     press_enter_to_continue
@@ -468,3 +469,4 @@ if [[ "${1:-}" == "--auto" ]]; then
 fi
 
 main_menu
+

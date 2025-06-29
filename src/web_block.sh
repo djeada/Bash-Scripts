@@ -123,8 +123,8 @@ function list_blocked_domains {
 }
 
 function confirm_operation {
-    if [ "$FORCE" = false ]; then
-        read -p "Are you sure you want to proceed? (y/n): " response
+    if [[ "$FORCE" = false ]]; then
+        read -r -p "Are you sure you want to proceed? (y/n): " response
         if [[ "$response" != "y" ]]; then
             echo "Operation cancelled."
             exit 0
@@ -164,7 +164,7 @@ function check_root {
 
 # Parse options
 TEMP=$(getopt -o harlb:dL:fVc:H: --long help,add,remove,list,backup:,dry-run,log:,force,verbose,config:,hosts: -n "$0" -- "$@")
-if [ $? != 0 ]; then
+if ! getopt -o harlb:dL:fVc:H: --long help,add,remove,list,backup:,dry-run,log:,force,verbose,config:,hosts: -n "$0" -- "$@"; then
     echo "Error: Failed to parse options."
     exit 1
 fi
@@ -265,3 +265,4 @@ fi
 modify_hosts "$OPERATION" "${DOMAINS[@]}"
 
 exit 0
+

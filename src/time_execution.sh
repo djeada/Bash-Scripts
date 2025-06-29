@@ -18,14 +18,18 @@ main() {
     local total_time=0
 
     for _ in $(seq 1 "$N"); do
-        local start_time=$(date +%s.%N)
+        local start_time
+        start_time=$(date +%s.%N)
         eval "$command"
-        local end_time=$(date +%s.%N)
+        local end_time
+        end_time=$(date +%s.%N)
         total_time=$(echo "$total_time + ($end_time - $start_time)" | bc)
     done
 
-    local avg_time=$(echo "scale=3; $total_time / $N" | bc)
+    local avg_time
+    avg_time=$(echo "scale=3; $total_time / $N" | bc)
     echo "Average execution time for \"$command\" over $N runs: $avg_time seconds"
 }
 
 main "$@"
+

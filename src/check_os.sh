@@ -24,7 +24,8 @@ output() {
 }
 
 check_os() {
-    local os_name=$(uname)
+    local os_name
+    os_name=$(uname)
     local distro=""
     local version=""
 
@@ -74,3 +75,4 @@ while [ $# -gt 0 ]; do
 done
 
 check_os
+

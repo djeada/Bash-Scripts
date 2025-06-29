@@ -43,7 +43,7 @@ Options:
   -f, --file FILE          Read strings from a file (one per line).
       --stdin              Read strings from standard input.
   -v, --verbose            Enable verbose output.
-  -h, --help               Display this help message."
+    -h, --help               Display this help message."
 }
 
 # Function for verbose logging
@@ -58,123 +58,124 @@ ARGS=()
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -i|--ignore-case)
-            IGNORE_CASE=true
-            shift
-            ;;
-        -s|--ignore-spaces)
-            IGNORE_SPACES=true
-            shift
-            ;;
-        -p|--ignore-punctuation)
-            IGNORE_PUNCTUATION=true
-            shift
-            ;;
-        -u|--unicode)
-            HANDLE_UNICODE=true
-            shift
-            ;;
-        -f|--file)
-            READ_FROM_FILE=true
-            INPUT_FILE="$2"
-            shift 2
-            ;;
-        --stdin)
-            READ_FROM_STDIN=true
-            shift
-            ;;
-        -v|--verbose)
-            VERBOSE=true
-            shift
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        -*)
-            echo "Unknown option: $1"
-            usage
-            exit 1
-            ;;
-        *)
-            ARGS+=("$1")
-            shift
-            ;;
-    esac
-done
+                IGNORE_CASE=true
+                shift
+                ;;
+            -s|--ignore-spaces)
+                IGNORE_SPACES=true
+                shift
+                ;;
+            -p|--ignore-punctuation)
+                IGNORE_PUNCTUATION=true
+                shift
+                ;;
+            -u|--unicode)
+                HANDLE_UNICODE=true
+                shift
+                ;;
+            -f|--file)
+                READ_FROM_FILE=true
+                INPUT_FILE="$2"
+                shift 2
+                ;;
+            --stdin)
+                READ_FROM_STDIN=true
+                shift
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -*)
+                echo "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+            *)
+                ARGS+=("$1")
+                shift
+                ;;
+        esac
+    done
 
-# Collect input strings
-if [[ "$READ_FROM_FILE" = true ]]; then
-    if [[ ! -f "$INPUT_FILE" ]]; then
-        echo "Error: File '$INPUT_FILE' not found."
+    # Collect input strings
+    if [[ "$READ_FROM_FILE" = true ]]; then
+        if [[ ! -f "$INPUT_FILE" ]]; then
+            echo "Error: File '$INPUT_FILE' not found."
+            exit 1
+        fi
+        while IFS= read -r line; do
+            INPUT_STRINGS+=("$line")
+        done < "$INPUT_FILE"
+    elif [[ "$READ_FROM_STDIN" = true ]]; then
+        while IFS= read -r line; do
+            INPUT_STRINGS+=("$line")
+        done
+    else
+        INPUT_STRINGS+=("${ARGS[@]}")
+    fi
+
+    # Check if at least two strings are provided
+    if [[ ${#INPUT_STRINGS[@]} -lt 2 ]]; then
+        echo "Error: At least two strings must be provided."
+        usage
         exit 1
     fi
-    while IFS= read -r line; do
-        INPUT_STRINGS+=("$line")
-    done < "$INPUT_FILE"
-elif [[ "$READ_FROM_STDIN" = true ]]; then
-    while IFS= read -r line; do
-        INPUT_STRINGS+=("$line")
-    done
-else
-    INPUT_STRINGS+=("${ARGS[@]}")
-fi
 
-# Check if at least two strings are provided
-if [[ ${#INPUT_STRINGS[@]} -lt 2 ]]; then
-    echo "Error: At least two strings must be provided."
-    usage
-    exit 1
-fi
+    # Function to clean and sort a string
+    sort_string() {
+        local string="$1"
 
-# Function to clean and sort a string
-sort_string() {
-    local string="$1"
-
-    # Remove spaces if needed
-    if [[ "$IGNORE_SPACES" = true ]]; then
-        string=$(echo "$string" | tr -d '[:space:]')
-    fi
-
-    # Remove punctuation if needed
-    if [[ "$IGNORE_PUNCTUATION" = true ]]; then
-        string=$(echo "$string" | tr -d '[:punct:]')
-    fi
-
-    # Convert to lower case if needed
-    if [[ "$IGNORE_CASE" = true ]]; then
-        if [[ "$HANDLE_UNICODE" = true ]]; then
-            string=$(echo "$string" | awk '{print tolower($0)}')
-        else
-            string=$(echo "$string" | tr '[:upper:]' '[:lower:]')
+        # Remove spaces if needed
+        if [[ "$IGNORE_SPACES" = true ]]; then
+            string=$(echo "$string" | tr -d '[:space:]')
         fi
-    fi
 
-    # Split into characters, sort, and reassemble
-    if [[ "$HANDLE_UNICODE" = true ]]; then
-        # For Unicode, use sed and sort with appropriate locale
-        # Assume locale is set properly
-        sorted_string=$(echo "$string" | sed 's/./&\n/g' | LC_ALL=C sort | tr -d '\n')
-    else
-        # For ASCII, use grep -o .
-        sorted_string=$(echo "$string" | grep -o . | LC_ALL=C sort | tr -d '\n')
-    fi
+        # Remove punctuation if needed
+        if [[ "$IGNORE_PUNCTUATION" = true ]]; then
+            string=$(echo "$string" | tr -d '[:punct:]')
+        fi
 
-    echo "$sorted_string"
-}
+        # Convert to lower case if needed
+        if [[ "$IGNORE_CASE" = true ]]; then
+            if [[ "$HANDLE_UNICODE" = true ]]; then
+                string=$(echo "$string" | awk '{print tolower($0)}')
+            else
+                string=$(echo "$string" | tr '[:upper:]' '[:lower:]')
+            fi
+        fi
 
-# Main comparison logic
-first_string="${INPUT_STRINGS[0]}"
-first_string_sorted=$(sort_string "$first_string")
-log "First string sorted: $first_string_sorted"
+        # Split into characters, sort, and reassemble
+        if [[ "$HANDLE_UNICODE" = true ]]; then
+            # For Unicode, use sed and sort with appropriate locale
+            # Assume locale is set properly
+            sorted_string=$(echo "$string" | sed 's/./&\n/g' | LC_ALL=C sort | tr -d '\n')
+        else
+            # For ASCII, use grep -o .
+            sorted_string=$(echo "$string" | grep -o . | LC_ALL=C sort | tr -d '\n')
+        fi
 
-for ((i=1; i<${#INPUT_STRINGS[@]}; i++)); do
-    current_string="${INPUT_STRINGS[i]}"
-    current_string_sorted=$(sort_string "$current_string")
-    log "Current string sorted: $current_string_sorted"
-    if [[ "$first_string_sorted" != "$current_string_sorted" ]]; then
-        echo "The strings are not anagrams."
-        exit 0
-    fi
-done
+        echo "$sorted_string"
+    }
 
-echo "The strings are anagrams."
+    # Main comparison logic
+    first_string="${INPUT_STRINGS[0]}"
+    first_string_sorted=$(sort_string "$first_string")
+    log "First string sorted: $first_string_sorted"
+
+    for ((i=1; i<${#INPUT_STRINGS[@]}; i++)); do
+        current_string="${INPUT_STRINGS[i]}"
+        current_string_sorted=$(sort_string "$current_string")
+        log "Current string sorted: $current_string_sorted"
+        if [[ "$first_string_sorted" != "$current_string_sorted" ]]; then
+            echo "The strings are not anagrams."
+            exit 0
+        fi
+    done
+
+    echo "The strings are anagrams."
+

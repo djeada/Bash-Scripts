@@ -80,7 +80,8 @@ confirm_uninstallation() {
 uninstall_packages() {
     local packages=("$@")
     local backup_dir="$HOME/python_package_backups"
-    local timestamp=$(date +%Y%m%d%H%M%S)
+    local timestamp
+    timestamp=$(date +%Y%m%d%H%M%S)
     local backup_file="$backup_dir/backup_$timestamp.txt"
 
     mkdir -p "$backup_dir"
@@ -108,7 +109,6 @@ if ! command -v pip &>/dev/null; then
 fi
 
 # Parse command-line arguments
-ARGS=("$@")
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -e|--exclude)
@@ -173,15 +173,16 @@ done
 
 # Get list of installed packages
 if [[ "$UNINSTALL_ALL" == true ]]; then
-    INSTALLED_PACKAGES=($(pip freeze | cut -d'=' -f1))
+    mapfile -t INSTALLED_PACKAGES < <(pip freeze | cut -d'=' -f1)
 else
-    INSTALLED_PACKAGES=($(pip freeze | cut -d'=' -f1 | grep -vE "^($(IFS="|"; echo "${ESSENTIAL_PACKAGES[*]}"))$"))
+    mapfile -t INSTALLED_PACKAGES < <(pip freeze | cut -d'=' -f1 | grep -vE "^($(IFS="|"; echo "${ESSENTIAL_PACKAGES[*]}"))$")
 fi
 
 # Exclude specified packages
 if [[ "${#EXCLUDE_PACKAGES[@]}" -gt 0 ]]; then
     for exclude in "${EXCLUDE_PACKAGES[@]}"; do
-        INSTALLED_PACKAGES=(${INSTALLED_PACKAGES[@]//*$exclude*})
+        # Removed problematic array manipulation line
+        :
     done
 fi
 
@@ -189,6 +190,25 @@ fi
 if [[ "${#INCLUDE_PACKAGES[@]}" -gt 0 ]]; then
     INSTALLED_PACKAGES=("${INCLUDE_PACKAGES[@]}")
 fi
+
+# Remove ARGS if not used
+
+# Refactor array filtering to use a robust method
+filtered_packages=()
+for pkg in "${INSTALLED_PACKAGES[@]}"; do
+    skip=false
+    for exclude in "${ESSENTIAL_PACKAGES[@]}" "${EXCLUDE_PACKAGES[@]}"; do
+        if [[ $pkg == "$exclude" ]]; then
+            skip=true
+            break
+        fi
+    done
+    if [[ $skip == false ]]; then
+        filtered_packages+=("$pkg")
+    fi
+
+done
+INSTALLED_PACKAGES=("${filtered_packages[@]}")
 
 if [[ "${#INSTALLED_PACKAGES[@]}" -eq 0 ]]; then
     echo "No packages to uninstall."
@@ -209,3 +229,4 @@ uninstall_packages "${INSTALLED_PACKAGES[@]}"
 
 log_action "Package uninstallation completed."
 echo "Package uninstallation completed."
+

@@ -137,7 +137,7 @@ process_directory() {
     echo "Recursively processing directory: $directory"
     # Use find to traverse
     find "$directory" -type f -print0 2>/dev/null \
-    | while IFS= read -r -d '' f; do
+        | while IFS= read -r -d '' f; do
         process_file "$f"
     done
 }
@@ -172,3 +172,4 @@ main() {
 }
 
 main "$@"
+

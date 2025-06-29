@@ -56,7 +56,8 @@ count_files() {
     local num_dirs
     num_dirs=$( find "$dir" ${depth:+-maxdepth "$depth"} -type d | wc -l )
 
-    local total_count=$((num_dirs + num_files))
+    local total_count
+    total_count=$((num_dirs + num_files))
 
     echo "Number of directories: $num_dirs"
     echo "Number of files: $num_files"
@@ -64,7 +65,8 @@ count_files() {
 }
 
 main() {
-    local dir="$(pwd)"
+    local dir
+    dir="$(pwd)"
     local depth=""
     local extension=""
 
@@ -104,3 +106,4 @@ main() {
 }
 
 main "$@"
+

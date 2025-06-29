@@ -14,7 +14,7 @@
 print_digits() {
     local number="$1"
     local len=${#number}
-    
+
     # Loop over each character in the string
     for (( i = 0; i < len; i++ )); do
         printf "%s " "${number:i:1}"
@@ -39,3 +39,4 @@ main() {
 }
 
 main "$@"
+

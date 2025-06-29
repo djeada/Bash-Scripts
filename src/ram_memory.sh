@@ -35,7 +35,6 @@ CRITICAL_LEVEL=0
 INCLUDE_SWAP=false
 OUTPUT_FILE=""
 OUTPUT_JSON=false
-NO_COLOR=false
 
 # Function to display usage information
 print_usage() {
@@ -112,7 +111,8 @@ check_minimum_ram() {
         fi
     fi
 
-    local total_ram=$(convert_ram "$total_ram_kb" "$UNIT")
+    local total_ram
+    total_ram=$(convert_ram "$total_ram_kb" "$UNIT")
     local min_ram_kb
     case "$UNIT" in
         GB|gb)
@@ -144,7 +144,6 @@ display_top_ram_usage() {
 }
 
 # Parse command-line arguments
-ARGS=("$@")
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
@@ -220,7 +219,6 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --no-color)
-            NO_COLOR=true
             shift
             ;;
         *)
@@ -278,3 +276,4 @@ if [[ "$OUTPUT_JSON" == true ]]; then
 }
 EOF
 fi
+

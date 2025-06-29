@@ -18,7 +18,7 @@ CITY="$1"
 WEATHER_DATA=$(curl -s -L "http://wttr.in/$CITY?format=3")
 
 # Parsing the data
-CONDITION=$(echo $WEATHER_DATA | awk -F ':' '{print $2}')
+CONDITION=$(echo "$WEATHER_DATA" | awk -F ':' '{print $2}')
 
 # Display the City Name
 echo -e "\e[1m\e[95mCity: $CITY\e[0m"
@@ -43,3 +43,4 @@ case $CONDITION in
         ;;
 esac
 echo "-----------------------------------"
+

@@ -213,3 +213,4 @@ find_and_process_files() {
 for TARGET in "${TARGETS[@]}"; do
     find_and_process_files "$TARGET"
 done
+

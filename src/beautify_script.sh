@@ -1,4 +1,8 @@
+# hooks/beautify_script.sh
 #!/usr/bin/env bash
+
+# Ensure tput has something to work with (avoids set -e abort)
+export TERM=${TERM:-dumb}
 
 # Script Name: beautify_script.sh
 # Description: Formats shell scripts using Beautysh and analyzes them with ShellCheck.
@@ -99,4 +103,3 @@ main() {
 }
 
 main "$@"
-
