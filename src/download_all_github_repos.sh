@@ -67,6 +67,7 @@ SHALLOW=false
 MIRROR=false
 FILTER_FORKS=false
 MAX_REPOS=""
+CLONE_LAUNCHER=""
 
 ###############################################################################
 # Pretty printing helpers
@@ -91,13 +92,12 @@ check_dependencies() {
     done
 
     if (( PARALLEL_JOBS > 1 )); then
-        if command -v parallel &>/dev/null; then
-            CLONE_LAUNCHER="parallel -j $PARALLEL_JOBS"
-        elif xargs --help 2>&1 | grep -q -- '-P'; then
-            CLONE_LAUNCHER="xargs -n1 -P $PARALLEL_JOBS"
+        if xargs --help 2>&1 | grep -q -- '-P'; then
+            CLONE_LAUNCHER="xargs"
         else
-            warn "Parallel cloning requested but neither GNU parallel nor xargs -P available. Falling back to serial.";
+            warn "Parallel cloning requested but xargs -P not available. Falling back to serial."
             PARALLEL_JOBS=1
+            CLONE_LAUNCHER=""
         fi
     fi
 }
@@ -362,7 +362,8 @@ clone_repos() {
 
     info "Cloning ${total} repositories…"
 
-    if (( PARALLEL_JOBS <= 1 )); then
+    if (( PARALLEL_JOBS <= 1 )) || [[ -z "$CLONE_LAUNCHER" ]]; then
+        # Serial cloning
         for repo in "${repos[@]}"; do
             local converted
             converted=$(convert_protocol "$repo")
@@ -375,12 +376,13 @@ clone_repos() {
             ((idx++))
         done
     else
-        info "Using $PARALLEL_JOBS parallel jobs via ${CLONE_LAUNCHER%% *}."
-        printf '%s\n' "${repos[@]}" | ${CLONE_LAUNCHER} bash -c '
+        # Parallel cloning with xargs
+        info "Using $PARALLEL_JOBS parallel jobs via xargs."
+        printf '%s\n' "${repos[@]}" | xargs -n1 -P "$PARALLEL_JOBS" bash -c '
             repo="$0";
             convert_protocol() {
-                if [[ -z "${PROTOCOL}" ]]; then printf "%s" "$1"; else
-                    if [[ "${PROTOCOL}" == "ssh" ]]; then
+                if [[ -z "'"$PROTOCOL"'" ]]; then printf "%s" "$1"; else
+                    if [[ "'"$PROTOCOL"'" == "ssh" ]]; then
                         printf "%s" "$1" | sed -E "s#https://github.com/(.+)#git@github.com:\1#";
                     else
                         printf "%s" "$1" | sed -E "s#git@github.com:(.+)#https://github.com/\1#";
@@ -390,7 +392,10 @@ clone_repos() {
             converted=$(convert_protocol "$repo")
             dir=$(basename "$converted" .git)
             if [[ -d "$dir" ]]; then exit 0; fi
-            eval $(build_git_clone_cmd "$converted")
+            flags=()
+            '"$SHALLOW"' && flags+=(--depth 1)
+            '"$MIRROR"' && flags+=(--mirror)
+            git clone "${flags[@]}" "$converted"
         '
     fi
 }
