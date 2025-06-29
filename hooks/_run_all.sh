@@ -1,4 +1,8 @@
+# hooks/_run_all.sh
 #!/usr/bin/env bash
+
+# Ensure tput has something to work with
+export TERM=${TERM:-dumb}
 
 # Script Name: _run_all.sh
 # Description: This script will check all scripts in the specified paths.
@@ -12,22 +16,22 @@ paths=(src)
 # Status variable to track if any check fails
 status=0
 
-# Define color codes
-RED=`tput setaf 1`
-GREEN=`tput setaf 2`
-RESET=`tput sgr0`
+# Define color codes (now safe because TERM is set)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+RESET=$(tput sgr0)
 
 # Process each path
 for path in "${paths[@]}"; do
     # Find all scripts (not starting with _) in 'hooks' directory
-    for script in $(find hooks -type l -name "[^_]*.sh"); do
-        echo -e "\nExecuting "$script""
+    find hooks -type l -name "[^_]*.sh" | while read -r script; do
+        echo -e "\nExecuting $script"
 
         # Execute the script with '--check' option
         if "$script" --check "$path"; then
-            echo "${GREEN}$script check on $path was successful${RESET}"
-        else 
-            echo "${RED}$script check on $path failed${RESET}"
+            echo "${GREEN}${script} check on ${path} was successful${RESET}"
+        else
+            echo "${RED}${script} check on ${path} failed${RESET}"
             status=1
         fi
     done
@@ -37,4 +41,3 @@ done
 if [[ $status -eq 1 ]]; then
     exit 1
 fi
-
