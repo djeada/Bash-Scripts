@@ -17,7 +17,9 @@ remove_trailing_whitespaces() {
 
     echo "Checking each line of ${file} for trailing whitespaces..."
 
-    touch "${file}".tmp
+    if [[ $checkonly -eq 0 ]]; then
+        touch "${file}".tmp
+    fi
 
     while IFS= read -r line; do
         if [[ $line == *[[:space:]] ]]; then
@@ -37,6 +39,9 @@ remove_trailing_whitespaces() {
     if [[ $checkonly -eq 0 ]]; then
         mv "${file}".tmp "${file}"
         echo "Done!"
+    else
+        # Clean up any .tmp file that may have been created accidentally
+        [[ -f "${file}".tmp ]] && rm -f "${file}".tmp
     fi
 }
 
