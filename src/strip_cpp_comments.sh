@@ -68,7 +68,7 @@ strip_file() {
             printf '%s' "$c" >&3
             if (( escape )); then
                 escape=0
-            elif [[ $c == '\' ]]; then
+            elif [[ $c == "\\" ]]; then
                 escape=1
             elif [[ $c == '"' ]]; then
                 in_str=0
