@@ -139,9 +139,11 @@ parse_args() {
         error "--parallel expects a positive integer"; exit 1;
     fi
 
-    # Max repos validation is numeric
+    # Max repos validation is numeric and greater than zero
     if [[ -n "$MAX_REPOS" ]] && ! [[ "$MAX_REPOS" =~ ^[0-9]+$ ]]; then
         error "--max-repos expects a positive integer"; exit 1;
+    elif [[ -n "$MAX_REPOS" ]] && (( MAX_REPOS == 0 )); then
+        error "--max-repos must be greater than 0"; exit 1;
     fi
 }
 
