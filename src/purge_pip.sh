@@ -197,7 +197,7 @@ fi
 filtered_packages=()
 for pkg in "${INSTALLED_PACKAGES[@]}"; do
     skip=false
-    for exclude in "${ESSENTIAL_PACKAGES[@]}"; do
+    for exclude in "${ESSENTIAL_PACKAGES[@]}" "${EXCLUDE_PACKAGES[@]}"; do
         if [[ $pkg == "$exclude" ]]; then
             skip=true
             break
@@ -206,6 +206,7 @@ for pkg in "${INSTALLED_PACKAGES[@]}"; do
     if [[ $skip == false ]]; then
         filtered_packages+=("$pkg")
     fi
+
 done
 INSTALLED_PACKAGES=("${filtered_packages[@]}")
 
