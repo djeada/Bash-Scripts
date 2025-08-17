@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Force dot decimal separator regardless of OS locale
+export LC_NUMERIC=C
+export LC_ALL=C
+export LANG=C
+
 # make_short.sh — turn any video into a YouTube Short-ready file.
 # Requires: ffmpeg, ffprobe, awk
 #
@@ -88,13 +93,13 @@ trap 'rm -rf "$tmpdir"' EXIT
 # --- Helper: get duration (seconds, float) ---
 get_duration() {
   ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$1" \
-    | awk '{printf("%.6f\n",$1)}'
+    | LC_ALL=C awk '{printf("%.6f\n",$1)}'
 }
 
 # --- Helper: detect if audio stream exists ---
 has_audio() {
   local n
-  n="$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$1" | wc -l | awk '{print $1}')"
+  n="$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$1" | wc -l | LC_ALL=C awk '{print $1}')"
   [[ "$n" -ge 1 ]]
 }
 
@@ -103,12 +108,12 @@ has_audio() {
 build_atempo_chain() {
   local f="$1" chain=()
   # clamp small numerical noise
-  f="$(awk -v x="$f" 'BEGIN{if (x<1.000001) x=1.0; printf("%.8f",x)}')"
-  while awk -v x="$f" 'BEGIN{exit !(x>2.0000001)}'; do
+  f="$(LC_ALL=C awk -v x="$f" 'BEGIN{if (x<1.000001) x=1.0; printf("%.8f",x)}')"
+  while LC_ALL=C awk -v x="$f" 'BEGIN{exit !(x>2.0000001)}'; do
     chain+=("atempo=2.0")
-    f="$(awk -v x="$f" 'BEGIN{printf("%.8f", x/2.0)}')"
+    f="$(LC_ALL=C awk -v x="$f" 'BEGIN{printf("%.8f", x/2.0)}')"
   done
-  chain+=("atempo=$(awk -v x="$f" 'BEGIN{printf("%.8f",x)}')")
+  chain+=("atempo=$(LC_ALL=C awk -v x="$f" 'BEGIN{printf("%.8f",x)}')")
   (IFS=,; echo "${chain[*]}")
 }
 
@@ -133,7 +138,13 @@ manual_crop() {
 DUR="$(get_duration "$INPUT")"
 if [[ "$SPEED" == "auto" ]]; then
   # factor = max(1.0, DUR / MAXS)
-  SPEED="$(awk -v d="$DUR" -v m="$MAXS" 'BEGIN{f=d/m; if(f<1.0) f=1.0; printf("%.8f",f)}')"
+  SPEED="$(LC_ALL=C awk -v d="$DUR" -v m="$MAXS" 'BEGIN{f=d/m; if(f<1.0) f=1.0; printf("%.8f",f)}')"
+fi
+
+# Bonus: print computed speed and warn if extreme
+echo "Computed speed factor: $SPEED"
+if LC_ALL=C awk -v s="$SPEED" 'BEGIN{exit !(s>16)}'; then
+  echo "Warning: very high speed factor (${SPEED})x"
 fi
 
 # --- Build filter graph ---
@@ -204,7 +215,7 @@ else
 fi
 
 # --- Safety: cap duration to MAXS-0.2 to avoid rounding drift at ingest ---
-CAP="$(awk -v m="$MAXS" 'BEGIN{printf("%.3f",m-0.2)}')"  # e.g., 58.8s
+CAP="$(LC_ALL=C awk -v m="$MAXS" 'BEGIN{printf("%.3f",m-0.2)}')"  # e.g., 58.8s
 
 # --- Run ffmpeg ---
 # yuv420p + +faststart for best compatibility/ingest
