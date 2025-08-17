@@ -6,7 +6,7 @@ export LC_NUMERIC=C
 export LC_ALL=C
 export LANG=C
 
-# make_short.sh — turn any video into a YouTube Short-ready file.
+# make_short.sh — turn any video into a YouTube Short/IG Reel–ready file.
 # Requires: ffmpeg, ffprobe, awk
 #
 # Examples:
@@ -168,27 +168,28 @@ case "$CROP_MODE" in
   *) : ;;
 esac
 
-# 2) Fit to 9:16
+# 2) Fit to 9:16 — ensure even dimensions to avoid 1px asymmetry
 case "$FIT" in
   pad)
-    vf_chain+=("scale=1080:-1:force_original_aspect_ratio=decrease")
-    vf_chain+=("pad=1080:1920:(ow-iw)/2:(oh-ih)/2")
+    # Keep AR, fit width to 1080, height auto (even), then pad to 1080x1920 with symmetric integer offsets
+    vf_chain+=("scale=1080:-2:force_original_aspect_ratio=decrease:force_divisible_by=2")
+    vf_chain+=("pad=1080:1920:floor((ow-iw)/2):floor((oh-ih)/2)")
     ;;
   stretch)
-    vf_chain+=("scale=1080:1920")
+    # Force full-frame; keep even just in case
+    vf_chain+=("scale=1080:1920:force_divisible_by=2")
     ;;
   cropfill)
-    # crop to 9:16, then scale to 1080x1920 (fills frame without bars)
+    # Crop to 9:16, then scale to exact 1080x1920 (even)
     vf_chain+=("crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9)")
-    vf_chain+=("scale=1080:1920")
+    vf_chain+=("scale=1080:1920:force_divisible_by=2")
     ;;
   *)
     echo "Invalid --fit: $FIT"; exit 1 ;;
 esac
 
-# 3) Pixel aspect + display aspect
+# 3) Pixel aspect only (no setdar needed when raster is 1080x1920)
 vf_chain+=("setsar=1:1")
-vf_chain+=("setdar=9/16")
 
 # 4) Speed-up video (setpts) + fps
 vf_chain+=("setpts=PTS/${SPEED}")
@@ -219,10 +220,12 @@ CAP="$(LC_ALL=C awk -v m="$MAXS" 'BEGIN{printf("%.3f",m-0.2)}')"  # e.g., 58.8s
 
 # --- Run ffmpeg ---
 # yuv420p + +faststart for best compatibility/ingest
+# Also clear any stray rotation/clean-aperture/qt atoms and strip container metadata.
 ffmpeg -y -noautorotate -i "$INPUT" \
   -filter_complex "$FILTER_COMPLEX" \
   -map "${VIDEO_LABEL}" $MAP_AUDIO \
-  -c:v libx264 -preset "$PRESET" -crf "$CRF" -pix_fmt yuv420p -movflags +faststart \
+  -c:v libx264 -preset "$PRESET" -crf "$CRF" -pix_fmt yuv420p \
+  -metadata:s:v:0 rotate=0 -map_metadata -1 -movflags +faststart \
   -t "$CAP" \
   "$OUTPUT"
 
