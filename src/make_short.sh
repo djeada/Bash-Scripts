@@ -93,7 +93,7 @@ tmpdir="$(mktemp -d)"; trap 'rm -rf "$tmpdir"' EXIT
 # --- Helpers (numeric) ---
 get_dims() {
   ffprobe -v error -select_streams v:0 -show_entries stream=width,height \
-    -of csv=s=x:p=0 "$1"
+    -of csv=p=0 "$1"           # outputs: 1920,1080
 }
 floor_even() {
   LC_ALL=C awk -v x="$1" 'BEGIN{ y=int(x/2)*2; if (y<0) y=0; print y }'
@@ -175,7 +175,7 @@ fi
 echo "Computed speed factor: $SPEED"; LC_ALL=C awk -v s="$SPEED" 'BEGIN{if(s>16) print "Warning: very high speed factor (" s "x)"}'
 
 # --- Build filter graph ---
-read IW IH <<<"$(get_dims "$INPUT")"
+IFS=',' read -r IW IH <<<"$(get_dims "$INPUT")"
 
 vf_chain=()
 CROP_SUFFIX=""; [[ "$EXACT_CROP" == "true" ]] && CROP_SUFFIX=":exact=1"
