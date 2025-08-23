@@ -117,7 +117,26 @@ build_atempo_chain() {
   (IFS=,; echo "${chain[*]}")
 }
 
-# --- Helper: auto-crop using cropdetect; returns "w:h:x:y" or empty ---
+# --- Helper: round an expression down to the nearest even integer ---
+to_even_expr() {
+  # Returns an ffmpeg expression that evaluates to an even integer: 2*trunc((EXPR)/2)
+  local expr="$1"
+  echo "2*trunc(($expr)/2)"
+}
+
+# --- Helper: transform crop 'w:h:x:y' to even w,h,x,y ---
+evenize_crop_whxy() {
+  local whxy="$1"
+  IFS=':' read -r w h x y <<< "$whxy"
+  local ew eh ex ey
+  ew="$(to_even_expr "$w")"
+  eh="$(to_even_expr "$h")"
+  ex="$(to_even_expr "$x")"
+  ey="$(to_even_expr "$y")"
+  echo "${ew}:${eh}:${ex}:${ey}"
+}
+
+# --- Helper: auto-crop using cropdetect; returns evenized "w:h:x:y" or empty ---
 auto_crop() {
   # Analyze a short segment; grab the last suggested crop
   local line
@@ -125,13 +144,19 @@ auto_crop() {
     -vf "cropdetect=24:16:0" -f null - 2>&1 \
     | sed -n 's/.*crop=\([0-9]\+:[0-9]\+:[0-9]\+:[0-9]\+\).*/\1/p' \
     | tail -n 1)"
-  echo "$line"
+  if [[ -n "$line" ]]; then
+    echo "$(evenize_crop_whxy "$line")"
+  fi
 }
 
-# --- Helper: manual crop from L:T:R:B to crop=w:h:x:y ---
+# --- Helper: manual crop from L:T:R:B to evenized crop=w:h:x:y ---
 manual_crop() {
   local L="$1" T="$2" R="$3" B="$4"
-  echo "iw-${L}-${R}:ih-${T}-${B}:${L}:${T}"
+  local w="iw-${L}-${R}"
+  local h="ih-${T}-${B}"
+  local x="${L}"
+  local y="${T}"
+  evenize_crop_whxy "${w}:${h}:${x}:${y}"
 }
 
 # --- Compute auto speed factor if requested ---
@@ -180,16 +205,19 @@ case "$FIT" in
     vf_chain+=("scale=1080:1920:force_divisible_by=2")
     ;;
   cropfill)
-    # Crop to 9:16, then scale to exact 1080x1920 (even)
-    vf_chain+=("crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9)")
+    # Crop to 9:16 area centered explicitly, then scale to exact 1080x1920 (even)
+    # out_w = min(iw, ih*9/16), out_h = min(ih, iw*16/9)
+    # Center with even x,y: x = 2*trunc(((iw-out_w)/2)/2) = 2*trunc((iw-out_w)/4)
+    vf_chain+=("crop=out_w=min(iw\\,ih*9/16):out_h=min(ih\\,iw*16/9):x=2*trunc((iw-out_w)/4):y=2*trunc((ih-out_h)/4)")
     vf_chain+=("scale=1080:1920:force_divisible_by=2")
     ;;
   *)
     echo "Invalid --fit: $FIT"; exit 1 ;;
 esac
 
-# 3) Pixel aspect only (no setdar needed when raster is 1080x1920)
-vf_chain+=("setsar=1:1")
+# 3) Pixel/Display aspect
+vf_chain+=("setsar=1")
+vf_chain+=("setdar=9/16")
 
 # 4) Speed-up video (setpts) + fps
 vf_chain+=("setpts=PTS/${SPEED}")
