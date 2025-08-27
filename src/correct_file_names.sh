@@ -10,61 +10,100 @@
 #        <directory>: The directory containing the files to be corrected.
 # Example: ./correct_file_names.sh -a -e README.md,path/to/file.txt path/to/directory
 
-correct_file_name() {
-    local old_name="$1"
-    local new_name
+sanitize_basename() {
+    # Transform only a basename (no path separators) according to the rules
+    # - replace non-alnum except dot and underscore with underscore
+    # - squeeze consecutive underscores
+    # - lowercase
+    # - trim leading/trailing underscores
+    local name="$1"
+    name=$(echo "$name" | sed -e 's/[^a-zA-Z0-9._]/_/g')
+    name=$(echo "$name" | tr -s '_')
+    name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+    name=$(echo "$name" | sed -e 's/^_//g' -e 's/_$//g')
+    printf '%s' "$name"
+}
 
-    # Extract filename from the path
-    local filename
-    filename=$(basename "$old_name")
+ensure_unique_target() {
+    # Ensure target basename is unique within directory; append _1, _2, ... if needed
+    local dir="$1"
+    local base="$2"
+    local candidate="$base"
+    local i=1
 
-    # Check if the filename is in the excluded list
+    # split into name and extension (only if not a dotfile like .env)
+    local name_noext="$base"
+    local ext=""
+    if [[ "$base" == *.* && "$base" != .* ]]; then
+        name_noext="${base%.*}"
+        ext=".${base##*.}"
+    fi
+
+    while [ -e "$dir/$candidate" ]; do
+        candidate="${name_noext}_${i}${ext}"
+        i=$((i+1))
+    done
+    printf '%s' "$candidate"
+}
+
+maybe_rename_path() {
+    # Rename the given path by sanitizing ONLY its basename. Returns final path on stdout.
+    local old_path="$1"
+    local parent
+    parent=$(dirname -- "$old_path")
+    local base
+    base=$(basename -- "$old_path")
+
+    # Exclusion check is against the basename only
     for excluded in "${excluded_files[@]}"; do
-        if [[ $filename =~ $excluded ]]; then
-            return
+        if [[ $base =~ $excluded ]]; then
+            printf '%s' "$old_path"
+            return 0
         fi
     done
 
-    # Replace all punctuation characters with underscores
-    new_name=$(echo "$old_name" | sed -e 's/[^a-zA-Z0-9._\/]/_/g')
+    local sanitized
+    sanitized=$(sanitize_basename "$base")
 
-    # Replace all repeated underscores with a single underscore
-    new_name=$(echo "$new_name" | tr -s '_')
-
-    # Convert the name to lowercase
-    new_name=$(echo "$new_name" | tr '[:upper:]' '[:lower:]')
-
-    # Remove leading underscores
-    new_name=$(echo "$new_name" | sed -e 's/^_//g')
-
-    # Remove trailing underscores
-    new_name=$(echo "$new_name" | sed -e 's/_$//g')
-
-    if [ "$old_name" != "$new_name" ]; then
-        mv -T "$old_name" "$new_name"
+    # Nothing to do
+    if [ "$sanitized" = "$base" ]; then
+        printf '%s' "$old_path"
+        return 0
     fi
+
+    # Avoid collisions inside the same directory
+    local target_base
+    target_base=$(ensure_unique_target "$parent" "$sanitized")
+    local new_path="$parent/$target_base"
+
+    mv -T -- "$old_path" "$new_path"
+    printf '%s' "$new_path"
 }
 
 find_files() {
     local dir="$1"
     local include_hidden="$2"
-    local find_options=(-maxdepth 1)
+    local find_args=("$dir" -mindepth 1 -maxdepth 1 -print0)
 
     if [ "$include_hidden" != true ]; then
-        find_options+=(! -regex '.*/\..*')
+        # Exclude dotfiles and dotdirs at this depth
+        find_args=("$dir" -mindepth 1 -maxdepth 1 -not -name '.*' -print0)
     fi
 
-    find "$dir" "${find_options[@]}" -print0 | while IFS= read -r -d $'\0' file; do
-        correct_file_name "$file"
-        if [ "$dir" != "$file" ] && [ -d "$file" ]; then
-            find_files "$file" "$include_hidden"
+    # Iterate immediate children; rename, then recurse into directories using their new path
+    find "${find_args[@]}" | while IFS= read -r -d $'\0' entry; do
+        local new_entry
+        new_entry=$(maybe_rename_path "$entry")
+        if [ -d "$new_entry" ]; then
+            find_files "$new_entry" "$include_hidden"
         fi
     done
 }
 
 main() {
     local include_hidden=false
-    local excluded_files=("README.md")  # Default excluded file
+    # Use a global array so called functions can see it (Bash dynamic scoping); default exclude README.md
+    excluded_files=("README.md")
 
     while getopts ":ae:" opt; do
         case $opt in
@@ -87,14 +126,16 @@ main() {
         exit 1
     fi
 
-    local dir="$1"
+    local path="$1"
 
-    if [ "$dir" == '.' ] || [ -d "$dir" ]; then
-        find_files "$dir" "$include_hidden"
-    elif [ -f "$dir" ]; then
-        correct_file_name "$dir"
+    if [ -d "$path" ]; then
+        # Do not rename the root itself; process its children and recurse, renaming as we go
+        find_files "$path" "$include_hidden"
+    elif [ -f "$path" ]; then
+        # Single file rename
+        maybe_rename_path "$path" >/dev/null
     else
-        echo "$dir is not a valid path!"
+        echo "$path is not a valid path!"
         exit 1
     fi
 }
