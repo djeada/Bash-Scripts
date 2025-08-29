@@ -76,8 +76,12 @@ maybe_rename_path() {
     target_base=$(ensure_unique_target "$parent" "$sanitized")
     local new_path="$parent/$target_base"
 
-    mv -T -- "$old_path" "$new_path"
-    printf '%s' "$new_path"
+    if mv -T -- "$old_path" "$new_path"; then
+        printf '%s' "$new_path"
+    else
+        # If mv fails, output the original path
+        printf '%s' "$old_path"
+    fi
 }
 
 find_files() {
