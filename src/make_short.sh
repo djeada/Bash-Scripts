@@ -188,8 +188,8 @@ CROP_SUFFIX=""; [[ "$EXACT_CROP" == "true" ]] && CROP_SUFFIX=":exact=1"
 # Normalize and validate left safety margin for final canvas
 SAFE_LEFT="$(clamp "${SAFE_LEFT}" 0 1078)"
 SAFE_LEFT="$(floor_even "${SAFE_LEFT}")" # keep even for yuv420 alignment
-TW=$(( 1080 - SAFE_LEFT ))
-if (( TW < 2 )); then
+TARGET_WIDTH=$(( 1080 - SAFE_LEFT ))
+if (( TARGET_WIDTH < 2 )); then
   echo "--safe-left too large; resulting width < 2"
   exit 1
 fi
