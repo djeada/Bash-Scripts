@@ -236,9 +236,12 @@ case "$FIT" in
   *) echo "Invalid --fit: $FIT"; exit 1 ;;
 esac
 
-# Overlay left black margin on the final 1080x1920 frame without distorting content
+# Apply left safety margin without covering or cropping content:
+# - scale to fit within (1080 - SAFE_LEFT) x 1920 preserving AR
+# - then pad to 1080x1920 with left offset SAFE_LEFT and vertical centering
 if (( SAFE_LEFT > 0 )); then
-  vf_chain+=("drawbox=x=0:y=0:w=${SAFE_LEFT}:h=ih:color=black:t=fill")
+  vf_chain+=("scale=${TW}:1920:force_original_aspect_ratio=decrease:force_divisible_by=2")
+  vf_chain+=("pad=1080:1920:${SAFE_LEFT}:floor((oh-ih)/2)")
 fi
 
 # Pixel/Display aspect
