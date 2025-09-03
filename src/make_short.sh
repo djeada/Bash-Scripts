@@ -29,6 +29,9 @@ Fit/Output:
       stretch:    force 1080x1920 (distorts)
       cropfill:   crop to fill 9:16 using centered math, then scale (no safety clamp)
 
+Safety margin:
+  --safe-left N               Left black margin in final 1080x1920 output (px). Default: 30. Use 0 to disable.
+
 Encoding:
   --fps N                      Output fps (default: 25)
   --speed auto|X.Y             Speed-up factor (default: auto = max(1.0, dur/59))
@@ -57,6 +60,7 @@ PRESET="veryfast"
 PROBE_S="6"
 EXACT_CROP="false"
 DEBUG="false"
+SAFE_LEFT="30"
 
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do
@@ -75,6 +79,7 @@ while [[ $# -gt 0 ]]; do
     --preset) PRESET="${2:-}"; shift 2 ;;
     --probe-seconds) PROBE_S="${2:-}"; shift 2 ;;
     --exact-crop) EXACT_CROP="${2:-false}"; shift 2 ;;
+  --safe-left) SAFE_LEFT="${2:-30}"; shift 2 ;;
     --debug) DEBUG="true"; shift 1 ;;
     -h|--help) usage ;;
     *) echo "Unknown arg: $1"; usage ;;
@@ -180,6 +185,15 @@ IFS=',' read -r IW IH <<<"$(get_dims "$INPUT")"
 vf_chain=()
 CROP_SUFFIX=""; [[ "$EXACT_CROP" == "true" ]] && CROP_SUFFIX=":exact=1"
 
+# Normalize and validate left safety margin for final canvas
+SAFE_LEFT="$(clamp "${SAFE_LEFT}" 0 1078)"
+SAFE_LEFT="$(floor_even "${SAFE_LEFT}")" # keep even for yuv420 alignment
+TARGET_WIDTH=$(( 1080 - SAFE_LEFT ))
+if (( TARGET_WIDTH < 2 )); then
+  echo "--safe-left too large; resulting width < 2"
+  exit 1
+fi
+
 case "$CROP_MODE" in
   auto)
     DET="$(autodetect_crop_whxy || true)"
@@ -221,6 +235,11 @@ case "$FIT" in
     ;;
   *) echo "Invalid --fit: $FIT"; exit 1 ;;
 esac
+
+# Overlay left black margin on the final 1080x1920 frame without distorting content
+if (( SAFE_LEFT > 0 )); then
+  vf_chain+=("drawbox=x=0:y=0:w=${SAFE_LEFT}:h=ih:color=black:t=fill")
+fi
 
 # Pixel/Display aspect
 vf_chain+=("setsar=1")
