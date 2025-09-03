@@ -240,7 +240,7 @@ esac
 # - scale to fit within (1080 - SAFE_LEFT) x 1920 preserving AR
 # - then pad to 1080x1920 with left offset SAFE_LEFT and vertical centering
 if (( SAFE_LEFT > 0 )); then
-  vf_chain+=("scale=${TW}:1920:force_original_aspect_ratio=decrease:force_divisible_by=2")
+  vf_chain+=("scale=${TARGET_WIDTH}:1920:force_original_aspect_ratio=decrease:force_divisible_by=2")
   vf_chain+=("pad=1080:1920:${SAFE_LEFT}:floor((oh-ih)/2)")
 fi
 
