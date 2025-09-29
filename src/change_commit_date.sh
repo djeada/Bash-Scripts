@@ -231,7 +231,7 @@ move_history() {
 
   git filter-branch -f --tag-name-filter cat --env-filter "
     tz='${TZ_OFFSET}'
-    tz_secs=$(tz_to_seconds '${TZ_OFFSET}')  # <- will be substituted by this script (not inside env-filter)
+    tz_secs=$(tz_to_seconds "${TZ_OFFSET}")
   " -- --branches --tags >/dev/null 2>&1 && true
 
   # We need the tz_to_seconds helper inside the filter; inject it plus logic:
