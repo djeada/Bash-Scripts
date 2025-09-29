@@ -214,85 +214,147 @@ shift_history() {
   echo "✓ Done. Remember to: git push --force-with-lease"
 }
 
+parse_windows_to_intervals() {
+  local spec="$1"
+  WIN_STARTS=()
+  WIN_ENDS=()
+  IFS=',' read -ra PARTS <<< "$spec"
+  for part in "${PARTS[@]}"; do
+    [[ "$part" =~ ^([0-1][0-9]|2[0-3])\-([0-1][0-9]|2[0-3])$ ]] \
+      || { echo "Invalid window segment '$part' (use HH-HH)"; exit 1; }
+    local s="${BASH_REMATCH[1]}" e="${BASH_REMATCH[2]}"
+    local ssec=$((10#$s * 3600))
+    local esec=$(( (10#$e + 1) * 3600 )) # end is exclusive
+    if (( esec > 86400 )); then esec=86400; fi
+    if (( 10#$s <= 10#$e )); then
+      WIN_STARTS+=("$ssec"); WIN_ENDS+=("$esec")
+    else
+      # wrap across midnight, split into two intervals
+      WIN_STARTS+=("$ssec"); WIN_ENDS+=("86400")
+      WIN_STARTS+=("0");    WIN_ENDS+=("$esec")
+    fi
+  done
+  # sort by start (tiny N, simple insertion sort)
+  local i j keyS keyE
+  for ((i=1; i<${#WIN_STARTS[@]}; i++)); do
+    keyS=${WIN_STARTS[i]}; keyE=${WIN_ENDS[i]}; j=$((i-1))
+    while (( j>=0 && WIN_STARTS[j] > keyS )); do
+      WIN_STARTS[j+1]=${WIN_STARTS[j]}; WIN_ENDS[j+1]=${WIN_ENDS[j]}; j=$((j-1))
+    done
+    WIN_STARTS[j+1]=$keyS; WIN_ENDS[j+1]=$keyE
+  done
+  # merge overlaps / adjacents
+  local mergedS=() mergedE=()
+  for ((i=0;i<${#WIN_STARTS[@]};i++)); do
+    if (( ${#mergedS[@]}==0 )); then
+      mergedS+=("${WIN_STARTS[i]}"); mergedE+=("${WIN_ENDS[i]}")
+    else
+      local last=$(( ${#mergedS[@]} - 1 ))
+      if (( WIN_STARTS[i] <= mergedE[last] )); then
+        # extend
+        if (( WIN_ENDS[i] > mergedE[last] )); then mergedE[last]=${WIN_ENDS[i]}; fi
+      else
+        mergedS+=("${WIN_STARTS[i]}"); mergedE+=("${WIN_ENDS[i]}")
+      fi
+    fi
+  done
+  WIN_STARTS=("${mergedS[@]}"); WIN_ENDS=("${mergedE[@]}")
+  # total allowed seconds
+  ALLOWED_LEN=0
+  for ((i=0;i<${#WIN_STARTS[@]};i++)); do
+    ALLOWED_LEN=$((ALLOWED_LEN + WIN_ENDS[i] - WIN_STARTS[i]))
+  done
+  (( ALLOWED_LEN > 0 )) || { echo "Window has zero length"; exit 1; }
+}
+
+# Map a position p in [0, ALLOWED_LEN-1] to absolute seconds since local midnight
+# inside the union of intervals.
+union_pos_to_seconds() {
+  local p=$1
+  for ((i=0;i<${#WIN_STARTS[@]};i++)); do
+    local seglen=$(( WIN_ENDS[i] - WIN_STARTS[i] ))
+    if (( p < seglen )); then
+      echo $(( WIN_STARTS[i] + p ))
+      return
+    fi
+    p=$(( p - seglen ))
+  done
+  echo $(( WIN_ENDS[${#WIN_ENDS[@]}-1] - 1 ))
+}
+
+# --- move_history(): preserves per-day order & keeps same local day ---
 move_history() {
   local target="$1"
-
-  local hours_list=""
+  local window_spec
   if [[ "$target" == "day" ]]; then
-    hours_list="$(expand_windows_to_hours "$DAY_WINDOW")"
-    echo "Moving ALL commits into DAY hours [${DAY_WINDOW}] in tz=${TZ_OFFSET}"
+    window_spec="$DAY_WINDOW"
+    echo "Moving ALL commits into DAY hours [$DAY_WINDOW] in tz=${TZ_OFFSET}"
   else
-    hours_list="$(expand_windows_to_hours "$NIGHT_WINDOW")"
-    echo "Moving ALL commits into NIGHT hours [${NIGHT_WINDOW}] in tz=${TZ_OFFSET}"
+    window_spec="$NIGHT_WINDOW"
+    echo "Moving ALL commits into NIGHT hours [$NIGHT_WINDOW] in tz=${TZ_OFFSET}"
   fi
 
-  # Pack the hours list into a bash array initializer string
-  local hours_csv="${hours_list// /,}"
+  parse_windows_to_intervals "$window_spec"
 
-  git filter-branch -f --tag-name-filter cat --env-filter "
-    tz='${TZ_OFFSET}'
-    tz_secs=$(tz_to_seconds "${TZ_OFFSET}")
-  " -- --branches --tags >/dev/null 2>&1 && true
+  # 1) First pass: count commits per local day (by committer date)
+  declare -A DAY_COUNT=()
+  local tz_secs
+  tz_secs="$(tz_to_seconds "$TZ_OFFSET")"
 
-  # We need the tz_to_seconds helper inside the filter; inject it plus logic:
-  git filter-branch -f --tag-name-filter cat --env-filter "
-    tz='${TZ_OFFSET}'
-    tz_to_seconds() {
-      local tz=\"\$1\" sign hh mm secs
-      [[ \"\$tz\" =~ ^[+-][0-9]{4}\$ ]] || { echo 'bad tz' >&2; exit 1; }
-      sign=\"\${tz:0:1}\"; hh=\$((10#\${tz:1:2})); mm=\$((10#\${tz:3:2}))
-      secs=\$((hh*3600 + mm*60)); [[ \"\$sign\" == '-' ]] && secs=\$((-secs))
-      echo \"\$secs\"
-    }
+  while IFS=' ' read -r sha ct; do
+    [[ -n "$sha" ]] || continue
+    # local day key in target tz
+    local local_ep=$(( ct + tz_secs ))
+    local day
+    day="$($DATE_BIN -u -d "@$local_ep" +%Y-%m-%d)"
+    DAY_COUNT["$day"]=$(( ${DAY_COUNT["$day"]:-0} + 1 ))
+  done < <(git log --all --reverse --pretty=format:'%H %ct')
 
-    tz_secs=\$(tz_to_seconds \"\$tz\")
-    to_epoch() { $DATE_BIN -d \"\$1\" +%s; }
-    from_local_YmdHMS_to_epoch() { # args: Y M D H M S, interpret as LOCAL (tz offset), return UTC epoch
-      local Y=\"\$1\" Mo=\"\$2\" D=\"\$3\" H=\"\$4\" Mi=\"\$5\" S=\"\$6\"
-      $DATE_BIN -d \"\${Y}-\${Mo}-\${D} \${H}:\${Mi}:\${S} UTC\" +%s
-    }
+  # 2) Second pass: assign evenly spaced times inside window per day, preserving order
+  local STATE
+  STATE="$(mktemp -d)"
+  trap 'rm -rf "$STATE"' EXIT
+  mkdir -p "$STATE/map"
 
-    # Pick a random allowed hour (uniform)
-    pick_hour() {
-      local IFS=','; local raw='${hours_csv}'
-      read -ra H <<< \"\$raw\"
-      local count=\${#H[@]}
-      local idx=\$((RANDOM % count))
-      echo \${H[\$idx]}
-    }
+  declare -A DAY_INDEX=()
+  while IFS=' ' read -r sha ct; do
+    [[ -n "$sha" ]] || continue
+    local local_ep=$(( ct + tz_secs ))
+    local day
+    day="$($DATE_BIN -u -d "@$local_ep" +%Y-%m-%d)"
+    local idx=${DAY_INDEX["$day"]:-0}
+    local n=${DAY_COUNT["$day"]}
 
-    # For each commit:
-    a_ep=\$(to_epoch \"\$GIT_AUTHOR_DATE\")
-    c_ep=\$(to_epoch \"\$GIT_COMMITTER_DATE\")
+    # Even spacing strictly preserves order; places commits inside the window.
+    # pos = floor( (idx+1) * (ALLOWED_LEN-1) / (n+1) )
+    local pos=$(( ((idx + 1) * (ALLOWED_LEN - 1)) / (n + 1) ))
+    (( pos < 0 )) && pos=0
+    (( pos >= ALLOWED_LEN )) && pos=$((ALLOWED_LEN - 1))
 
-    # Convert to 'local' by applying tz offset (so windows are in given tz)
-    a_local=\$((a_ep + tz_secs))
-    c_local=\$((c_ep + tz_secs))
+    local sec_in_day
+    sec_in_day="$(union_pos_to_seconds "$pos")"
 
-    # Extract local Y-m-d; choose random HH:MM:SS in allowed window
-    Y=\$($DATE_BIN -u -d @\$a_local +%Y)
-    Mo=\$($DATE_BIN -u -d @\$a_local +%m)
-    D=\$($DATE_BIN -u -d @\$a_local +%d)
+    # Build final epoch: interpret as local time in TZ_OFFSET, then convert to UTC epoch
+    local new_epoch
+    new_epoch="$($DATE_BIN -d "${day} 00:00:00 ${TZ_OFFSET}" +%s)"
+    new_epoch=$(( new_epoch + sec_in_day ))
 
-    H=\$(pick_hour)
-    Mi=\$((RANDOM % 60))
-    S=\$((RANDOM % 60))
+    printf '%s' "$new_epoch" > "$STATE/map/$sha"
+    DAY_INDEX["$day"]=$(( idx + 1 ))
+  done < <(git log --all --reverse --pretty=format:'%H %ct')
 
-    new_local_epoch=\$($DATE_BIN -u -d \"\${Y}-\${Mo}-\${D} \${H}:\${Mi}:\${S}\" +%s)
-    a_new=\$((new_local_epoch - tz_secs))
+  # 3) Apply mapping in one pass
+  MAPPING_DIR="$STATE/map" TZ_OFFSET_APPLY="$TZ_OFFSET" \
+  git filter-branch -f --tag-name-filter cat --env-filter '
+    if [ -f "$MAPPING_DIR/$GIT_COMMIT" ]; then
+      new_epoch=$(cat "$MAPPING_DIR/$GIT_COMMIT")
+      export GIT_AUTHOR_DATE="$new_epoch $TZ_OFFSET_APPLY"
+      export GIT_COMMITTER_DATE="$new_epoch $TZ_OFFSET_APPLY"
+    fi
+  ' -- --branches --tags >/dev/null
 
-    # Mirror author -> committer with same new time on that commit's day
-    Yc=\$($DATE_BIN -u -d @\$c_local +%Y)
-    Moc=\$($DATE_BIN -u -d @\$c_local +%m)
-    Dc=\$($DATE_BIN -u -d @\$c_local +%d)
-    new_local_epoch_c=\$($DATE_BIN -u -d \"\${Yc}-\${Moc}-\${Dc} \${H}:\${Mi}:\${S}\" +%s)
-    c_new=\$((new_local_epoch_c - tz_secs))
-
-    export GIT_AUTHOR_DATE=\"\$a_new \$tz\"
-    export GIT_COMMITTER_DATE=\"\$c_new \$tz\"
-  " -- --branches --tags >/dev/null
-
-  echo "✓ Done. Remember to: git push --force-with-lease"
+  echo "✓ Done. Per-day order preserved; commits stay on the same local day."
+  echo "   Next: git push --force-with-lease"
 }
 
 # ---------- Dispatch ----------
