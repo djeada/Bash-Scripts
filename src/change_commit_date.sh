@@ -18,22 +18,22 @@ set -euo pipefail
 #
 # Examples:
 #   # 1) Set latest commit to specific day (random time) in UTC+2
-#   ./commit_date_tools.sh amend-latest --date 25-12-2022
+#   ./change_commit_date.sh amend-latest --date 25-12-2022
 #
 #   # 1b) Set latest commit to specific day & time with custom tz
-#   ./commit_date_tools.sh amend-latest --date 25-12-2022 --time 14:30 --tz +0530
+#   ./change_commit_date.sh amend-latest --date 25-12-2022 --time 14:30 --tz +0530
 #
 #   # 2) Shift entire history forward 7 hours
-#   ./commit_date_tools.sh shift --hours 7
+#   ./change_commit_date.sh shift --hours 7
 #
 #   # 2b) Shift entire history back 2 days and 3 hours, timezone +0200
-#   ./commit_date_tools.sh shift --days -2 --hours -3 --tz +0200
+#   ./change_commit_date.sh shift --days -2 --hours -3 --tz +0200
 #
 #   # 3) Move all commits into daytime (random hour in window)
-#   ./commit_date_tools.sh move --to day
+#   ./change_commit_date.sh move --to day
 #
 #   # 3b) Move to night hours with custom windows and timezone
-#   ./commit_date_tools.sh move --to night --night-window 21-23,00-04 --tz -0500
+#   ./change_commit_date.sh move --to night --night-window 21-23,00-04 --tz -0500
 #
 # After rewriting history:
 #   git push --force-with-lease
@@ -42,7 +42,11 @@ set -euo pipefail
 # ---------- Utilities ----------
 
 # Pick GNU date (Linux: date, macOS: gdate)
-DATE_BIN="$(command -v gdate || command -v date)"
+if command -v gdate >/dev/null 2>&1; then
+  DATE_BIN="$(command -v gdate)"
+else
+  DATE_BIN="$(command -v date)"
+fi
 if ! "$DATE_BIN" -d "@0" +%s >/dev/null 2>&1; then
   echo "Error: GNU 'date' required. On macOS: brew install coreutils (use gdate)." >&2
   exit 1
@@ -313,7 +317,8 @@ move_history() {
   # 2) Second pass: assign evenly spaced times inside window per day, preserving order
   local STATE
   STATE="$(mktemp -d)"
-  trap 'rm -rf "$STATE"' EXIT
+  # Clean up when this function returns; safe with set -u
+  trap '[[ -n "${STATE:-}" ]] && rm -rf "$STATE"' RETURN
   mkdir -p "$STATE/map"
 
   declare -A DAY_INDEX=()
