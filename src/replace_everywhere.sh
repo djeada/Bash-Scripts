@@ -95,7 +95,7 @@ main() {
   # Start with hidden directories (if not including them)
   local -a PRUNE_BLOCK=()
   if [[ "$include_hidden" == false ]]; then
-    PRUNE_BLOCK+=( -type d -name '.*' -prune -o )
+    PRUNE_BLOCK+=( -path './.*' -prune -o )
   fi
 
   # Add user-specified excludes (treat as directory names/paths from repo root)
