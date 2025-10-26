@@ -108,12 +108,12 @@ main() {
   fi
 
   # Execute replacement
-  # Logic: find . \( PRUNES \) -o -type f -exec sed -i ... '{}' \;
-  # Using a here-string to keep array expansions intact.
   if [[ ${#PRUNE_BLOCK[@]} -gt 0 ]]; then
-    find . \( "${PRUNE_BLOCK[@]}" -false \) -o -type f -exec sed "${SED_INPLACE[@]}" "s/${search}/${replace}/g" {} +
-  } else
-    find . -type f -exec sed "${SED_INPLACE[@]}" "s/${search}/${replace}/g" {} +
+    find . \( "${PRUNE_BLOCK[@]}" -false \) -o -type f \
+      -exec sed "${SED_INPLACE[@]}" "s/${search}/${replace}/g" {} +
+  else
+    find . -type f \
+      -exec sed "${SED_INPLACE[@]}" "s/${search}/${replace}/g" {} +
   fi
 
   echo "Done."
