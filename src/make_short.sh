@@ -20,6 +20,7 @@ Required:
 Crop:
   --crop auto                  Auto-detect black borders (SAFE; won't overcrop)
   --crop manual:L:T:R:B        Manually crop by pixels (Left,Top,Right,Bottom)
+  --crop none                  Disable all cropping
   --probe-seconds S            Seconds to analyze for auto-crop (default: 6)
 
 Fit/Output:
@@ -69,6 +70,7 @@ while [[ $# -gt 0 ]]; do
     -o|--output) OUTPUT="${2:-}"; shift 2 ;;
     --crop)
       if [[ "${2:-}" == "auto" ]]; then CROP_MODE="auto"; shift 2
+      elif [[ "${2:-}" == "none" ]]; then CROP_MODE="none"; shift 2
       elif [[ "${2:-}" =~ ^manual: ]]; then CROP_MODE="manual"; CROP_SPEC="${2#manual:}"; shift 2
       else echo "Invalid --crop value"; exit 1; fi ;;
     --fit) FIT="${2:-}"; shift 2 ;;
@@ -197,8 +199,15 @@ fi
 case "$CROP_MODE" in
   auto)
     DET="$(autodetect_crop_whxy || true)"
-    SAFE="$(synthesize_safe_916_crop "$IW" "$IH" "${DET:-}")"
-    vf_chain+=("crop=${SAFE}${CROP_SUFFIX}")
+    if [[ "$FIT" == "shortsmart" || "$FIT" == "cropfill" ]]; then
+      SAFE="$(synthesize_safe_916_crop "$IW" "$IH" "${DET:-}")"
+      vf_chain+=("crop=${SAFE}${CROP_SUFFIX}")
+    else
+      # For pad/stretch, only remove detected black bars; don't force 9:16 crop.
+      if [[ -n "$DET" ]]; then
+        vf_chain+=("crop=${DET}${CROP_SUFFIX}")
+      fi
+    fi
     ;;
   manual)
     IFS=':' read -r L T R B <<< "$CROP_SPEC"
@@ -212,7 +221,10 @@ case "$CROP_MODE" in
       vf_chain+=("crop=${MAN}${CROP_SUFFIX}")
     fi
     ;;
-  *)  # none
+  none)
+    # Explicitly disable cropping.
+    ;;
+  *)  # default
     if [[ "$FIT" == "shortsmart" || "$FIT" == "cropfill" ]]; then
       # No bars removal requested; derive 9:16 from full frame
       SAFE="$(synthesize_safe_916_crop "$IW" "$IH" "${IW}:${IH}:0:0")"
