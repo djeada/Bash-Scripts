@@ -24,7 +24,8 @@ RESET=$(tput sgr0)
 # Process each path
 for path in "${paths[@]}"; do
     # Find all scripts (not starting with _) in 'hooks' directory
-    find hooks -type l -name "[^_]*.sh" | while read -r script; do
+    # Use process substitution to avoid subshell and preserve status variable
+    while read -r script; do
         echo -e "\nExecuting $script"
 
         # Execute the script with '--check' option
@@ -34,7 +35,7 @@ for path in "${paths[@]}"; do
             echo "${RED}${script} check on ${path} failed${RESET}"
             status=1
         fi
-    done
+    done < <(find hooks -type l -name "[^_]*.sh")
 done
 
 # Exit with 1 if any check failed
