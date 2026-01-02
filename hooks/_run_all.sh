@@ -1,5 +1,5 @@
-# hooks/_run_all.sh
 #!/usr/bin/env bash
+# hooks/_run_all.sh
 
 # Ensure tput has something to work with
 export TERM=${TERM:-dumb}
