@@ -62,9 +62,9 @@ main() {
     local path="$1"
 
     if [ "$path" == '.' ] || [ -d "$path" ]; then
-        find "$path" -maxdepth 10 -type f ! -name "*.tmp" ! -regex ".*/$(basename "$0")" -print0 | while IFS= read -r -d '' file; do
+        while IFS= read -r -d '' file; do
             remove_trailing_whitespaces "$file"
-        done
+        done < <(find "$path" -maxdepth 10 -type f ! -name "*.tmp" ! -regex ".*/$(basename "$0")" -print0)
     elif [ -f "$path" ]; then
         if [ "$(basename "$path")" != "$scriptname" ]; then
             remove_trailing_whitespaces "$path"
