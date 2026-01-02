@@ -70,9 +70,9 @@ process_path() {
     local path="$1"
     local checkonly="$2"
     if [ -d "$path" ]; then
-        find "$path" -type f -name '*.sh' -print0 | while IFS= read -r -d '' file; do
+        while IFS= read -r -d '' file; do
             format_file "$file" "$checkonly"
-        done
+        done < <(find "$path" -type f -name '*.sh' -print0)
     elif [ -f "$path" ]; then
         format_file "$path" "$checkonly"
     else
