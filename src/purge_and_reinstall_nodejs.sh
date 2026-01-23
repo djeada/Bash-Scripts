@@ -254,11 +254,9 @@ purge_manual_install() {
         fi
     done
     
-    # Common installation directories
+    # Common installation directories (non-glob paths)
     local dirs_to_remove=(
         "/usr/local/lib/node_modules"
-        "/usr/local/share/man/man1/node*"
-        "/usr/local/share/man/man1/npm*"
         "/usr/local/include/node"
         "/usr/local/share/doc/node"
         "/opt/nodejs"
@@ -268,8 +266,28 @@ purge_manual_install() {
         if [[ "$DRY_RUN" == true ]]; then
             echo "[DRY-RUN] Would remove: $dir"
         else
-            # shellcheck disable=SC2086
-            sudo rm -rf $dir 2>/dev/null || true
+            sudo rm -rf "$dir" 2>/dev/null || true
+        fi
+    done
+    
+    # Glob patterns for man pages (handled separately for security)
+    local man_patterns=(
+        "/usr/local/share/man/man1/node.*"
+        "/usr/local/share/man/man1/npm.*"
+    )
+    
+    for pattern in "${man_patterns[@]}"; do
+        if [[ "$DRY_RUN" == true ]]; then
+            echo "[DRY-RUN] Would remove files matching: $pattern"
+        else
+            # Use find for safer glob handling
+            local base_dir
+            base_dir=$(dirname "$pattern")
+            local file_pattern
+            file_pattern=$(basename "$pattern")
+            if [[ -d "$base_dir" ]]; then
+                sudo find "$base_dir" -maxdepth 1 -name "$file_pattern" -exec rm -f {} \; 2>/dev/null || true
+            fi
         fi
     done
 }
@@ -302,21 +320,38 @@ cleanup_user_dirs() {
     
     # Clean other users' directories (requires root)
     if [[ $EUID -eq 0 ]] || [[ "$DRY_RUN" == true ]]; then
-        for home_dir in /home/*; do
-            if [[ -d "$home_dir" ]]; then
-                local username
-                username=$(basename "$home_dir")
-                log "Cleaning directories for user: $username"
-                
-                for dir in "${user_dirs_to_clean[@]}"; do
-                    local full_path="$home_dir/$dir"
-                    if [[ -e "$full_path" ]]; then
-                        log "Removing: $full_path"
-                        run_cmd rm -rf "$full_path"
-                    fi
-                done
-            fi
-        done
+        local user_home_base=""
+        
+        # Determine user home directory base path based on OS
+        case "$OS_TYPE" in
+            macos)
+                user_home_base="/Users"
+                ;;
+            linux)
+                user_home_base="/home"
+                ;;
+            *)
+                user_home_base="/home"
+                ;;
+        esac
+        
+        if [[ -d "$user_home_base" ]]; then
+            for home_dir in "$user_home_base"/*; do
+                if [[ -d "$home_dir" ]]; then
+                    local username
+                    username=$(basename "$home_dir")
+                    log "Cleaning directories for user: $username"
+                    
+                    for dir in "${user_dirs_to_clean[@]}"; do
+                        local full_path="$home_dir/$dir"
+                        if [[ -e "$full_path" ]]; then
+                            log "Removing: $full_path"
+                            run_cmd rm -rf "$full_path"
+                        fi
+                    done
+                fi
+            done
+        fi
     fi
 }
 
@@ -336,7 +371,14 @@ fetch_latest_version() {
 # Fetch the latest LTS version from nodejs.org
 fetch_lts_version() {
     local version
-    version=$(curl -s https://nodejs.org/dist/index.json | grep -oE '"version":"v[0-9]+\.[0-9]+\.[0-9]+"[^}]*"lts":"[^"]+"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | sed 's/v//')
+    
+    # Prefer jq if available for robust JSON parsing
+    if command -v jq &>/dev/null; then
+        version=$(curl -s https://nodejs.org/dist/index.json | jq -r '.[] | select(.lts != false) | .version' | head -1 | sed 's/v//')
+    else
+        # Fallback to grep-based parsing
+        version=$(curl -s https://nodejs.org/dist/index.json | grep -oE '"version":"v[0-9]+\.[0-9]+\.[0-9]+"[^}]*"lts":"[^"]+"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | sed 's/v//')
+    fi
     
     if [[ -z "$version" ]]; then
         log_error "Failed to fetch LTS Node.js version"
