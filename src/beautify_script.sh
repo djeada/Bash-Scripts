@@ -1,4 +1,3 @@
-# hooks/beautify_script.sh
 #!/usr/bin/env bash
 
 # Ensure tput has something to work with (avoids set -e abort)
@@ -103,3 +102,4 @@ main() {
 }
 
 main "$@"
+
