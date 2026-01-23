@@ -25,7 +25,9 @@ remove_trailing_whitespaces() {
         if [[ $line == *[[:space:]] ]]; then
             echo "Found trailing whitespaces in line: ${line}"
             if [[ $checkonly -eq 0 ]]; then
-                # Remove all trailing whitespace using parameter expansion
+                # Remove all trailing whitespace using parameter expansion:
+                # ${line##*[![:space:]]} finds trailing whitespace (everything after last non-space char)
+                # ${line%...} removes that trailing portion from line
                 echo "${line%"${line##*[![:space:]]}"}" >> "${file}".tmp
             else
                 status=1
