@@ -100,17 +100,13 @@ create_temp_files() {
 
 # Cleanup function to remove temporary files
 cleanup() {
-    local exit_code
-    exit_code=$?
-    [[ -n "${TMP_FILE:-}" ]] && rm -f "$TMP_FILE"
-    [[ -n "${PIDS_TMP_FILE:-}" ]] && rm -f "$PIDS_TMP_FILE"
-    exit $exit_code
+    rm -f "${TMP_FILE:-}" "${PIDS_TMP_FILE:-}"
 }
 
 # Error handling function
 error_exit() {
     echo -e "${RED}Error: $1${NC}" >&2
-    cleanup
+    exit 1
 }
 
 # Function to check if required commands are available

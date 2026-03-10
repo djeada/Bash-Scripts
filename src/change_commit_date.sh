@@ -167,7 +167,7 @@ done
 # ---------- Validations ----------
 
 require_git_repo
-tz_to_seconds "$TZ_OFFSET" >/dev/null
+tz_to_seconds "$TZ_OFFSET" >/dev/null || exit 1
 
 # ---------- Implementations ----------
 
