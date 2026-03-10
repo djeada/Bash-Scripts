@@ -38,7 +38,7 @@ EOF
 log() {
     local LEVEL="$1"
     shift
-    local MESSAGE="$@"
+    local MESSAGE="$*"
     if [ "$LOG_FILE" ]; then
         echo "[$LEVEL] $MESSAGE" >> "$LOG_FILE"
     fi
@@ -114,7 +114,7 @@ process_file() {
 
     # Interactive mode confirmation
     if [ $INTERACTIVE -eq 1 ]; then
-        read -p "Remove comments from $FILE? [y/N]: " CONFIRM
+        read -rp "Remove comments from $FILE? [y/N]: " CONFIRM
         if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
             log "INFO" "Skipping $FILE"
             return
@@ -132,7 +132,7 @@ process_file() {
     log "INFO" "Backup created: $FILE$BACKUP_EXT"
 
     # Use Python to remove comments and docstrings
-    python3 - "$FILE" << 'EOF'
+    if python3 - "$FILE" << 'EOF'
 import sys
 import token
 import tokenize
@@ -171,8 +171,7 @@ if __name__ == "__main__":
         print(f"Error processing {filename}: {e}", file=sys.stderr)
         sys.exit(1)
 EOF
-
-    if [ $? -eq 0 ]; then
+    then
         log "INFO" "Comments removed from $FILE"
     else
         log "ERROR" "Failed to remove comments from $FILE"
@@ -193,6 +192,7 @@ find_and_process_files() {
     else
         # Assume it's a pattern
         shopt -s nullglob
+        # shellcheck disable=SC2206
         local FILES=($TARGET)
         if [ ${#FILES[@]} -eq 0 ]; then
             log "WARNING" "No files matched pattern: $TARGET"

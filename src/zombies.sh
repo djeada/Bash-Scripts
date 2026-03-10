@@ -46,7 +46,7 @@ show_help() {
 ${BOLD}Usage:${NC} $0 [OPTIONS]
 
 This script displays zombie (defunct) processes currently present in the system.
-Zombie processes are terminated processes that still have entries in the process 
+Zombie processes are terminated processes that still have entries in the process
 table because their parent hasn't read their exit status yet.
 
 ${BOLD}OPTIONS:${NC}
@@ -124,24 +124,24 @@ parse_arguments() {
 check_dependencies() {
     local missing_deps=()
     local optional_deps=()
-    
+
     # Required commands
     for cmd in ps awk sort grep; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing_deps+=("$cmd")
         fi
     done
-    
+
     # Optional commands for enhanced features
     if [[ "$SHOW_TREE" == true ]] && ! command -v "pstree" >/dev/null 2>&1; then
         optional_deps+=("pstree")
     fi
-    
+
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         echo -e "${RED}Error: Missing required commands: ${missing_deps[*]}${NC}" >&2
         exit 1
     fi
-    
+
     if [[ ${#optional_deps[@]} -gt 0 ]]; then
         echo -e "${YELLOW}Warning: Missing optional commands: ${optional_deps[*]}${NC}" >&2
         echo -e "${YELLOW}Some features may not work as expected.${NC}" >&2
@@ -152,7 +152,7 @@ check_dependencies() {
 get_parent_info() {
     local ppid=$1
     local parent_info
-    
+
     if [[ "$ppid" == "0" ]]; then
         echo "kernel"
     else
@@ -168,7 +168,7 @@ get_parent_info() {
 # Function to display process tree for a zombie
 show_process_tree() {
     local pid=$1
-    
+
     if command -v pstree >/dev/null 2>&1; then
         echo -e "${CYAN}Process tree for PID $pid:${NC}"
         pstree -p "$pid" 2>/dev/null || echo "  Unable to display tree for PID $pid"
@@ -185,7 +185,7 @@ format_elapsed_time() {
     local hours=$(((elapsed % 86400) / 3600))
     local minutes=$(((elapsed % 3600) / 60))
     local seconds=$((elapsed % 60))
-    
+
     if [[ $days -gt 0 ]]; then
         printf "%dd %02dh %02dm %02ds" $days $hours $minutes $seconds
     elif [[ $hours -gt 0 ]]; then
@@ -199,95 +199,94 @@ format_elapsed_time() {
 
 # Function to check for zombie processes
 check_zombies() {
-    local current_time=$(date +%s)
     local zombie_count=0
-    local ps_options="-eo pid,ppid,user,comm,state,etime,lstart"
-    
+    local -a ps_options=(-eo "pid,ppid,user,comm,state,etime,lstart")
+
     # Adjust ps options for user-only mode
     if [[ "$USER_ONLY" == true ]]; then
-        ps_options+=" -u $(id -un)"
+        ps_options+=(-u "$(id -un)")
     fi
-    
+
     # Get zombie processes
     local zombies
-    if ! zombies=$(ps $ps_options --no-headers 2>/dev/null | awk '$5 ~ /^Z/'); then
+    if ! zombies=$(ps "${ps_options[@]}" --no-headers 2>/dev/null | awk '$5 ~ /^Z/'); then
         echo -e "${RED}Error: Failed to retrieve process information${NC}" >&2
         return 1
     fi
-    
+
     # Count zombies
     if [[ -n "$zombies" ]]; then
         zombie_count=$(echo "$zombies" | wc -l)
     fi
-    
+
     # Handle count-only mode
     if [[ "$COUNT_ONLY" == true ]]; then
         echo "$zombie_count"
         return 0
     fi
-    
+
     # Display results
     if [[ "$zombie_count" -eq 0 ]]; then
         echo -e "${GREEN}✓ No zombie processes found.${NC}"
         return 0
     fi
-    
+
     # Display header
     echo -e "${RED}⚠ Found $zombie_count zombie process(es):${NC}"
     echo
-    
+
     if [[ "$VERBOSE" == true ]]; then
         printf "${BOLD}%-8s %-8s %-12s %-20s %-8s %-12s %s${NC}\n" \
-               "PID" "PPID" "USER" "COMMAND" "STATE" "RUNTIME" "STARTED"
+            "PID" "PPID" "USER" "COMMAND" "STATE" "RUNTIME" "STARTED"
         printf "%-8s %-8s %-12s %-20s %-8s %-12s %s\n" \
-               "----" "----" "----" "-------" "-----" "-------" "-------"
+            "----" "----" "----" "-------" "-----" "-------" "-------"
     else
         printf "${BOLD}%-8s %-8s %-12s %-20s %s${NC}\n" \
-               "PID" "PPID" "USER" "COMMAND" "STATE"
+            "PID" "PPID" "USER" "COMMAND" "STATE"
         printf "%-8s %-8s %-12s %-20s %s\n" \
-               "----" "----" "----" "-------" "-----"
+            "----" "----" "----" "-------" "-----"
     fi
-    
+
     # Process each zombie
     while IFS=' ' read -r pid ppid user comm state etime lstart; do
         # Skip empty lines
         if [[ -z "$pid" ]]; then
             continue
         fi
-        
+
         # Truncate command name if too long
         if [[ ${#comm} -gt 20 ]]; then
             comm="${comm:0:17}..."
         fi
-        
+
         if [[ "$VERBOSE" == true ]]; then
             printf "${YELLOW}%-8s${NC} ${PURPLE}%-8s${NC} %-12s %-20s ${RED}%-8s${NC} %-12s %s\n" \
-                   "$pid" "$ppid" "$user" "$comm" "$state" "$etime" "$lstart"
+                "$pid" "$ppid" "$user" "$comm" "$state" "$etime" "$lstart"
         else
             printf "${YELLOW}%-8s${NC} ${PURPLE}%-8s${NC} %-12s %-20s ${RED}%s${NC}\n" \
-                   "$pid" "$ppid" "$user" "$comm" "$state"
+                "$pid" "$ppid" "$user" "$comm" "$state"
         fi
-        
+
         # Show parent information if requested
         if [[ "$SHOW_PARENTS" == true ]]; then
             local parent_info
             parent_info=$(get_parent_info "$ppid")
             echo -e "  ${CYAN}Parent:${NC} $parent_info"
         fi
-        
+
         # Show process tree if requested
         if [[ "$SHOW_TREE" == true ]]; then
             show_process_tree "$pid"
         fi
-        
+
     done <<< "$zombies"
-    
+
     # Display summary and recommendations
     echo
     echo -e "${BLUE}Summary:${NC}"
     echo -e "  • Total zombie processes: ${YELLOW}$zombie_count${NC}"
     echo -e "  • Zombies consume minimal resources but indicate parent process issues"
-    
+
     if [[ "$zombie_count" -gt 0 ]]; then
         echo
         echo -e "${BLUE}Recommendations:${NC}"
@@ -295,7 +294,7 @@ check_zombies() {
         echo -e "  • Consider restarting problematic parent processes"
         echo -e "  • Zombies will be cleaned up when parent processes exit"
     fi
-    
+
     return 0
 }
 
@@ -313,14 +312,14 @@ watch_zombies() {
     echo -e "${BLUE}Monitoring zombie processes... (Press Ctrl+C to stop)${NC}"
     echo -e "${BLUE}Update interval: ${WATCH_INTERVAL} seconds${NC}"
     echo
-    
+
     while true; do
         clear_screen
         echo -e "${BOLD}Zombie Process Monitor - $(date)${NC}"
         echo "=================================================================================="
-        
+
         check_zombies
-        
+
         echo
         echo -e "${CYAN}Next update in $WATCH_INTERVAL seconds... (Ctrl+C to stop)${NC}"
         sleep "$WATCH_INTERVAL"
@@ -339,19 +338,19 @@ cleanup() {
 main() {
     # Parse command line arguments
     parse_arguments "$@"
-    
+
     # Show help if requested
     if [[ "$SHOW_HELP" == true ]]; then
         show_help
         exit 0
     fi
-    
+
     # Check for required dependencies
     check_dependencies
-    
+
     # Set trap for cleanup
     trap cleanup EXIT INT TERM
-    
+
     # Execute appropriate mode
     if [[ "$WATCH_MODE" == true ]]; then
         watch_zombies
@@ -362,3 +361,4 @@ main() {
 
 # Run the main function with all arguments
 main "$@"
+

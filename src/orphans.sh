@@ -90,7 +90,7 @@ create_temp_files() {
         echo -e "${RED}Error: Failed to create temporary file${NC}" >&2
         exit 1
     fi
-    
+
     if ! PIDS_TMP_FILE=$(mktemp /tmp/orphans_pids.XXXXXX 2>/dev/null); then
         rm -f "$TMP_FILE"
         echo -e "${RED}Error: Failed to create temporary PID file${NC}" >&2
@@ -100,29 +100,25 @@ create_temp_files() {
 
 # Cleanup function to remove temporary files
 cleanup() {
-    local exit_code=$?
-    [[ -n "${TMP_FILE:-}" ]] && rm -f "$TMP_FILE"
-    [[ -n "${PIDS_TMP_FILE:-}" ]] && rm -f "$PIDS_TMP_FILE"
-    exit $exit_code
+    rm -f "${TMP_FILE:-}" "${PIDS_TMP_FILE:-}"
 }
 
 # Error handling function
 error_exit() {
     echo -e "${RED}Error: $1${NC}" >&2
-    cleanup
     exit 1
 }
 
 # Function to check if required commands are available
 check_dependencies() {
     local missing_deps=()
-    
+
     for cmd in ps awk sort grep mktemp; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing_deps+=("$cmd")
         fi
     done
-    
+
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         error_exit "Missing required commands: ${missing_deps[*]}"
     fi
@@ -130,17 +126,17 @@ check_dependencies() {
 
 # Function to get process information based on user preference
 get_process_info() {
-    local ps_options="-eo ppid,pid,user,comm"
-    
+    local -a ps_options=(-eo "ppid,pid,user,comm")
+
     if [[ "$USER_ONLY" == true ]]; then
-        ps_options+=" -u $(id -un)"
+        ps_options+=(-u "$(id -un)")
     fi
-    
+
     # Get process information and handle potential ps command failures
-    if ! ps $ps_options --no-headers 2>/dev/null > "$TMP_FILE"; then
+    if ! ps "${ps_options[@]}" --no-headers 2>/dev/null > "$TMP_FILE"; then
         error_exit "Failed to retrieve process information. You may need elevated privileges."
     fi
-    
+
     # Verify that we got some data
     if [[ ! -s "$TMP_FILE" ]]; then
         error_exit "No process information retrieved"
@@ -158,31 +154,31 @@ create_pid_lookup() {
 check_orphans() {
     local orphan_count=0
     local line_number=0
-    
+
     if [[ "$VERBOSE" == true && "$COUNT_ONLY" == false ]]; then
         echo -e "${BLUE}Checking for orphaned processes...${NC}"
         printf "%-8s %-8s %-12s %s\n" "PID" "PPID" "USER" "COMMAND"
         printf "%-8s %-8s %-12s %s\n" "----" "----" "----" "-------"
     fi
-    
+
     while IFS=' ' read -r ppid pid user comm; do
         ((line_number++))
-        
+
         # Skip empty lines or malformed entries
         if [[ -z "$ppid" || -z "$pid" ]]; then
             continue
         fi
-        
+
         # Skip processes with PPID 0 (kernel processes) or 1 (init processes)
         # These are typically not considered orphans
         if [[ "$ppid" -eq 0 || "$ppid" -eq 1 ]]; then
             continue
         fi
-        
+
         # Check if the parent PID exists in our running processes
         if ! grep -qw "^$ppid$" "$PIDS_TMP_FILE"; then
             ((orphan_count++))
-            
+
             if [[ "$COUNT_ONLY" == false ]]; then
                 if [[ "$VERBOSE" == true ]]; then
                     printf "${YELLOW}%-8s${NC} ${RED}%-8s${NC} %-12s %s\n" "$pid" "$ppid" "$user" "$comm"
@@ -191,9 +187,9 @@ check_orphans() {
                 fi
             fi
         fi
-        
+
     done < "$TMP_FILE"
-    
+
     # Display results summary
     if [[ "$COUNT_ONLY" == true ]]; then
         echo "$orphan_count"
@@ -206,7 +202,7 @@ check_orphans() {
             echo -e "${BLUE}Note: Some processes may appear orphaned due to timing between parent death and cleanup.${NC}"
         fi
     fi
-    
+
     return 0
 }
 
@@ -214,31 +210,32 @@ check_orphans() {
 main() {
     # Parse command line arguments
     parse_arguments "$@"
-    
+
     # Show help if requested
     if [[ "$SHOW_HELP" == true ]]; then
         show_help
         exit 0
     fi
-    
+
     # Check for required dependencies
     check_dependencies
-    
+
     # Create temporary files
     create_temp_files
-    
+
     # Set trap to cleanup on exit
     trap cleanup EXIT INT TERM
-    
+
     # Get process information
     get_process_info
-    
+
     # Create PID lookup table
     create_pid_lookup
-    
+
     # Check for orphaned processes
     check_orphans
 }
 
 # Run the main function with all arguments
 main "$@"
+

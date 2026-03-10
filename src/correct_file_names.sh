@@ -117,7 +117,7 @@ main() {
             e)
                 IFS=',' read -r -a excluded_files <<< "$OPTARG"
                 ;;
-            \?)
+            "?")
                 echo "Invalid option: -$OPTARG" >&2
                 exit 1
                 ;;

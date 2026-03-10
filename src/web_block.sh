@@ -35,9 +35,9 @@
 set -euo pipefail
 
 # Script metadata
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 readonly SCRIPT_VERSION="2.0.0"
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Default configurations
 HOSTS_FILE="/etc/hosts"
@@ -89,7 +89,7 @@ function log_action() {
     local message="$1"
     local timestamp
     timestamp=$(date +"%Y-%m-%d %T")
-    
+
     if [[ "$LOG_ENABLED" == true ]]; then
         # Ensure log directory exists
         local log_dir
@@ -100,50 +100,50 @@ function log_action() {
                 return 1
             }
         fi
-        
+
         echo "$timestamp [$SCRIPT_NAME]: $message" >> "$LOG_FILE" || {
             print_warning "Could not write to log file: $LOG_FILE"
             return 1
         }
     fi
-    
+
     [[ "$VERBOSE" == true ]] && print_info "$message"
 }
 
 function validate_domain() {
     local domain="$1"
-    
+
     # More comprehensive domain validation
     if [[ -z "$domain" ]]; then
         print_error "Empty domain name provided"
         return 1
     fi
-    
+
     # Check for invalid characters and basic structure
     if [[ ! "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
         print_error "Invalid domain name format: '$domain'"
         return 1
     fi
-    
+
     # Check length constraints
     if [[ ${#domain} -gt 253 ]]; then
         print_error "Domain name too long: '$domain' (max 253 characters)"
         return 1
     fi
-    
+
     return 0
 }
 
 function check_dependencies() {
     local deps=("sed" "grep" "awk" "cp" "cat")
     local missing_deps=()
-    
+
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
             missing_deps+=("$dep")
         fi
     done
-    
+
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         print_error "Missing required dependencies: ${missing_deps[*]}"
         exit 1
@@ -155,7 +155,7 @@ function backup_hosts() {
         print_error "Hosts file not found: $HOSTS_FILE"
         exit 1
     fi
-    
+
     if [[ "$DRY_RUN" == false ]]; then
         if cp "$HOSTS_FILE" "$BACKUP_FILE"; then
             log_action "Backup created: $BACKUP_FILE"
@@ -173,7 +173,7 @@ function restore_hosts() {
         print_error "Backup file not found: $BACKUP_FILE"
         exit 1
     fi
-    
+
     if [[ "$DRY_RUN" == false ]]; then
         if cp "$BACKUP_FILE" "$HOSTS_FILE"; then
             print_success "Hosts file restored from backup"
@@ -190,12 +190,12 @@ function restore_hosts() {
 function get_domains_to_process() {
     local domain="$1"
     local domains_list=("$domain")
-    
+
     # Add www subdomain if requested
     if [[ "$WITH_WWW" == true && ! "$domain" =~ ^www\. ]]; then
         domains_list+=("www.$domain")
     fi
-    
+
     printf '%s\n' "${domains_list[@]}"
 }
 
@@ -222,17 +222,17 @@ function modify_hosts() {
     local input_domains=("$@")
     local processed_count=0
     local skipped_count=0
-    
+
     for domain in "${input_domains[@]}"; do
         validate_domain "$domain" || continue
-        
+
         # Get all domains to process (including www if requested)
         mapfile -t domains_to_process < <(get_domains_to_process "$domain")
-        
+
         for target_domain in "${domains_to_process[@]}"; do
             local entry="127.0.0.1 $target_domain"
             local action_msg=""
-            
+
             case "$action" in
                 add)
                     if is_domain_blocked "$target_domain"; then
@@ -254,6 +254,7 @@ $entry" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
                 remove)
                     if is_domain_blocked "$target_domain"; then
                         if [[ "$DRY_RUN" == false ]]; then
+                            # shellcheck disable=SC2016
                             sed -i.tmp "/^127\.0\.0\.1[[:space:]]\+$(printf '%s\n' "$target_domain" | sed 's/[[\.*^$()+?{|]/\\&/g')$/d" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
                             action_msg="Unblocked domain '$target_domain'"
                             ((processed_count++))
@@ -270,12 +271,12 @@ $entry" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
                     exit 1
                     ;;
             esac
-            
+
             echo "$action_msg"
             log_action "$action_msg"
         done
     done
-    
+
     # Summary
     if [[ $processed_count -gt 0 ]]; then
         print_success "Processed $processed_count domain(s)"
@@ -287,10 +288,10 @@ $entry" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
 
 function list_blocked_domains() {
     print_info "Currently blocked domains:"
-    
+
     local blocked_domains
     blocked_domains=$(grep "^127\.0\.0\.1[[:space:]]" "$HOSTS_FILE" 2>/dev/null | awk '{print $2}' | sort -u)
-    
+
     if [[ -z "$blocked_domains" ]]; then
         echo "  No domains are currently blocked."
     else
@@ -304,14 +305,14 @@ function list_blocked_domains() {
 
 function show_domain_status() {
     local domains=("$@")
-    
+
     print_info "Domain status:"
-    
+
     for domain in "${domains[@]}"; do
         validate_domain "$domain" || continue
-        
+
         mapfile -t domains_to_check < <(get_domains_to_process "$domain")
-        
+
         for target_domain in "${domains_to_check[@]}"; do
             if is_domain_blocked "$target_domain"; then
                 echo -e "  - $target_domain: ${RED}BLOCKED${NC}"
@@ -325,14 +326,14 @@ function show_domain_status() {
 function clear_all_blocked() {
     local blocked_count
     blocked_count=$(grep -c "^127\.0\.0\.1[[:space:]]" "$HOSTS_FILE" 2>/dev/null || echo "0")
-    
+
     if [[ $blocked_count -eq 0 ]]; then
         print_info "No blocked domains found"
         return 0
     fi
-    
+
     print_warning "This will remove all $blocked_count blocked domain(s)"
-    
+
     if [[ "$DRY_RUN" == false ]]; then
         # Remove all 127.0.0.1 entries and managed section
         sed -i.tmp '/^127\.0\.0\.1[[:space:]]/d; /^# WEB_BLOCK_START/,/^# WEB_BLOCK_END/d' "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
@@ -364,18 +365,18 @@ function parse_config_file() {
         print_error "Configuration file not found: '$CONFIG_FILE'"
         exit 1
     fi
-    
+
     log_action "Loading configuration from: $CONFIG_FILE"
-    
+
     while IFS='=' read -r key value || [[ -n "$key" ]]; do
         # Skip comments and empty lines
         [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$key" ]] && continue
-        
+
         # Trim whitespace
         key=$(echo "$key" | xargs)
         value=$(echo "$value" | xargs)
-        
+
         case "$key" in
             hosts_file) HOSTS_FILE="$value" ;;
             backup_file) BACKUP_FILE="$value" ;;
@@ -405,12 +406,12 @@ function validate_files() {
         print_error "Hosts file not found: $HOSTS_FILE"
         exit 1
     fi
-    
+
     if [[ ! -w "$HOSTS_FILE" ]]; then
         print_error "Hosts file is not writable: $HOSTS_FILE"
         exit 1
     fi
-    
+
     # Check backup directory
     local backup_dir
     backup_dir=$(dirname "$BACKUP_FILE")
@@ -456,18 +457,18 @@ done
 main() {
     # Check dependencies first
     check_dependencies
-    
+
     # Load configuration file if specified
     if [[ -n "$CONFIG_FILE" ]]; then
         parse_config_file
     fi
-    
+
     # Ensure the script is run as root (except for help and some read-only operations)
     if [[ "$OPERATION" != "list" && "$OPERATION" != "status" && "$OPERATION" != "help" ]]; then
         check_root
         validate_files
     fi
-    
+
     # Handle operations that don't require domains
     case "$OPERATION" in
         list)
@@ -492,18 +493,18 @@ main() {
             show_help
             ;;
     esac
-    
+
     # Collect domains from arguments
     if [[ $# -lt 1 ]]; then
         print_error "No domain(s) specified"
         show_help
     fi
-    
+
     # Remove www prefix and add to domains array
     for arg in "$@"; do
         DOMAINS+=("${arg#www.}")
     done
-    
+
     # Handle operations that require domains
     case "$OPERATION" in
         add|remove)
@@ -525,3 +526,4 @@ main() {
 
 # Run main function
 main "$@"
+

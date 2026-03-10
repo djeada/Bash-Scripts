@@ -91,22 +91,22 @@ validate_inputs() {
         log_error "Threshold must be a non-negative integer"
         exit 1
     fi
-    
+
     if [[ ! "$MIN_NAME_LENGTH" =~ ^[0-9]+$ ]] || [ "$MIN_NAME_LENGTH" -lt 1 ]; then
         log_error "Minimum name length must be a positive integer"
         exit 1
     fi
-    
+
     if [ ! -d "$DIRECTORY" ]; then
         log_error "Directory '$DIRECTORY' does not exist"
         exit 1
     fi
-    
+
     if [[ ! "$OUTPUT_FORMAT" =~ ^(text|json|csv)$ ]]; then
         log_error "Output format must be one of: text, json, csv"
         exit 1
     fi
-    
+
     if [ -n "$OUTPUT_FILE" ]; then
         local output_dir
         output_dir=$(dirname "$OUTPUT_FILE")
@@ -172,7 +172,7 @@ parse_arguments() {
 # Function to build find command with exclusions
 build_find_command() {
     local find_cmd=("find" "$DIRECTORY")
-    
+
     # Add exclusions
     if [ "${#EXCLUDED_PATHS[@]}" -gt 0 ]; then
         find_cmd+=("(")
@@ -188,14 +188,14 @@ build_find_command() {
         done
         find_cmd+=(")" "-prune" "-o")
     fi
-    
+
     # Common exclusions for Python projects
     find_cmd+=("(")
     find_cmd+=("-name" "__pycache__" "-o" "-name" "*.pyc" "-o" "-name" "*.pyo" "-o" "-name" ".pytest_cache")
     find_cmd+=(")" "-prune" "-o")
-    
+
     find_cmd+=("-type" "f" "-name" "*.py" "-print0")
-    
+
     printf '%s\0' "${find_cmd[@]}"
 }
 
@@ -203,40 +203,40 @@ build_find_command() {
 find_python_files() {
     local find_cmd_str
     find_cmd_str=$(build_find_command)
-    
+
     # Convert null-separated string back to array and execute
     local find_cmd=()
     while IFS= read -r -d '' element; do
         find_cmd+=("$element")
     done <<< "$find_cmd_str"
-    
+
     "${find_cmd[@]}"
 }
 
 # Function to check if a name should be ignored
 should_ignore_name() {
     local name="$1"
-    
+
     # Check minimum length
     if [ "${#name}" -lt "$MIN_NAME_LENGTH" ]; then
         return 0  # ignore
     fi
-    
+
     # Check private methods/functions
     if ! $INCLUDE_PRIVATE && [[ "$name" =~ ^_[^_] ]]; then
         return 0  # ignore
     fi
-    
+
     # Check dunder methods
     if $IGNORE_DUNDER && [[ "$name" =~ ^__.*__$ ]]; then
         return 0  # ignore
     fi
-    
+
     # Check test-related names
     if [[ "$name" =~ ^test_ ]] || [[ "$name" =~ _test$ ]] || [[ "$name" =~ Test.* ]]; then
         return 0  # ignore
     fi
-    
+
     return 1  # don't ignore
 }
 
@@ -244,30 +244,30 @@ should_ignore_name() {
 extract_definitions() {
     local file
     declare -A definitions
-    
+
     for file in "${PYTHON_FILES[@]}"; do
         log_verbose "Processing file: $file"
         STATS[total_files]=$((STATS[total_files] + 1))
-        
+
         # Extract function definitions (including async functions)
         while IFS= read -r line; do
             if [[ -n "$line" ]]; then
                 definitions["$line"]="function"
                 STATS[total_functions]=$((STATS[total_functions] + 1))
             fi
-        done < <(grep -Eho '^\s*(async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
-                 sed -E 's/^\s*(async\s+)?def\s+//' || true)
-        
+            done < <(grep -Eho '^\s*(async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
+            sed -E 's/^\s*(async\s+)?def\s+//' || true)
+
         # Extract class definitions
         while IFS= read -r line; do
             if [[ -n "$line" ]]; then
                 definitions["$line"]="class"
                 STATS[total_classes]=$((STATS[total_classes] + 1))
             fi
-        done < <(grep -Eho '^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
-                 sed -E 's/^\s*class\s+//' | cut -d'(' -f1 || true)
+            done < <(grep -Eho '^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
+            sed -E 's/^\s*class\s+//' | cut -d'(' -f1 || true)
     done
-    
+
     # Output unique definitions with their types
     for name in "${!definitions[@]}"; do
         echo "$name:${definitions[$name]}"
@@ -279,35 +279,35 @@ count_occurrences() {
     local name="$1"
     local count=0
     local file
-    
+
     for file in "${PYTHON_FILES[@]}"; do
         # More sophisticated counting that considers context
         local file_count
         file_count=$(grep -Ec "(^|[^a-zA-Z0-9_])${name}([^a-zA-Z0-9_]|$)" "$file" || echo 0)
         count=$((count + file_count))
     done
-    
+
     echo "$count"
 }
 
 # Output functions for different formats
 output_text() {
     local results=("$@")
-    
+
     if [ "${#results[@]}" -eq 0 ]; then
         log_info "No potentially dead code found!"
         return
     fi
-    
+
     echo -e "${YELLOW}Potentially Dead Code Report${NC}"
     echo "=================================="
     echo
-    
+
     for result in "${results[@]}"; do
         IFS=':' read -r name type count <<< "$result"
         printf "%-20s %-10s %s occurrences\n" "$name" "($type)" "$count"
     done
-    
+
     echo
     echo "Statistics:"
     echo "  Files processed: ${STATS[total_files]}"
@@ -318,7 +318,7 @@ output_text() {
 
 output_json() {
     local results=("$@")
-    
+
     echo "{"
     echo "  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\","
     echo "  \"threshold\": $THRESHOLD,"
@@ -330,7 +330,7 @@ output_json() {
     echo "    \"dead_code_items\": ${STATS[dead_code_items]}"
     echo "  },"
     echo "  \"dead_code\": ["
-    
+
     local first=true
     for result in "${results[@]}"; do
         IFS=':' read -r name type count <<< "$result"
@@ -341,7 +341,7 @@ output_json() {
         fi
         echo -n "    {\"name\": \"$name\", \"type\": \"$type\", \"occurrences\": $count}"
     done
-    
+
     echo
     echo "  ]"
     echo "}"
@@ -349,7 +349,7 @@ output_json() {
 
 output_csv() {
     local results=("$@")
-    
+
     echo "name,type,occurrences"
     for result in "${results[@]}"; do
         IFS=':' read -r name type count <<< "$result"
@@ -361,7 +361,7 @@ output_csv() {
 main() {
     parse_arguments "$@"
     validate_inputs
-    
+
     log_info "Starting dead code analysis..."
     log_verbose "Configuration:"
     log_verbose "  Directory: $DIRECTORY"
@@ -369,45 +369,45 @@ main() {
     log_verbose "  Excluded paths: ${EXCLUDED_PATHS[*]:-none}"
     log_verbose "  Output format: $OUTPUT_FORMAT"
     log_verbose "  Include private: $INCLUDE_PRIVATE"
-    
+
     # Find Python files
     log_verbose "Finding Python files..."
     mapfile -d '' -t PYTHON_FILES < <(find_python_files)
-    
+
     if [ "${#PYTHON_FILES[@]}" -eq 0 ]; then
         log_warning "No Python files found in the specified directory"
         exit 0
     fi
-    
+
     log_info "Found ${#PYTHON_FILES[@]} Python files"
-    
+
     # Extract definitions and analyze
     log_verbose "Extracting function and class definitions..."
     local results=()
-    
+
     while IFS= read -r definition; do
         if [[ -z "$definition" ]]; then
             continue
         fi
-        
+
         IFS=':' read -r name type <<< "$definition"
-        
+
         if should_ignore_name "$name"; then
             log_verbose "Ignoring: $name"
             continue
         fi
-        
+
         log_verbose "Counting occurrences for: $name"
         local count
         count=$(count_occurrences "$name")
-        
+
         if [ "$count" -lt "$THRESHOLD" ]; then
             results+=("$name:$type:$count")
             STATS[dead_code_items]=$((STATS[dead_code_items] + 1))
         fi
-        
+
     done < <(extract_definitions)
-    
+
     # Output results
     local output_func
     case "$OUTPUT_FORMAT" in
@@ -415,16 +415,17 @@ main() {
         csv) output_func=output_csv ;;
         *) output_func=output_text ;;
     esac
-    
+
     if [ -n "$OUTPUT_FILE" ]; then
         $output_func "${results[@]}" > "$OUTPUT_FILE"
         log_info "Results written to: $OUTPUT_FILE"
     else
         $output_func "${results[@]}"
     fi
-    
+
     log_info "Analysis complete"
 }
 
 # Run main function with all arguments
 main "$@"
+

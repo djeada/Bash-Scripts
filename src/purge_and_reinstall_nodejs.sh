@@ -113,7 +113,7 @@ run_sudo() {
 detect_os() {
     local os_name
     os_name=$(uname -s)
-    
+
     case "$os_name" in
         Darwin)
             OS_TYPE="macos"
@@ -136,7 +136,7 @@ detect_os() {
             DISTRO="unknown"
             ;;
     esac
-    
+
     log "Detected OS: $OS_TYPE ($DISTRO)"
 }
 
@@ -144,7 +144,7 @@ detect_os() {
 detect_arch() {
     local machine_arch
     machine_arch=$(uname -m)
-    
+
     case "$machine_arch" in
         x86_64|amd64)
             ARCH="x64"
@@ -169,7 +169,7 @@ detect_arch() {
             log_warn "Unknown architecture: $machine_arch, using as-is"
             ;;
     esac
-    
+
     log "Detected architecture: $ARCH"
 }
 
@@ -200,14 +200,14 @@ detect_pkg_manager() {
     else
         PKG_MANAGER="none"
     fi
-    
+
     log "Detected package manager: $PKG_MANAGER"
 }
 
 # Purge Node.js installed via package manager
 purge_pkg_manager() {
     echo "Purging Node.js/npm via package manager ($PKG_MANAGER)..."
-    
+
     case "$PKG_MANAGER" in
         apt)
             run_sudo apt-get purge -y nodejs npm 2>/dev/null || true
@@ -240,20 +240,20 @@ purge_pkg_manager() {
 # Purge manually installed Node.js
 purge_manual_install() {
     echo "Purging manually installed Node.js/npm..."
-    
+
     # Remove binaries found in PATH
     local node_path npm_path npx_path
     node_path=$(command -v node 2>/dev/null || true)
     npm_path=$(command -v npm 2>/dev/null || true)
     npx_path=$(command -v npx 2>/dev/null || true)
-    
+
     for bin_path in "$node_path" "$npm_path" "$npx_path"; do
         if [[ -n "$bin_path" && -f "$bin_path" ]]; then
             log "Removing binary: $bin_path"
             run_sudo rm -f "$bin_path"
         fi
     done
-    
+
     # Common installation directories (non-glob paths)
     local dirs_to_remove=(
         "/usr/local/lib/node_modules"
@@ -261,7 +261,7 @@ purge_manual_install() {
         "/usr/local/share/doc/node"
         "/opt/nodejs"
     )
-    
+
     for dir in "${dirs_to_remove[@]}"; do
         if [[ "$DRY_RUN" == true ]]; then
             echo "[DRY-RUN] Would remove: $dir"
@@ -269,13 +269,13 @@ purge_manual_install() {
             sudo rm -rf "$dir" 2>/dev/null || true
         fi
     done
-    
+
     # Glob patterns for man pages (handled separately for security)
     local man_patterns=(
         "/usr/local/share/man/man1/node.*"
         "/usr/local/share/man/man1/npm.*"
     )
-    
+
     for pattern in "${man_patterns[@]}"; do
         if [[ "$DRY_RUN" == true ]]; then
             echo "[DRY-RUN] Would remove files matching: $pattern"
@@ -298,9 +298,9 @@ cleanup_user_dirs() {
         log "Skipping user directory cleanup"
         return
     fi
-    
+
     echo "Cleaning user-specific Node.js directories..."
-    
+
     local user_dirs_to_clean=(
         ".npm"
         ".nvm"
@@ -308,7 +308,7 @@ cleanup_user_dirs() {
         ".node_repl_history"
         ".config/configstore/update-notifier-npm.json"
     )
-    
+
     # Clean current user's directories
     for dir in "${user_dirs_to_clean[@]}"; do
         local full_path="$HOME/$dir"
@@ -317,11 +317,11 @@ cleanup_user_dirs() {
             run_cmd rm -rf "$full_path"
         fi
     done
-    
+
     # Clean other users' directories (requires root)
     if [[ $EUID -eq 0 ]] || [[ "$DRY_RUN" == true ]]; then
         local user_home_base=""
-        
+
         # Determine user home directory base path based on OS
         case "$OS_TYPE" in
             macos)
@@ -334,14 +334,14 @@ cleanup_user_dirs() {
                 user_home_base="/home"
                 ;;
         esac
-        
+
         if [[ -d "$user_home_base" ]]; then
             for home_dir in "$user_home_base"/*; do
                 if [[ -d "$home_dir" ]]; then
                     local username
                     username=$(basename "$home_dir")
                     log "Cleaning directories for user: $username"
-                    
+
                     for dir in "${user_dirs_to_clean[@]}"; do
                         local full_path="$home_dir/$dir"
                         if [[ -e "$full_path" ]]; then
@@ -359,19 +359,19 @@ cleanup_user_dirs() {
 fetch_latest_version() {
     local version
     version=$(curl -s https://nodejs.org/dist/latest/ | grep -oE 'node-v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's/node-v//')
-    
+
     if [[ -z "$version" ]]; then
         log_error "Failed to fetch latest Node.js version"
         return 1
     fi
-    
+
     echo "$version"
 }
 
 # Fetch the latest LTS version from nodejs.org
 fetch_lts_version() {
     local version
-    
+
     # Prefer jq if available for robust JSON parsing
     if command -v jq &>/dev/null; then
         version=$(curl -s https://nodejs.org/dist/index.json | jq -r '.[] | select(.lts != false) | .version' | head -1 | sed 's/v//')
@@ -379,19 +379,19 @@ fetch_lts_version() {
         # Fallback to grep-based parsing
         version=$(curl -s https://nodejs.org/dist/index.json | grep -oE '"version":"v[0-9]+\.[0-9]+\.[0-9]+"[^}]*"lts":"[^"]+"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | sed 's/v//')
     fi
-    
+
     if [[ -z "$version" ]]; then
         log_error "Failed to fetch LTS Node.js version"
         return 1
     fi
-    
+
     echo "$version"
 }
 
 # Install Node.js via package manager (distro version)
 install_via_pkg_manager() {
     echo "Installing Node.js via package manager ($PKG_MANAGER)..."
-    
+
     case "$PKG_MANAGER" in
         apt)
             run_sudo apt-get update
@@ -427,7 +427,7 @@ install_from_nodejs_org() {
     local version="$1"
     local platform=""
     local archive_ext=""
-    
+
     # Determine platform string for download URL
     case "$OS_TYPE" in
         linux)
@@ -443,22 +443,22 @@ install_from_nodejs_org() {
             return 1
             ;;
     esac
-    
+
     local filename="node-v${version}-${platform}-${ARCH}.${archive_ext}"
     local download_url="https://nodejs.org/dist/v${version}/${filename}"
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    
+
     echo "Installing Node.js v${version} for ${platform}-${ARCH}..."
     log "Download URL: $download_url"
-    
+
     if [[ "$DRY_RUN" == true ]]; then
         echo "[DRY-RUN] Would download: $download_url"
         echo "[DRY-RUN] Would extract to /usr/local"
         rm -rf "$tmp_dir"
         return 0
     fi
-    
+
     # Download
     echo "Downloading Node.js v${version}..."
     if ! curl -fsSL "$download_url" -o "$tmp_dir/$filename"; then
@@ -466,7 +466,7 @@ install_from_nodejs_org() {
         rm -rf "$tmp_dir"
         return 1
     fi
-    
+
     # Extract
     echo "Extracting Node.js..."
     case "$archive_ext" in
@@ -485,10 +485,10 @@ install_from_nodejs_org() {
             fi
             ;;
     esac
-    
+
     # Cleanup
     rm -rf "$tmp_dir"
-    
+
     # Verify installation
     echo "Verifying installation..."
     if command -v node &>/dev/null; then
@@ -496,7 +496,7 @@ install_from_nodejs_org() {
     else
         log_warn "Node.js binary not found in PATH. You may need to add /usr/local/bin to your PATH."
     fi
-    
+
     if command -v npm &>/dev/null; then
         echo "npm $(npm --version) installed successfully"
     fi
@@ -508,11 +508,11 @@ main() {
     detect_os
     detect_arch
     detect_pkg_manager
-    
+
     echo "System: $OS_TYPE ($DISTRO) on $ARCH"
     echo "Package manager: $PKG_MANAGER"
     echo
-    
+
     # Purge existing installations
     echo "=== Purging existing Node.js/npm installations ==="
     purge_pkg_manager
@@ -520,16 +520,16 @@ main() {
     cleanup_user_dirs
     echo "Purge completed."
     echo
-    
+
     # Exit if purge-only mode
     if [[ "$PURGE_ONLY" == true ]]; then
         echo "Purge-only mode: Skipping installation."
         return 0
     fi
-    
+
     # Install based on selected method
     echo "=== Installing Node.js/npm ==="
-    
+
     if [[ "$INSTALL_DISTRO" == true ]]; then
         install_via_pkg_manager
     elif [[ "$INSTALL_LATEST" == true ]]; then
@@ -558,7 +558,7 @@ main() {
             install_from_nodejs_org "$latest_version"
         fi
     fi
-    
+
     echo
     echo "Node.js installation completed."
 }

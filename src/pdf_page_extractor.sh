@@ -12,10 +12,20 @@ VERBOSE=0
 OUTPUT_FILE=""
 while getopts "hvo:" opt; do
     case $opt in
-        h) usage; exit 0 ;;
-        v) VERBOSE=1 ;;
-        o) OUTPUT_FILE=$OPTARG ;;
-        \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
+        h)
+            usage
+            exit 0
+            ;;
+        v)
+            VERBOSE=1
+            ;;
+        o)
+            OUTPUT_FILE=$OPTARG
+            ;;
+        "?")
+            echo "Invalid option: -$OPTARG" >&2
+            exit 1
+            ;;
     esac
 done
 
