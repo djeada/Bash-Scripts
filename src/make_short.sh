@@ -315,3 +315,4 @@ echo "Input ${IW}x${IH}, duration ${DUR}s"
 echo "Speed factor   : ${SPEED}x"
 echo "Output duration: ${NEW_DUR}s (capped at ${CAP}s)"
 echo "Output file    : ${OUTPUT}"
+

@@ -193,26 +193,26 @@ github_api_paged() {
     [[ -n "$GITHUB_TOKEN" ]] && token_header=(-H "Authorization: token $GITHUB_TOKEN")
 
     info "Making API request to: $url"
-    
+
     while [[ -n "$url" ]]; do
         # Create temp files for headers and body
         local temp_headers temp_body
         temp_headers=$(mktemp)
         temp_body=$(mktemp)
-        
+
         # Make the curl request
         local http_status
         http_status=$(curl -sSL -w "%{http_code}" -H 'Accept: application/vnd.github+json' \
             -D "$temp_headers" "${token_header[@]}" "$url" -o "$temp_body")
-        
+
         info "HTTP Status: $http_status"
-        
+
         # Read the response body
         local body
         body="$(cat "$temp_body")"
         local body_length="${#body}"
         info "Response body length: $body_length characters"
-        
+
         if [[ $body_length -gt 0 ]]; then
             info "Response preview: $(echo "$body" | head -c 200)..."
         fi
@@ -260,10 +260,10 @@ github_api_paged() {
         else
             next=""
         fi
-        
+
         # Clean up temp files
         rm -f "$temp_headers" "$temp_body"
-        
+
         if [[ -n "$next" && "$next" == *"github.com"* ]]; then
             info "Found next page: $next"
             url="$next"
@@ -286,16 +286,16 @@ retrieve_repos_from_github() {
 
     info "API endpoint: $endpoint"
     info "Filter forks: $FILTER_FORKS"
-    
+
     # Get raw API response first
     local api_response
     api_response=$(github_api_paged "$endpoint")
-    
+
     # Debug: check what we got from API
     local response_lines
     response_lines=$(echo "$api_response" | wc -l)
     info "API returned $response_lines lines of JSON"
-    
+
     # Try to parse as JSON array
     local repo_count
     if repo_count=$(echo "$api_response" | jq -s 'map(length) | add' 2>/dev/null); then
@@ -303,11 +303,11 @@ retrieve_repos_from_github() {
     else
         info "Could not count repositories in API response"
     fi
-    
+
     # Show sample of what we're processing
     info "Sample repository data:"
     echo "$api_response" | jq -s 'map(.[0:2]) | add | .[] | {name: .name, clone_url: .clone_url, fork: .fork}' 2>/dev/null | head -10 >&2
-    
+
     # Process with the jq filter and add debugging
     local filtered_repos
     if [[ -n "$MAX_REPOS" ]]; then
@@ -315,31 +315,31 @@ retrieve_repos_from_github() {
         filtered_repos=$(echo "$api_response" | jq -rs \
             --argjson skipFork "$FILTER_FORKS" \
             --argjson maxRepos "$MAX_REPOS" '
-                add | 
-                map(select((.fork|not) or ($skipFork|not))) | 
+                add |
+                map(select((.fork|not) or ($skipFork|not))) |
                 map(select(.clone_url)) |
                 .[:$maxRepos] |
                 .[].clone_url' 2>/dev/null)
     else
         filtered_repos=$(echo "$api_response" | jq -rs \
             --argjson skipFork "$FILTER_FORKS" '
-                add | 
-                map(select((.fork|not) or ($skipFork|not))) | 
+                add |
+                map(select((.fork|not) or ($skipFork|not))) |
                 map(select(.clone_url)) |
                 .[].clone_url' 2>/dev/null)
     fi
-    
+
     if [[ $? -ne 0 ]]; then
         error "jq filtering failed"
         info "Raw API response for debugging:"
         echo "$api_response" | head -20 >&2
         exit 1
     fi
-    
+
     local final_count
     final_count=$(echo "$filtered_repos" | grep -c '^https://' || echo "0")
     info "After filtering: $final_count repositories will be cloned"
-    
+
     if [[ $final_count -eq 0 ]]; then
         warn "No repositories found after filtering. This could be because:"
         warn "1. The user/org has no repositories"
@@ -347,7 +347,7 @@ retrieve_repos_from_github() {
         warn "3. The API response doesn't contain clone_url fields"
         warn "4. There's an authentication issue (private repos)"
     fi
-    
+
     # Output only the URLs to stdout (no debugging info)
     echo "$filtered_repos"
 }
@@ -445,16 +445,16 @@ main() {
     # Retrieve repo list
     info "Retrieving repository list..."
     mapfile -t REPOS < <(
-        if [[ -n "$JSON_FILE" ]]; then 
+        if [[ -n "$JSON_FILE" ]]; then
             info "Reading repositories from JSON file: $JSON_FILE"
             retrieve_repos_from_json
-        else 
+        else
             retrieve_repos_from_github
         fi )
 
     info "Repository retrieval completed"
     info "Found ${#REPOS[@]} repositories total"
-    
+
     # Debug: show first few repos found
     if (( ${#REPOS[@]} > 0 )); then
         info "First few repositories found:"
@@ -490,3 +490,4 @@ main() {
 }
 
 main "$@"
+

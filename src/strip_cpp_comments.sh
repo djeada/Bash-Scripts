@@ -11,7 +11,7 @@
 #   -n | --max-depth N     Recurse into directories at most N levels (default: 3).
 #
 # Behaviour:
-#   • If a path is a **file** → always processed (regex ignored).  
+#   • If a path is a **file** → always processed (regex ignored).
 #   • If a path is a **directory** (or none provided, so “.” is assumed) → search
 #     for regular files ≤ DEPTH whose names match REGEX and process them.
 #
@@ -199,3 +199,4 @@ main() {
 }
 
 main "$@"
+
