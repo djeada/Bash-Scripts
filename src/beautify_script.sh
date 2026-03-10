@@ -12,12 +12,12 @@ export TERM=${TERM:-dumb}
 
 set -euo pipefail
 
-# Color codes for output
-RED="$(tput setaf 1)"
-GREEN="$(tput setaf 2)"
-YELLOW="$(tput setaf 3)"
-CYAN="$(tput setaf 6)"
-RESET="$(tput sgr0)"
+# Color codes for output (graceful fallback when tput fails)
+RED="$(tput setaf 1 2>/dev/null || true)"
+GREEN="$(tput setaf 2 2>/dev/null || true)"
+YELLOW="$(tput setaf 3 2>/dev/null || true)"
+CYAN="$(tput setaf 6 2>/dev/null || true)"
+RESET="$(tput sgr0 2>/dev/null || true)"
 
 status=0
 

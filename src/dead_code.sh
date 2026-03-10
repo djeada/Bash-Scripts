@@ -255,8 +255,8 @@ extract_definitions() {
                 definitions["$line"]="function"
                 STATS[total_functions]=$((STATS[total_functions] + 1))
             fi
-        done < <(grep -Eho '^\s*(async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
-                 sed -E 's/^\s*(async\s+)?def\s+//' || true)
+            done < <(grep -Eho '^\s*(async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
+            sed -E 's/^\s*(async\s+)?def\s+//' || true)
 
         # Extract class definitions
         while IFS= read -r line; do
@@ -264,8 +264,8 @@ extract_definitions() {
                 definitions["$line"]="class"
                 STATS[total_classes]=$((STATS[total_classes] + 1))
             fi
-        done < <(grep -Eho '^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
-                 sed -E 's/^\s*class\s+//' | cut -d'(' -f1 || true)
+            done < <(grep -Eho '^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
+            sed -E 's/^\s*class\s+//' | cut -d'(' -f1 || true)
     done
 
     # Output unique definitions with their types
