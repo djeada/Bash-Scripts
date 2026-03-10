@@ -100,7 +100,8 @@ create_temp_files() {
 
 # Cleanup function to remove temporary files
 cleanup() {
-    local exit_code=$?
+    local exit_code
+    exit_code=$?
     [[ -n "${TMP_FILE:-}" ]] && rm -f "$TMP_FILE"
     [[ -n "${PIDS_TMP_FILE:-}" ]] && rm -f "$PIDS_TMP_FILE"
     exit $exit_code
@@ -110,7 +111,6 @@ cleanup() {
 error_exit() {
     echo -e "${RED}Error: $1${NC}" >&2
     cleanup
-    exit 1
 }
 
 # Function to check if required commands are available
@@ -130,14 +130,14 @@ check_dependencies() {
 
 # Function to get process information based on user preference
 get_process_info() {
-    local ps_options="-eo ppid,pid,user,comm"
+    local -a ps_options=(-eo "ppid,pid,user,comm")
 
     if [[ "$USER_ONLY" == true ]]; then
-        ps_options+=" -u $(id -un)"
+        ps_options+=(-u "$(id -un)")
     fi
 
     # Get process information and handle potential ps command failures
-    if ! ps $ps_options --no-headers 2>/dev/null > "$TMP_FILE"; then
+    if ! ps "${ps_options[@]}" --no-headers 2>/dev/null > "$TMP_FILE"; then
         error_exit "Failed to retrieve process information. You may need elevated privileges."
     fi
 

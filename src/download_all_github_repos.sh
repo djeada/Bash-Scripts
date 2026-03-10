@@ -108,21 +108,21 @@ check_dependencies() {
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --json-file)      JSON_FILE="$2"; shift 2;;
-            --user)           GITHUB_USER="$2"; shift 2;;
-            --org)            GITHUB_ORG="$2"; shift 2;;
-            --token)          GITHUB_TOKEN="$2"; shift 2;;
-            --protocol)       PROTOCOL="$2"; shift 2;;
-            --parallel)       PARALLEL_JOBS="$2"; shift 2;;
-            --dest)           DEST_DIR="$2"; shift 2;;
-            --output)         OUTPUT_TAR="$2"; shift 2;;
-            --compression)    COMPRESSION="$2"; shift 2;;
-            --shallow)        SHALLOW=true; shift 1;;
-            --mirror)         MIRROR=true; shift 1;;
-            --filter-forks)   FILTER_FORKS=$(echo "$2" | tr '[:upper:]' '[:lower:]'); shift 2;;
-            --max-repos)      MAX_REPOS="$2"; shift 2;;
-            -h|--help)        print_usage; exit 0;;
-            *) error "Unknown argument: $1"; print_usage; exit 1;;
+            --json-file)      JSON_FILE="$2"; shift 2 ;;
+            --user)           GITHUB_USER="$2"; shift 2 ;;
+            --org)            GITHUB_ORG="$2"; shift 2 ;;
+            --token)          GITHUB_TOKEN="$2"; shift 2 ;;
+            --protocol)       PROTOCOL="$2"; shift 2 ;;
+            --parallel)       PARALLEL_JOBS="$2"; shift 2 ;;
+            --dest)           DEST_DIR="$2"; shift 2 ;;
+            --output)         OUTPUT_TAR="$2"; shift 2 ;;
+            --compression)    COMPRESSION="$2"; shift 2 ;;
+            --shallow)        SHALLOW=true; shift 1 ;;
+            --mirror)         MIRROR=true; shift 1 ;;
+            --filter-forks)   FILTER_FORKS=$(echo "$2" | tr '[:upper:]' '[:lower:]'); shift 2 ;;
+            --max-repos)      MAX_REPOS="$2"; shift 2 ;;
+            -h|--help)        print_usage; exit 0 ;;
+            *) error "Unknown argument: $1"; print_usage; exit 1 ;;
         esac
     done
 
@@ -132,7 +132,10 @@ parse_args() {
     fi
 
     # Compression validation
-    case "$COMPRESSION" in gz|bz2|xz|none) ;; *) error "Invalid --compression value."; exit 1;; esac
+    case "$COMPRESSION" in
+        gz|bz2|xz|none) ;;
+        *) error "Invalid --compression value."; exit 1 ;;
+    esac
 
     # Parallel validation is numeric
     if ! [[ "$PARALLEL_JOBS" =~ ^[0-9]+$ ]]; then
@@ -309,27 +312,19 @@ retrieve_repos_from_github() {
     echo "$api_response" | jq -s 'map(.[0:2]) | add | .[] | {name: .name, clone_url: .clone_url, fork: .fork}' 2>/dev/null | head -10 >&2
 
     # Process with the jq filter and add debugging
-    local filtered_repos
+    local filtered_repos jq_rc=0
+    # shellcheck disable=SC2016
+    local jq_filter_limited='add | map(select((.fork|not) or ($skipFork|not))) | map(select(.clone_url)) | .[:$maxRepos] | .[].clone_url'
+    # shellcheck disable=SC2016
+    local jq_filter_all='add | map(select((.fork|not) or ($skipFork|not))) | map(select(.clone_url)) | .[].clone_url'
     if [[ -n "$MAX_REPOS" ]]; then
         info "Limiting to first $MAX_REPOS repositories"
-        filtered_repos=$(echo "$api_response" | jq -rs \
-            --argjson skipFork "$FILTER_FORKS" \
-            --argjson maxRepos "$MAX_REPOS" '
-                add |
-                map(select((.fork|not) or ($skipFork|not))) |
-                map(select(.clone_url)) |
-                .[:$maxRepos] |
-                .[].clone_url' 2>/dev/null)
+        filtered_repos=$(echo "$api_response" | jq -rs --argjson skipFork "$FILTER_FORKS" --argjson maxRepos "$MAX_REPOS" "$jq_filter_limited" 2>/dev/null) || jq_rc=$?
     else
-        filtered_repos=$(echo "$api_response" | jq -rs \
-            --argjson skipFork "$FILTER_FORKS" '
-                add |
-                map(select((.fork|not) or ($skipFork|not))) |
-                map(select(.clone_url)) |
-                .[].clone_url' 2>/dev/null)
+        filtered_repos=$(echo "$api_response" | jq -rs --argjson skipFork "$FILTER_FORKS" "$jq_filter_all" 2>/dev/null) || jq_rc=$?
     fi
 
-    if [[ $? -ne 0 ]]; then
+    if [[ $jq_rc -ne 0 ]]; then
         error "jq filtering failed"
         info "Raw API response for debugging:"
         echo "$api_response" | head -20 >&2
@@ -371,13 +366,14 @@ clone_repos() {
                 warn "[${idx}/${total}] Skipping existing $(basename "$converted")"
             else
                 info "[${idx}/${total}] Cloning $(basename "$converted")"
-                eval $(build_git_clone_cmd "$converted")
+                eval "$(build_git_clone_cmd "$converted")"
             fi
             ((idx++))
         done
     else
         # Parallel cloning with xargs
         info "Using $PARALLEL_JOBS parallel jobs via xargs."
+        # shellcheck disable=SC2016
         printf '%s\n' "${repos[@]}" | xargs -n1 -P "$PARALLEL_JOBS" bash -c '
             repo="$0";
             convert_protocol() {
@@ -409,10 +405,10 @@ create_archive() {
     local src_dir="$1" out_file="$2" comp="$3"
     local flag=""
     case "$comp" in
-        gz)  flag="z";;
-        bz2) flag="j";;
-        xz)  flag="J";;
-        none) flag="";;
+        gz)  flag="z" ;;
+        bz2) flag="j" ;;
+        xz)  flag="J" ;;
+        none) flag="" ;;
     esac
     info "Creating archive ${out_file} (compression: ${comp})"
     if [[ -n "$flag" ]]; then
@@ -450,7 +446,7 @@ main() {
             retrieve_repos_from_json
         else
             retrieve_repos_from_github
-        fi )
+    fi )
 
     info "Repository retrieval completed"
     info "Found ${#REPOS[@]} repositories total"

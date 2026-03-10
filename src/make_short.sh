@@ -292,6 +292,7 @@ fi
 # Cap duration slightly under the limit
 CAP="$(LC_ALL=C awk -v m="$MAXS" 'BEGIN{printf("%.3f",m-0.2)}')"
 
+# shellcheck disable=SC2206
 FFCMD=( ffmpeg -y -noautorotate -i "$INPUT"
   -filter_complex "$FILTER_COMPLEX"
   -map "${VIDEO_LABEL}" $MAP_AUDIO

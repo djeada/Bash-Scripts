@@ -36,8 +36,7 @@ MAX_DEPTH=3                                  # default recursion depth
 strip_file() {
     local file=$1
     local tmp
-    tmp=$(mktemp "${TMPDIR:-/tmp}/scrub.XXXXXX") || {
-        echo "Error: cannot create temp file" >&2; return 2; }
+    tmp=$(mktemp "${TMPDIR:-/tmp}/scrub.XXXXXX") || { echo "Error: cannot create temp file" >&2; return 2; }
 
     # State machine variables
     local in_block=0 in_line=0 in_str=0 in_char=0 escape=0
@@ -71,7 +70,7 @@ strip_file() {
             printf '%s' "$c" >&3
             if (( escape )); then
                 escape=0
-            elif [[ $c == '\' ]]; then
+            elif [[ $c == \\ ]]; then
                 escape=1
             elif [[ $c == '"' ]]; then
                 in_str=0
@@ -84,7 +83,7 @@ strip_file() {
             printf '%s' "$c" >&3
             if (( escape )); then
                 escape=0
-            elif [[ $c == '\' ]]; then
+            elif [[ $c == \\ ]]; then
                 escape=1
             elif [[ $c == "'" ]]; then
                 in_char=0
@@ -95,15 +94,25 @@ strip_file() {
         # ---------- neutral state ----------
         if [[ -z $prev ]]; then
             case $c in
-                /)   prev='/' ;;                      # possible comment start
-                '"') in_str=1 ; printf '%s' "$c" >&3 ;;
-                "'") in_char=1; printf '%s' "$c" >&3 ;;
-                *)   printf '%s' "$c" >&3 ;;
+                /)
+                    prev='/'
+                    ;;
+                '"')
+                    in_str=1
+                    printf '%s' "$c" >&3
+                    ;;
+                "'")
+                    in_char=1
+                    printf '%s' "$c" >&3
+                    ;;
+                *)
+                    printf '%s' "$c" >&3
+                    ;;
             esac
         else
             case $c in
                 /)  in_line=1 ; prev='' ;;            # "//"
-                \*) in_block=1; prev='' ;;            # "/*"
+                '*') in_block=1; prev='' ;;            # "/*"
                 *)  printf '/%s' "$c" >&3; prev='' ;;
             esac
         fi
@@ -155,8 +164,7 @@ main() {
                 ;;
             -n|--max-depth)
                 shift
-                [[ $# -eq 0 || ! $1 =~ ^[0-9]+$ ]] && {
-                    echo "Error: -n needs positive integer" >&2; exit 1; }
+                [[ $# -eq 0 || ! $1 =~ ^[0-9]+$ ]] && { echo "Error: -n needs positive integer" >&2; exit 1; }
                 depth=$1
                 ;;
             -*)

@@ -45,11 +45,11 @@ main() {
             h)
                 usage
                 ;;
-            \?)
+            "?")
                 echo "Invalid option: -$OPTARG" >&2
                 usage
                 ;;
-            :)
+            ":")
                 echo "Option -$OPTARG requires an argument." >&2
                 usage
                 ;;

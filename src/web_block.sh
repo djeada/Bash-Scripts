@@ -35,9 +35,9 @@
 set -euo pipefail
 
 # Script metadata
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 readonly SCRIPT_VERSION="2.0.0"
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Default configurations
 HOSTS_FILE="/etc/hosts"
@@ -254,6 +254,7 @@ $entry" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
                 remove)
                     if is_domain_blocked "$target_domain"; then
                         if [[ "$DRY_RUN" == false ]]; then
+                            # shellcheck disable=SC2016
                             sed -i.tmp "/^127\.0\.0\.1[[:space:]]\+$(printf '%s\n' "$target_domain" | sed 's/[[\.*^$()+?{|]/\\&/g')$/d" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
                             action_msg="Unblocked domain '$target_domain'"
                             ((processed_count++))

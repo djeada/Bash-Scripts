@@ -199,18 +199,17 @@ format_elapsed_time() {
 
 # Function to check for zombie processes
 check_zombies() {
-    local current_time=$(date +%s)
     local zombie_count=0
-    local ps_options="-eo pid,ppid,user,comm,state,etime,lstart"
+    local -a ps_options=(-eo "pid,ppid,user,comm,state,etime,lstart")
 
     # Adjust ps options for user-only mode
     if [[ "$USER_ONLY" == true ]]; then
-        ps_options+=" -u $(id -un)"
+        ps_options+=(-u "$(id -un)")
     fi
 
     # Get zombie processes
     local zombies
-    if ! zombies=$(ps $ps_options --no-headers 2>/dev/null | awk '$5 ~ /^Z/'); then
+    if ! zombies=$(ps "${ps_options[@]}" --no-headers 2>/dev/null | awk '$5 ~ /^Z/'); then
         echo -e "${RED}Error: Failed to retrieve process information${NC}" >&2
         return 1
     fi
@@ -238,14 +237,14 @@ check_zombies() {
 
     if [[ "$VERBOSE" == true ]]; then
         printf "${BOLD}%-8s %-8s %-12s %-20s %-8s %-12s %s${NC}\n" \
-               "PID" "PPID" "USER" "COMMAND" "STATE" "RUNTIME" "STARTED"
+            "PID" "PPID" "USER" "COMMAND" "STATE" "RUNTIME" "STARTED"
         printf "%-8s %-8s %-12s %-20s %-8s %-12s %s\n" \
-               "----" "----" "----" "-------" "-----" "-------" "-------"
+            "----" "----" "----" "-------" "-----" "-------" "-------"
     else
         printf "${BOLD}%-8s %-8s %-12s %-20s %s${NC}\n" \
-               "PID" "PPID" "USER" "COMMAND" "STATE"
+            "PID" "PPID" "USER" "COMMAND" "STATE"
         printf "%-8s %-8s %-12s %-20s %s\n" \
-               "----" "----" "----" "-------" "-----"
+            "----" "----" "----" "-------" "-----"
     fi
 
     # Process each zombie
@@ -262,10 +261,10 @@ check_zombies() {
 
         if [[ "$VERBOSE" == true ]]; then
             printf "${YELLOW}%-8s${NC} ${PURPLE}%-8s${NC} %-12s %-20s ${RED}%-8s${NC} %-12s %s\n" \
-                   "$pid" "$ppid" "$user" "$comm" "$state" "$etime" "$lstart"
+                "$pid" "$ppid" "$user" "$comm" "$state" "$etime" "$lstart"
         else
             printf "${YELLOW}%-8s${NC} ${PURPLE}%-8s${NC} %-12s %-20s ${RED}%s${NC}\n" \
-                   "$pid" "$ppid" "$user" "$comm" "$state"
+                "$pid" "$ppid" "$user" "$comm" "$state"
         fi
 
         # Show parent information if requested

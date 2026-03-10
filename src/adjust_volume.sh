@@ -57,11 +57,11 @@ while getopts ":v:h" opt; do
         h)
             display_help
             ;;
-        \?)
+        "?")
             echo "Invalid option: -$OPTARG" >&2
             display_help
             ;;
-        :)
+        ":")
             echo "Option -$OPTARG requires an argument." >&2
             display_help
             ;;
