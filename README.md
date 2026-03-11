@@ -442,6 +442,8 @@ shellcheck **/*.sh
 | 6 | Prints all of the numbers within a specified range, one number per line. | [numbers_in_interval.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/numbers_in_interval.sh) |
 | 7 | Prints a Christmas tree pattern to the console.                       | [christmas_tree.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh) |
 | 8 | Prompts the user for a response to a given question and stores their response in a variable. | [prompt_for_answer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/prompt_for_answer.sh) |
+| 9 | Displays an animated progress bar in the terminal with percentage completion. | [progress_bar.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/progress_bar.sh) |
+| 10 | Displays animated Matrix-style falling characters in the terminal. | [matrix_display.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/matrix_display.sh) |
 
 ### Math
 
@@ -453,6 +455,7 @@ shellcheck **/*.sh
 | 4 | Calculates the factorial of a given integer.                                                                    | [factorial.sh](https://github.com/djeada/Bash-scripts/blob/master/src/factorial.sh)                     |
 | 5 | Determines whether a given number is a prime number or not.                                                     | [is_prime.sh](https://github.com/djeada/Bash-scripts/blob/master/src/is_prime.sh)                       |
 | 6 | Calculates the square root of a given number.                                                                   | [sqrt.sh](https://github.com/djeada/Bash-scripts/blob/master/src/sqrt.sh)                               |
+| 7 | Calculates the sum of all integers smaller than a given number.                                                  | [sum_smaller_numbers.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/sum_smaller_numbers.sh)  |
 
 
 ### Strings
@@ -466,7 +469,9 @@ shellcheck **/*.sh
 | 5 | Checks if two given strings are anagrams, i.e., if they are made up of the same letters rearranged in a different order.       | [are_anagrams.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/are_anagrams.sh)        |
 | 6 | Calculates the Hamming Distance between two strings, i.e., the number of positions at which the corresponding characters are different. | [hamming_distance.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/hamming_distance.sh) |
 | 7 | Sorts a given string alphabetically, considering all letters to be lowercase.                                                  | [sort_string.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/sort_string.sh)          |
-| 8 | Creates a word histogram.                                                  | [word_histogram.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/word_histogram.sh)    |
+| 8 | Analyzes text to generate word frequency histograms, with optional minimum word length filtering and JSON output. | [word_histogram.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/word_histogram.sh)    |
+| 9 | Converts HTML table markup to Markdown table format. | [html_table_to_markdown.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/html_table_to_markdown.sh) |
+| 10 | Removes leading spaces and tabs from each line in a file or piped input. | [remove_leading_whitespace.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_leading_whitespace.sh) |
 
 
 ### Arrays
@@ -493,6 +498,11 @@ shellcheck **/*.sh
 | 9  | Renames all files in a specified directory with a particular extension to a new extension.    | [rename_extension.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/rename_extension.sh)             |
 | 10 | Strips digits from every string found in a given file.                                          | [strip_digits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/strip_digits.sh)                     |
 | 11 | Lists the most recently modified files in a given directory.                                   | [recently_modified_files.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/recently_modified_files.sh) |
+| 12 | Ensures that files end with exactly one trailing newline, with optional check-only mode. | [last_line_empty.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/last_line_empty.sh) |
+| 13 | Removes repeated consecutive blank lines from files in a given directory. | [remove_consecutive_blank_lines.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_consecutive_blank_lines.sh) |
+| 14 | Recursively replaces all occurrences of a string with another across files in a directory. | [replace_everywhere.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/replace_everywhere.sh) |
+| 15 | Swaps the contents of two specified files with optional backup and safety checks. | [swap_files.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/swap_files.sh) |
+| 16 | Extracts a specified range of pages from a PDF file using Ghostscript. | [pdf_page_extractor.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/pdf_page_extractor.sh) |
 
 ### System administration
 
@@ -509,6 +519,10 @@ shellcheck **/*.sh
 | 9  | Creates a backup of the system's files, compresses the backup, and encrypts the resulting archive for storage.                      | [backup.sh](https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh)                                   |
 | 10 | Displays processes that are not being waited on by any parent process. Orphan processes are created when the parent process terminates. | [orphans.sh](https://github.com/djeada/Bash-scripts/blob/master/src/orphans.sh)                                 |
 | 11 | Displays processes that are in an undead state, also known as a "zombie" state. Zombie processes have completed execution but remain in the process table.   | [zombies.sh](https://github.com/djeada/Bash-scripts/blob/master/src/zombies.sh)                                 |
+| 12 | Displays disk usage information with advanced filtering, sorting, and multiple output formats. | [disk_usage.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/disk_usage.sh) |
+| 13 | Adjusts the system audio volume by percentage or predefined modes using PulseAudio. | [adjust_volume.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/adjust_volume.sh) |
+| 14 | Completely removes Node.js and npm, then reinstalls them from the distribution package manager or nodejs.org. | [purge_and_reinstall_nodejs.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_and_reinstall_nodejs.sh) |
+| 15 | Safely uninstalls user-installed Python pip packages while preserving essential system packages. | [purge_pip.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_pip.sh) |
 
 ### Programming workflow
 
@@ -520,6 +534,10 @@ shellcheck **/*.sh
 | 4 | Removes any trailing whitespace characters (spaces or tabs) from the end of every file in a given directory. Trailing whitespace can cause formatting issues or interfere with certain tools and processes.                             | [remove_trailing_whitespaces.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_trailing_whitespaces.sh) |
 | 5 | Formats and beautifies every shell script found in the current repository. This can make the scripts easier to read and maintain by adding consistent indentation and whitespace.                                                         | [beautify_script.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/beautify_script.sh)             |
 | 6 | Finds functions and classes in a Python project that are not being used or called anywhere in the code. This can help identify and remove unnecessary code, which can improve the project's performance and maintainability.           | [dead_code.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/dead_code.sh)                         |
+| 7 | Removes C and C++ style comments from source files using a finite state machine approach. | [strip_cpp_comments.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/strip_cpp_comments.sh) |
+| 8 | Removes comments and docstrings from Python files with options for backup, dry-run, and interactive mode. | [strip_python_comments.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/strip_python_comments.sh) |
+| 9 | Lists all repositories for a specified GitHub user, with pagination and private repository support via API token. | [fetch_github_repos_names.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/fetch_github_repos_names.sh) |
+| 10 | Automates Python package building, testing, and releasing to PyPI or TestPyPI. | [release_package.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/release_package.sh) |
 
 ### Git
 
@@ -541,16 +559,31 @@ shellcheck **/*.sh
 |---|-------------|------|
 | 1	| Finds the public IP address of the device running the script. | [ip_info.sh](https://github.com/djeada/Bash-scripts/blob/master/src/ip_info.sh) |
 | 2	| Deletes all files in the trash bin. | [empty_trash.sh](https://github.com/djeada/Bash-scripts/blob/master/src/empty_trash.sh) |
-| 3	| Extracts files with a specified extension from a given directory. | [extract.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/extract.sh) |
+| 3	| Extracts compressed archive files (tar, tar.gz, tar.bz2, zip, rar, 7z, bz2, gz, and more) to a specified output directory. | [extract.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/extract.sh) |
 | 4	| Determines which programs are currently using a specified port number on the local system. | [program_on_port.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/program_on_port.sh) |
 | 5	| Converts month names to numbers and vice versa in a string. For example, "January" to "1" and "1" to "January". | [month_to_number.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/month_to_number.sh) |
 | 6	| Creates command aliases for all the scripts in a specified directory, allowing them to be run by simply typing their names. | [alias_all_the_scripts.sh](https://github.com/djeada/Bash-scripts/blob/master/src/alias_all_the_scripts.sh) |
-| 7	| Generates a random integer within a given range. The range can be specified as arguments to the script. | [rand_int.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/rand_int.sh) |
+| 7	| Generates a random integer within a given range. The range can be specified as arguments to the script. | [random_int.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/random_int.sh) |
 | 8	| Generates a random password of the specified length, using a combination of letters, numbers, and special characters. | [random_password.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/random_password.sh) |
 | 9	| Measures the time it takes to run a program with the specified input parameters. Output the elapsed time in seconds. | [time_execution.sh](https://github.com/djeada/Bash-scripts/blob/master/src/time_execution.sh) |
 | 10	| Downloads the audio from a YouTube video or playlist in MP3 format. Specify the video or playlist URL and the destination directory for the downloaded files. | [youtube_to_mp3.sh](https://github.com/djeada/Bash-scripts/blob/master/src/youtube_to_mp3.sh) |
 | 11	| Clears the local caches in the user's cache directory (e.g. `~/.cache`) that are older than a specified number of days. | [clear_cache.sh](https://github.com/djeada/Bash-scripts/blob/master/src/clear_cache.sh) |
-| 12 | Resizes all JPG files in the current directory to a specified dimension (A4). | [resize_to_a4](https://github.com/djeada/Bash-Scripts/edit/master/src/resize_to_a4.sh) |
+| 12 | Resizes all JPG files in the current directory to a specified dimension (A4). | [resize_to_a4.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/resize_to_a4.sh) |
+| 13 | Fetches and displays current weather conditions for a specified city using the wttr.in service. | [display_weather.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/display_weather.sh) |
+| 14 | Converts Markdown files to PDF format with automatic page breaks and concatenation. | [generate_books.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/generate_books.sh) |
+| 15 | Displays an elapsed time counter in HH:MM:SS format, updated every second. | [timer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/timer.sh) |
+
+### Multimedia
+
+| # | Description | Code |
+|---|-------------|------|
+| 1 | Converts a video file to animated GIF format using ffmpeg. | [convert_to_gif.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/convert_to_gif.sh) |
+| 2 | Converts a video file to MP4 format using ffmpeg with comprehensive logging. | [convert_to_mp4.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/convert_to_mp4.sh) |
+| 3 | Converts a GIF file to MP4 format, scaling to specified dimensions. | [gif_to_mp4_converter.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/gif_to_mp4_converter.sh) |
+| 4 | Speeds up a video file by a specified multiplier using ffmpeg. | [speed_up_video.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/speed_up_video.sh) |
+| 5 | Extends video height by a scale factor, adding black padding on the top and bottom. | [extend_video_height.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/extend_video_height.sh) |
+| 6 | Stretches a video vertically by a scale factor with proportional padding. | [stretch_mp4_vertically.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/stretch_mp4_vertically.sh) |
+| 7 | Encodes videos to 9:16 vertical shorts format with cropping, padding, and speed adjustment options. | [make_short.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/make_short.sh) |
 
 ## References
 
