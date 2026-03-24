@@ -5,6 +5,7 @@
 #              It finds all the scripts (not starting with _) in the 'hooks' directory and executes them with '--check' option.
 #              The path for the check is specified in the 'paths' array.
 #              At the end, it will exit with 1 if any check failed.
+# Usage: ./hooks/_run_all.sh
 
 # Ensure tput has something to work with
 export TERM=${TERM:-dumb}
