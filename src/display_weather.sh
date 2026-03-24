@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: display_weather.sh
+# Description: Fetches and displays the current weather for a specified city using wttr.in.
+# Usage: ./display_weather.sh [CITY]
+# Example: ./display_weather.sh London
 
 # Function to display usage
 usage() {

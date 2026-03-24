@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: word_histogram.sh
+# Description: Generates a word frequency histogram from a text file.
+# Usage: ./word_histogram.sh <file> [min_word_length] [top_n]
+# Example: ./word_histogram.sh document.txt 3 20
 
 # Function to remove diacritics from a line of text
 remove_diacritics()

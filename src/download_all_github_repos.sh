@@ -1,53 +1,24 @@
 #!/usr/bin/env bash
-# ------------------------------------------------------------------------------
-# Script Name: download_repos.sh
-# Description:
-#   Retrieve repositories from GitHub (user or organisation) **or** from a JSON
-#   manifest and clone them – serially or in parallel – into a destination
-#   directory. Optionally perform shallow or mirror clones, compress the result
-#   into a tarball (gz|bz2|xz|none), and produce a SHA‑256 checksum. The script
-#   is defensive, token‑aware, and cleans up after itself.
-# ------------------------------------------------------------------------------
-#
-# Usage:
-#   ./download_repos.sh [OPTIONS]
-#
-# Core sources (one required)
-#   --json-file FILE           JSON file containing { "repos": [ clone_URL, … ] }
-#   --user USERNAME            GitHub user to fetch repos from
-#   --org ORGNAME              GitHub organisation to fetch repos from
-#
-# Authentication & network
+
+# Script Name: download_all_github_repos.sh
+# Description: Retrieves repositories from GitHub (user or organisation) or from a JSON
+#              manifest and clones them into a destination directory. Supports parallel cloning,
+#              shallow/mirror clones, compression, and SHA-256 checksums.
+# Usage: ./download_all_github_repos.sh [OPTIONS]
+# Options:
+#   --json-file FILE           JSON file containing { "repos": [ clone_URL, ... ] }
+#   --user USERNAME            GitHub user to fetch repos from.
+#   --org ORGNAME              GitHub organisation to fetch repos from.
 #   --token TOKEN              GitHub Personal Access Token (PAT).
-#                              If omitted the script falls back to $GITHUB_TOKEN
-#                              env var. Using env vars avoids leaking secrets in
-#                              process listings / shell history.
-#   --protocol {https|ssh}     Force convert clone URLs to chosen protocol.
-#                              Default: leave clone_url untouched.
-#
-# Clone behaviour
-#   --shallow                  Clone with --depth 1 (history truncated).
+#   --protocol {https|ssh}     Force clone URL protocol.
+#   --shallow                  Clone with --depth 1.
 #   --mirror                   Use git --mirror instead of regular clone.
-#   --parallel N               Number of concurrent clone jobs (default 1).
-#
-# Output
-#   --dest DIR                 Directory to place cloned repos before archiving.
-#                              Default: a temporary dir that is auto‑removed.
-#   --output FILE.tar[.*]      Name of resulting archive (default repo_archive.tar.gz).
-#   --compression {gz|bz2|xz|none}
-#                              Compression algorithm for tarball (default gz).
-#
-# Miscellaneous
-#   --filter-forks {true|false}  Skip forks when using GitHub API (default false)
-#   --max-repos N              Maximum number of repositories to download (default: unlimited)
-#   -h | --help                Show this help and exit.
-#
-# Examples:
-#   ./download_repos.sh --json-file repos.json --shallow
-#   ./download_repos.sh --user alice --parallel 4 --dest ./backup
-#   ./download_repos.sh --user alice --max-repos 5 --shallow
-#   GITHUB_TOKEN=*** ./download_repos.sh --org mycorp --compression xz
-# ------------------------------------------------------------------------------
+#   --dest DIR                 Destination directory.
+#   --parallel N               Number of parallel clone jobs.
+#   --compress {gz|bz2|xz|none}  Compress the result into a tarball.
+#   --checksum                 Produce a SHA-256 checksum file.
+#   -h, --help                 Show help message.
+
 set -euo pipefail
 IFS=$'\n\t'
 

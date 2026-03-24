@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
-# Ensure tput has something to work with (avoids set -e abort)
-export TERM=${TERM:-dumb}
-
 # Script Name: beautify_script.sh
 # Description: Formats shell scripts using Beautysh and analyzes them with ShellCheck.
-# Usage: beautify_script.sh [--check] <path>
-#        --check - Only check if formatting is needed, do not modify files.
-#        <path>  - Directory or file to process.
+# Usage: ./beautify_script.sh [--check] <path>
+# Options:
+#   --check  Only check if formatting is needed, do not modify files.
+#   <path>   Directory or file to process.
 # Example: ./beautify_script.sh ./my_directory
+
+# Ensure tput has something to work with (avoids set -e abort)
+export TERM=${TERM:-dumb}
 
 set -euo pipefail
 

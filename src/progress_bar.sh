@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: progress_bar.sh
+# Description: Displays a hacker-themed progress bar animation in the terminal.
+# Usage: ./progress_bar.sh
+# Example: ./progress_bar.sh
 
 # Define colors
 GREEN='\033[0;32m'

@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script Name: make_short.sh
+# Description: Robust 9:16 Shorts encoder with safe auto-crop for creating vertical video shorts.
+#              Requires ffmpeg, ffprobe, and awk.
+# Usage: ./make_short.sh -i INPUT -o OUTPUT [options]
+# Options:
+#   -i, --input PATH             Input video (required).
+#   -o, --output PATH            Output video (required).
+#   --crop auto|manual|none      Crop mode (default: auto).
+#   --fit shortsmart|pad|stretch|cropfill  Fit mode (default: shortsmart).
+# Example: ./make_short.sh -i input.mp4 -o output.mp4
+
 # Force dot decimal separator regardless of OS locale
 export LC_NUMERIC=C
 export LC_ALL=C
 export LANG=C
-
-# make_short.sh — robust 9:16 Shorts encoder with SAFE auto-crop.
-# Requires: ffmpeg, ffprobe, awk
 
 usage() {
     cat <<EOF

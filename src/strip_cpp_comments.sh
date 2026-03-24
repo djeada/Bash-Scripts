@@ -1,25 +1,12 @@
 #!/usr/bin/env bash
-#
-# strip_comments.sh  —  Remove C / C++ comments from files *in place* (pure Bash)
-#
-# Usage:
-#   strip_comments.sh [-r REGEX] [-n DEPTH] [path1 path2 …]
-#
-# Flags:
-#   -r | --regex REGEX     Extended-regexp used **only** when scanning directories
-#                          (default: see DEFAULT_RE below).
-#   -n | --max-depth N     Recurse into directories at most N levels (default: 3).
-#
-# Behaviour:
-#   • If a path is a **file** → always processed (regex ignored).
-#   • If a path is a **directory** (or none provided, so “.” is assumed) → search
-#     for regular files ≤ DEPTH whose names match REGEX and process them.
-#
-# Exit codes:
-#   0  success
-#   1  bad usage / nothing found
-#   2  cannot read or write a file
-#
+
+# Script Name: strip_cpp_comments.sh
+# Description: Removes C/C++ comments from source files in place using pure Bash.
+#              Supports directory scanning with configurable depth and file pattern matching.
+# Usage: ./strip_cpp_comments.sh [-r REGEX] [-n DEPTH] [path1 path2 ...]
+# Options:
+#   -r, --regex REGEX     Extended regexp for directory scanning (default: C/C++ extensions).
+#   -n, --max-depth N     Recurse into directories at most N levels (default: 3).
 
 set -euo pipefail
 IFS=$'\n\t'

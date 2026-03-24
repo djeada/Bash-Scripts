@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script Name: remove_consecutive_blank_lines.sh
 # Description: Removes repeated blank lines from files in a directory.

@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: extend_video_height.sh
+# Description: Extends the height of a video by adding black padding using ffmpeg.
+# Usage: ./extend_video_height.sh input_video output_video scale_factor
+# Example: ./extend_video_height.sh input.mp4 output.mp4 1.1
 
 # Check for correct number of arguments
 if [[ $# -ne 3 ]]; then

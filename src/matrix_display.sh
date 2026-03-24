@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: matrix_display.sh
+# Description: Displays a Matrix-style animation of falling characters in the terminal.
+# Usage: ./matrix_display.sh
+# Example: ./matrix_display.sh
 
 # Colors
 GREEN="\033[0;32m"

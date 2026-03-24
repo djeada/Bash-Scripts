@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # Script Name: cpu_usage.sh
 # Description: Displays the current CPU usage with options for per-core details and process filtering.
 # Usage: ./cpu_usage.sh [ -p PROCESS_NAME ] [ -u USERNAME ] [ -n NUMBER ] [ -f FORMAT ] [ -i INTERVAL ] [ -c ] [ -h ]

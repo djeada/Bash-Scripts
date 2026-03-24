@@ -1,30 +1,15 @@
 #!/usr/bin/env bash
-#
-# assert_last_line_empty.sh
-#
-# Implements the logic:
-#   1) If a file ends with 0 empty lines, add one empty line.
-#   2) If it ends with exactly 1 empty line, do nothing.
-#   3) If it ends with more than 1 empty line, remove extras so there is exactly 1.
-# An "empty line" is one with zero characters (no spaces, no tabs).
-#
-# - Skips binary files.
-# - In-place modifications unless --check is given, in which case it only reports.
-# - Logs all actions to stdout.
-#
-# Usage:
-#   ./assert_last_line_empty.sh [--check] <path>
-#     <path>   = file or directory to process
-#     --check  = only detect if changes are needed, do not modify
-#
-# Exit codes:
-#   - 0 if everything is OK (or fixed).
-#   - 1 if in --check mode and at least one file needs fixing, or on error.
-#
+
+# Script Name: last_line_empty.sh
+# Description: Ensures each file ends with exactly one empty trailing line.
+#              Adds a line if missing, removes extras if more than one.
+#              Skips binary files. Supports in-place and check-only modes.
+# Usage: ./last_line_empty.sh [--check] <path>
+# Options:
+#   --check  Only detect if changes are needed, do not modify files.
 # Examples:
-#   ./assert_last_line_empty.sh myfile.txt
-#   ./assert_last_line_empty.sh --check myfolder
-#
+#   ./last_line_empty.sh myfile.txt
+#   ./last_line_empty.sh --check myfolder
 
 checkonly=0    # 1 => only check, 0 => fix in place
 status=0       # For --check mode: 1 if any file needs fixing

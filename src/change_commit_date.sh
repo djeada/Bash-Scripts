@@ -1,43 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# -----------------------------------------------------------------------------
-# commit_date_tools.sh
-#
-# Powerful Git commit-date tools:
-#   1) amend-latest: set latest commit to a specific date/time
-#   2) shift: shift ALL commits by hours/days
-#   3) move: move ALL commits into day or night hours (randomized within window)
-#
-# Defaults:
-#   - Timezone offset: +0200 (UTC+2)
-#   - Day window:      09-18  (9am..6pm)
-#   - Night window:    20-23,00-05  (8pm..11pm and midnight..5am)
-#
-# Requirements: git, GNU date (Linux 'date' or macOS 'gdate' from coreutils)
-#
+# Script Name: change_commit_date.sh
+# Description: Powerful Git commit-date tools for amending, shifting, and moving commit dates.
+#              Supports amend-latest, shift, and move operations with configurable timezone and time windows.
+# Usage: ./change_commit_date.sh <command> [options]
+# Options:
+#   amend-latest --date DD-MM-YYYY [--time HH:MM] [--tz +HHMM]
+#   shift --hours N [--days N] [--tz +HHMM]
+#   move --window day|night [--tz +HHMM]
 # Examples:
-#   # 1) Set latest commit to specific day (random time) in UTC+2
 #   ./change_commit_date.sh amend-latest --date 25-12-2022
-#
-#   # 1b) Set latest commit to specific day & time with custom tz
-#   ./change_commit_date.sh amend-latest --date 25-12-2022 --time 14:30 --tz +0530
-#
-#   # 2) Shift entire history forward 7 hours
 #   ./change_commit_date.sh shift --hours 7
-#
-#   # 2b) Shift entire history back 2 days and 3 hours, timezone +0200
-#   ./change_commit_date.sh shift --days -2 --hours -3 --tz +0200
-#
-#   # 3) Move all commits into daytime (random hour in window)
-#   ./change_commit_date.sh move --to day
-#
-#   # 3b) Move to night hours with custom windows and timezone
-#   ./change_commit_date.sh move --to night --night-window 21-23,00-04 --tz -0500
-#
-# After rewriting history:
-#   git push --force-with-lease
-# -----------------------------------------------------------------------------
+#   ./change_commit_date.sh move --window night
 
 # ---------- Utilities ----------
 

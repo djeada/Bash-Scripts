@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
 
-###############################################################################
-# Backup Script - backup.sh
-#
-# A robust, menu-driven backup utility that:
-#   - Backs up user-selected directories (with defaults like Documents, Desktop,
-#     Downloads) to a chosen location (local directory or USB drive).
-#   - Optionally compresses (tar.gz) and/or encrypts (GPG) the backup.
-#   - Provides advanced backup retention: daily, weekly, and monthly cleanup.
-#   - Supports setting up a non-interactive cron job for automated backups.
-#
-###############################################################################
+# Script Name: backup.sh
+# Description: A robust, menu-driven backup utility that backs up user-selected directories
+#              to a chosen location, with optional compression (tar.gz) and encryption (GPG).
+#              Supports backup retention policies and automated cron job setup.
+# Usage: ./backup.sh
 
 set -euo pipefail
 IFS=$'\n\t'

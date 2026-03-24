@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Script: generate_pdf.sh
+# Script Name: generate_books.sh
 # Description: Converts Markdown files to PDF, treating each file as a chapter and headers as subchapters.
+# Usage: ./generate_books.sh
 
 # Constants
 OUTPUT_FILE="output.pdf"

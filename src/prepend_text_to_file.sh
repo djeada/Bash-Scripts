@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Script Name: prepend_text_to_file.sh
+# Description: Prepends provided text to the specified file. Creates the file if it does not exist.
+# Usage: ./prepend_text_to_file.sh <file> <text>
+# Example: ./prepend_text_to_file.sh myfile.txt "Header line"
+
 # Function: prepend_text_to_file
 # Description: Prepend provided text to the specified file.
 #              If the file does not exist, it will be created.

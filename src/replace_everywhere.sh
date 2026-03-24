@@ -1,27 +1,17 @@
 #!/usr/bin/env bash
-#
+
 # Script Name: replace_everywhere.sh
-# Description: Replace string a with string b in all files in the current directory and subdirectories.
-#              Skips hidden directories by default. Optionally exclude specific subdirectories.
-#
-# Usage:
-#   replace_everywhere.sh [options] <string_a> <string_b>
-#
+# Description: Replaces string a with string b in all files in the current directory and subdirectories.
+#              Skips hidden directories by default. Optionally excludes specific subdirectories.
+# Usage: ./replace_everywhere.sh [options] <string_a> <string_b>
 # Options:
-#   -x, --exclude DIR    Exclude a subdirectory (repeatable). Examples: -x node_modules -x build
+#   -x, --exclude DIR    Exclude a subdirectory (repeatable).
 #       --include-hidden Include hidden directories (like .git, .venv).
-#   -y, --yes            Skip confirmation prompt (assume “yes” to proceed).
-#   -h, --help           Show this help and exit.
-#
+#   -y, --yes            Skip confirmation prompt.
+#   -h, --help           Show help and exit.
 # Examples:
-#   replace_everywhere.sh "cat" "dog"
-#   replace_everywhere.sh -x dist -x build 'string with space' 'new string'
-#   replace_everywhere.sh --include-hidden 'foo**' 'bar\baz'
-#   replace_everywhere.sh -y 'old' 'new'
-#
-# Notes:
-# - For literal matching, special chars are handled safely. Replacement also escapes '&' properly.
-# - Works on GNU sed and BSD/macOS sed.
+#   ./replace_everywhere.sh "cat" "dog"
+#   ./replace_everywhere.sh -x dist -x build 'old' 'new'
 
 set -euo pipefail
 

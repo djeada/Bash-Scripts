@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# hooks/_run_all.sh
-
-# Ensure tput has something to work with
-export TERM=${TERM:-dumb}
 
 # Script Name: _run_all.sh
 # Description: This script will check all scripts in the specified paths.
 #              It finds all the scripts (not starting with _) in the 'hooks' directory and executes them with '--check' option.
 #              The path for the check is specified in the 'paths' array.
 #              At the end, it will exit with 1 if any check failed.
+
+# Ensure tput has something to work with
+export TERM=${TERM:-dumb}
 
 # Paths to check
 paths=(src)
