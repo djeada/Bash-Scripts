@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Script Name: youtube_to_mp3.sh
+# Description: Downloads a YouTube video and converts it to MP3 format using yt-dlp and ffmpeg.
+# Usage: ./youtube_to_mp3.sh <youtube_url> [output_directory]
+# Example: ./youtube_to_mp3.sh https://www.youtube.com/watch?v=example ./music
+
 check_dependencies() {
     local dependencies=("yt-dlp" "ffmpeg")
     for dependency in "${dependencies[@]}"; do

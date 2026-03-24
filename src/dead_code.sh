@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-# Script Name: find_dead_code.sh
+# Script Name: dead_code.sh
 # Description:
 #   This script searches for function and class definitions in Python files within a specified directory
 #   and displays those with occurrences less than a specified threshold.

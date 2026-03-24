@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script Name: speed_up_video.sh
 # Description: This script speeds up a video file by a specified multiplier using ffmpeg.

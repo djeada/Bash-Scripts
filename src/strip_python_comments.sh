@@ -1,7 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# clean_comments.sh
-# A professional script to remove comments from Python files
+# Script Name: strip_python_comments.sh
+# Description: Removes comments from Python files with support for interactive mode,
+#              verbose output, dry-run, backups, and logging.
+# Usage: ./strip_python_comments.sh [options] [file|directory|pattern]
+# Options:
+#   -i, --interactive      Ask for confirmation before removing comments from each file.
+#   -v, --verbose          Enable verbose output.
+#   -n, --dry-run          Perform a trial run without making any changes.
+#   -b, --backup-ext EXT   Specify backup file extension (default: .bak).
+#   -l, --log-file FILE    Log output to the specified file.
+#   -h, --help             Display the help message.
 
 # Exit immediately if a command exits with a non-zero status
 set -e

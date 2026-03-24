@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: stretch_mp4_vertically.sh
+# Description: Stretches an MP4 video vertically by a given scale factor using ffmpeg.
+# Usage: ./stretch_mp4_vertically.sh input_file scale_factor
+# Example: ./stretch_mp4_vertically.sh video.mp4 1.5
 
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 2 ]; then

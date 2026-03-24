@@ -1,4 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: pdf_page_extractor.sh
+# Description: Extracts a range of pages from a PDF file using ghostscript.
+# Usage: ./pdf_page_extractor.sh [-h] [-v] [-o output_file] <pdf-file> <start-page> [end-page]
+# Options:
+#   -h, --help        Display the help message.
+#   -v, --verbose     Enable verbose mode.
+#   -o, --output      Specify the output file name.
+# Example: ./pdf_page_extractor.sh document.pdf 2 5
 
 usage() {
     echo "Usage: $0 [-h] [-v] [-o output_file] <pdf-file> <start-page> [end-page]"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script Name: timer.sh
 # Description: This script functions as a simple timer, displaying elapsed time in HH:MM:SS format.

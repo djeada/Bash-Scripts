@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-#
+
 # Script Name: digits.sh
 # Description: A script to display the digits of a number.
 #              The script treats the input as a string, so it correctly handles
 #              cases like a leading zero or an input of "0".
-#
-# Usage: digits.sh number
-#        number - the number (composed solely of digits) to display the digits of
-#
+# Usage: ./digits.sh number
 # Example: ./digits.sh 12345
-# Output: 1 2 3 4 5
 
 print_digits() {
     local number="$1"

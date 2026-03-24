@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Script Name: rename_extension.sh
+# Description: Renames the file extension of files in a given directory.
+# Usage: ./rename_extension.sh
+# Example: rename_extension "file.txt" ".md"
 
 rename_extension() {
     # $1: file name

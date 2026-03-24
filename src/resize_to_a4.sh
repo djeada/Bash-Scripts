@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Script Name: resize_images.sh
+# Script Name: resize_to_a4.sh
 # Description: Resize image files in a specified directory to a target dimension with various options.
-# Usage: ./resize_images.sh [options]
+# Usage: ./resize_to_a4.sh [options]
 # Dependencies: Requires ImageMagick's 'convert' command.
 
 set -euo pipefail

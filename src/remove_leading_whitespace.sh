@@ -1,9 +1,9 @@
-#!/bin/bash
-# remove_leading_whitespace.sh
-# Removes leading whitespace (spaces or tabs) from each line.
-# Usage:
-#   ./remove_leading_whitespace.sh filename   # Cleans file in place
-#   cat file | ./remove_leading_whitespace.sh # Cleans piped input, outputs to stdout
+#!/usr/bin/env bash
+
+# Script Name: remove_leading_whitespace.sh
+# Description: Removes leading whitespace (spaces or tabs) from each line of a file or piped input.
+# Usage: ./remove_leading_whitespace.sh filename
+#        cat file | ./remove_leading_whitespace.sh
 
 set -euo pipefail
 

@@ -1,6 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Script to convert a GIF into a formatted MP4 file.
+# Script Name: gif_to_mp4_converter.sh
+# Description: Converts a GIF file into a formatted MP4 file using ffmpeg.
+# Usage: ./gif_to_mp4_converter.sh [input_gif_file]
+# Example: ./gif_to_mp4_converter.sh animation.gif
 
 # Function to check for command errors
 check_error() {
