@@ -63,10 +63,49 @@ require_tools() {
 
 firefox_must_be_closed() {
   log "Checking whether Firefox is closed..."
-  if pgrep -x firefox >/dev/null 2>&1; then
+  # Check both 'firefox' (wrapper/standard) and 'firefox-bin' (Snap/Flatpak real binary)
+  if pgrep -x firefox >/dev/null 2>&1 || pgrep -x firefox-bin >/dev/null 2>&1; then
     die "Firefox is running. Close it completely and run again."
   fi
   log "Firefox is closed."
+}
+
+clean_restored_profile() {
+  # Remove session-specific files that must not survive a backup/restore cycle.
+  # Their presence causes two classes of breakage:
+  #
+  #   lock / .parentlock  – Firefox uses these to detect a running instance.
+  #                         A stale lock from a previous session causes Firefox
+  #                         to refuse to open the profile ("already running" or
+  #                         "profile cannot be loaded").
+  #
+  #   *.sqlite-wal        – SQLite Write-Ahead Log files.  They hold data that
+  #   *.sqlite-shm          has not yet been checkpointed into the main .sqlite
+  #                         file.  If Firefox did not checkpoint cleanly before
+  #                         the backup was taken the WAL on the USB may be
+  #                         inconsistent with the restored main database,
+  #                         producing SQL-level corruption ("database disk image
+  #                         is malformed").  Removing them lets SQLite fall back
+  #                         to the self-consistent main database; at worst a
+  #                         small amount of very recent history is lost, but the
+  #                         profile starts and works correctly.
+  local profile_root="$1"
+  local stale_file
+
+  log "Cleaning up stale session files from restored profile..."
+
+  [[ -d "$profile_root" ]] || { warn "Profile root not found, skipping cleanup: $profile_root"; return 0; }
+
+  # Walk every profile sub-directory (e.g. Profiles/xxxxxxxx.default-release)
+  while IFS= read -r -d '' stale_file; do
+    log "  Removing: $stale_file"
+    rm -f -- "$stale_file"
+  done < <(find "$profile_root" \
+    \( -name 'lock' -o -name '.parentlock' \
+       -o -name '*.sqlite-wal' -o -name '*.sqlite-shm' \) \
+    -print0)
+
+  log "Session file cleanup done."
 }
 
 detect_firefox_dir() {
@@ -505,6 +544,11 @@ restore_mode() {
     log "Restoring installs.ini..."
     cp -a "$BACKUP_DIR/installs.ini" "$FF_DIR/installs.ini"
   fi
+
+  clean_restored_profile "$FF_DIR"
+
+  log "Flushing data to disk..."
+  sync
 
   log "Restore complete."
   echo
