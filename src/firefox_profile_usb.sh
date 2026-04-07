@@ -394,10 +394,14 @@ backup_mode() {
 
   ts="$(date +%Y%m%d-%H%M%S)"
   dest_root="$USB_MOUNT/firefox-profile-backup-$ts"
-  dest_profile_dir="$dest_root/$PROFILE_BASENAME"
+  if [[ "$IS_RELATIVE" == "1" ]]; then
+    dest_profile_dir="$dest_root/$PROFILE_PATH_RAW"
+  else
+    dest_profile_dir="$dest_root/$PROFILE_BASENAME"
+  fi
 
   log "Creating backup directory: $dest_root"
-  mkdir -p "$dest_root"
+  mkdir -p "$dest_profile_dir"
 
   log "Copying Firefox profile..."
   rsync -aH --delete --info=progress2 "$PROFILE_DIR/" "$dest_profile_dir/"
