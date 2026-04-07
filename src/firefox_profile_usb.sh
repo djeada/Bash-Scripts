@@ -409,6 +409,11 @@ backup_mode() {
   log "Copying profiles.ini..."
   cp -a "$PROFILES_INI" "$dest_root/profiles.ini"
 
+  if [[ -f "$FF_DIR/installs.ini" ]]; then
+    log "Copying installs.ini..."
+    cp -a "$FF_DIR/installs.ini" "$dest_root/installs.ini"
+  fi
+
   cat > "$dest_root/RESTORE-INFO.txt" <<EOF
 Firefox profile backup
 Created: $ts
@@ -460,6 +465,11 @@ restore_mode() {
 
   log "Restoring profiles.ini..."
   cp -a "$backup_profiles_ini" "$FF_DIR/profiles.ini"
+
+  if [[ -f "$BACKUP_DIR/installs.ini" ]]; then
+    log "Restoring installs.ini..."
+    cp -a "$BACKUP_DIR/installs.ini" "$FF_DIR/installs.ini"
+  fi
 
   log "Restore complete."
   echo
