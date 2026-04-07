@@ -63,10 +63,82 @@ require_tools() {
 
 firefox_must_be_closed() {
   log "Checking whether Firefox is closed..."
-  if pgrep -x firefox >/dev/null 2>&1; then
+  # Check both 'firefox' (wrapper/standard) and 'firefox-bin' (Snap/Flatpak real binary)
+  if pgrep -x firefox >/dev/null 2>&1 || pgrep -x firefox-bin >/dev/null 2>&1; then
     die "Firefox is running. Close it completely and run again."
   fi
   log "Firefox is closed."
+}
+
+clean_restored_profile() {
+  # Remove session-specific files that must not survive a backup/restore cycle.
+  # Their presence causes two classes of breakage:
+  #
+  #   lock / .parentlock  – Firefox uses these to detect a running instance.
+  #                         A stale lock from a previous session causes Firefox
+  #                         to refuse to open the profile ("already running" or
+  #                         "profile cannot be loaded").
+  #
+  #   *.sqlite-wal        – SQLite Write-Ahead Log files.  They hold data that
+  #   *.sqlite-shm          has not yet been checkpointed into the main .sqlite
+  #                         file.  If Firefox did not checkpoint cleanly before
+  #                         the backup was taken the WAL on the USB may be
+  #                         inconsistent with the restored main database,
+  #                         producing SQL-level corruption ("database disk image
+  #                         is malformed").  Removing them lets SQLite fall back
+  #                         to the self-consistent main database; at worst a
+  #                         small amount of very recent history is lost, but the
+  #                         profile starts and works correctly.
+  local profile_root="$1"
+  local stale_file
+
+  log "Cleaning up stale session files from restored profile..."
+
+  [[ -d "$profile_root" ]] || { warn "Profile root not found, skipping cleanup: $profile_root"; return 0; }
+
+  # Walk every profile sub-directory (e.g. Profiles/xxxxxxxx.default-release)
+  while IFS= read -r -d '' stale_file; do
+    log "  Removing: $stale_file"
+    rm -f -- "$stale_file"
+  done < <(find "$profile_root" \
+    \( -name 'lock' -o -name '.parentlock' \
+       -o -name '*.sqlite-wal' -o -name '*.sqlite-shm' \) \
+    -print0)
+
+  log "Session file cleanup done."
+}
+
+detect_firefox_dir() {
+  # Detection order:
+  #   1. Existing Snap profile directory   (~/.../snap/firefox/common/.mozilla/firefox)
+  #   2. Existing Flatpak profile directory (~/.var/app/org.mozilla.firefox/.mozilla/firefox)
+  #   3. Firefox binary/wrapper inspection (for clean-restore when no profile dir exists yet)
+  #   4. Default standard location         (~/.mozilla/firefox)
+  local snap_profile="$HOME/snap/firefox/common/.mozilla/firefox"
+  local flatpak_profile="$HOME/.var/app/org.mozilla.firefox/.mozilla/firefox"
+  local ff_cmd ff_real
+
+  # Prefer an already-existing profile directory (most reliable signal)
+  if [[ -d "$snap_profile" ]]; then
+    FF_DIR="$snap_profile"
+  elif [[ -d "$flatpak_profile" ]]; then
+    FF_DIR="$flatpak_profile"
+  else
+    # No existing profile yet – inspect the Firefox binary/wrapper
+    ff_cmd="$(command -v firefox 2>/dev/null || true)"
+    if [[ -n "$ff_cmd" ]]; then
+      ff_real="$(readlink -f "$ff_cmd" 2>/dev/null || true)"
+      if [[ "$ff_real" == */snap/firefox/* ]] || grep -qF "/snap/firefox/" "$ff_cmd" 2>/dev/null; then
+        FF_DIR="$snap_profile"
+      elif grep -qF "org.mozilla.firefox" "$ff_cmd" 2>/dev/null; then
+        FF_DIR="$flatpak_profile"
+      fi
+      # else FF_DIR stays as the default set at the top of the script
+    fi
+  fi
+
+  PROFILES_INI="$FF_DIR/profiles.ini"
+  log "Firefox profile directory: $FF_DIR"
 }
 
 _usb_mounts_via_lsblk_tran() {
@@ -388,6 +460,7 @@ backup_mode() {
   local ts dest_root dest_profile_dir
 
   log "Starting Firefox backup..."
+  detect_firefox_dir
   firefox_must_be_closed
   pick_usb_mount
   detect_default_profile
@@ -409,6 +482,11 @@ backup_mode() {
   log "Copying profiles.ini..."
   cp -a "$PROFILES_INI" "$dest_root/profiles.ini"
 
+  if [[ -f "$FF_DIR/installs.ini" ]]; then
+    log "Copying installs.ini..."
+    cp -a "$FF_DIR/installs.ini" "$dest_root/installs.ini"
+  fi
+
   cat > "$dest_root/RESTORE-INFO.txt" <<EOF
 Firefox profile backup
 Created: $ts
@@ -427,6 +505,7 @@ restore_mode() {
   local backup_profiles_ini backup_profile_dir ts safety
 
   log "Starting Firefox restore..."
+  detect_firefox_dir
   firefox_must_be_closed
 
   if [[ -z "$BACKUP_DIR" ]]; then
@@ -447,7 +526,7 @@ restore_mode() {
 
   if [[ -e "$FF_DIR" ]]; then
     ts="$(date +%Y%m%d-%H%M%S)"
-    safety="$HOME/.mozilla/firefox.pre-restore-$ts"
+    safety="$(dirname "$FF_DIR")/firefox.pre-restore-$ts"
     log "Saving current Firefox directory to: $safety"
     mv "$FF_DIR" "$safety"
   fi
@@ -460,6 +539,16 @@ restore_mode() {
 
   log "Restoring profiles.ini..."
   cp -a "$backup_profiles_ini" "$FF_DIR/profiles.ini"
+
+  if [[ -f "$BACKUP_DIR/installs.ini" ]]; then
+    log "Restoring installs.ini..."
+    cp -a "$BACKUP_DIR/installs.ini" "$FF_DIR/installs.ini"
+  fi
+
+  clean_restored_profile "$FF_DIR"
+
+  log "Flushing data to disk..."
+  sync
 
   log "Restore complete."
   echo
