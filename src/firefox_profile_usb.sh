@@ -69,6 +69,39 @@ firefox_must_be_closed() {
   log "Firefox is closed."
 }
 
+detect_firefox_dir() {
+  # Detection order:
+  #   1. Existing Snap profile directory   (~/.../snap/firefox/common/.mozilla/firefox)
+  #   2. Existing Flatpak profile directory (~/.var/app/org.mozilla.firefox/.mozilla/firefox)
+  #   3. Firefox binary/wrapper inspection (for clean-restore when no profile dir exists yet)
+  #   4. Default standard location         (~/.mozilla/firefox)
+  local snap_profile="$HOME/snap/firefox/common/.mozilla/firefox"
+  local flatpak_profile="$HOME/.var/app/org.mozilla.firefox/.mozilla/firefox"
+  local ff_cmd ff_real
+
+  # Prefer an already-existing profile directory (most reliable signal)
+  if [[ -d "$snap_profile" ]]; then
+    FF_DIR="$snap_profile"
+  elif [[ -d "$flatpak_profile" ]]; then
+    FF_DIR="$flatpak_profile"
+  else
+    # No existing profile yet – inspect the Firefox binary/wrapper
+    ff_cmd="$(command -v firefox 2>/dev/null || true)"
+    if [[ -n "$ff_cmd" ]]; then
+      ff_real="$(readlink -f "$ff_cmd" 2>/dev/null || true)"
+      if [[ "$ff_real" == */snap/firefox/* ]] || grep -qF "/snap/firefox/" "$ff_cmd" 2>/dev/null; then
+        FF_DIR="$snap_profile"
+      elif grep -qF "org.mozilla.firefox" "$ff_cmd" 2>/dev/null; then
+        FF_DIR="$flatpak_profile"
+      fi
+      # else FF_DIR stays as the default set at the top of the script
+    fi
+  fi
+
+  PROFILES_INI="$FF_DIR/profiles.ini"
+  log "Firefox profile directory: $FF_DIR"
+}
+
 _usb_mounts_via_lsblk_tran() {
   lsblk -P -o NAME,TRAN,MOUNTPOINT,LABEL,SIZE,FSTYPE 2>/dev/null | awk '
     function uq(s) { gsub(/^"/, "", s); gsub(/"$/, "", s); return s }
@@ -388,6 +421,7 @@ backup_mode() {
   local ts dest_root dest_profile_dir
 
   log "Starting Firefox backup..."
+  detect_firefox_dir
   firefox_must_be_closed
   pick_usb_mount
   detect_default_profile
@@ -432,6 +466,7 @@ restore_mode() {
   local backup_profiles_ini backup_profile_dir ts safety
 
   log "Starting Firefox restore..."
+  detect_firefox_dir
   firefox_must_be_closed
 
   if [[ -z "$BACKUP_DIR" ]]; then
@@ -452,7 +487,7 @@ restore_mode() {
 
   if [[ -e "$FF_DIR" ]]; then
     ts="$(date +%Y%m%d-%H%M%S)"
-    safety="$HOME/.mozilla/firefox.pre-restore-$ts"
+    safety="$(dirname "$FF_DIR")/firefox.pre-restore-$ts"
     log "Saving current Firefox directory to: $safety"
     mv "$FF_DIR" "$safety"
   fi
