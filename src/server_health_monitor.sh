@@ -20,6 +20,13 @@
 
 set -euo pipefail
 
+# Handle graceful shutdown
+shutdown_handler() {
+    log_message "INFO" "Server health monitor shutting down (signal received)."
+    exit 0
+}
+trap shutdown_handler SIGTERM SIGINT
+
 # Default configurations
 INTERVAL=60
 CPU_THRESHOLD=90
@@ -82,12 +89,25 @@ send_alert() {
     fi
 }
 
-# Get current CPU usage percentage (integer)
+# Get current CPU usage percentage (integer) using /proc/stat for reliability
 get_cpu_usage() {
-    local idle
-    idle=$(top -bn1 | grep -i "Cpu(s)" | awk '{print $8}' 2>/dev/null)
-    if [[ -n "$idle" ]]; then
-        awk -v idle="$idle" 'BEGIN {printf "%d", 100 - idle}'
+    local cpu_line_1 cpu_line_2
+    cpu_line_1=$(grep '^cpu ' /proc/stat)
+    sleep 1
+    cpu_line_2=$(grep '^cpu ' /proc/stat)
+
+    local idle1 total1 idle2 total2
+    idle1=$(echo "$cpu_line_1" | awk '{print $5}')
+    total1=$(echo "$cpu_line_1" | awk '{sum=0; for(i=2;i<=NF;i++) sum+=$i; print sum}')
+    idle2=$(echo "$cpu_line_2" | awk '{print $5}')
+    total2=$(echo "$cpu_line_2" | awk '{sum=0; for(i=2;i<=NF;i++) sum+=$i; print sum}')
+
+    local diff_idle diff_total
+    diff_idle=$((idle2 - idle1))
+    diff_total=$((total2 - total1))
+
+    if [[ "$diff_total" -gt 0 ]]; then
+        echo $(( (diff_total - diff_idle) * 100 / diff_total ))
     else
         echo "0"
     fi
@@ -109,9 +129,10 @@ get_mem_usage() {
     fi
 }
 
-# Get the highest disk usage percentage across all mounted filesystems
+# Get the highest disk usage percentage and its mount point
 get_disk_usage() {
-    df -h --output=pcent 2>/dev/null | grep -v "Use%" | tr -d ' %' | sort -rn | head -n 1
+    df -h --output=pcent,target 2>/dev/null | tail -n +2 | \
+        awk '{gsub(/%/,"",$1); print $1, $2}' | sort -rn | head -n 1
 }
 
 # Check CPU usage against threshold
@@ -144,20 +165,23 @@ check_memory() {
 
 # Check disk usage against threshold
 check_disk() {
-    local usage
-    usage=$(get_disk_usage)
+    local disk_info usage mount_point
+    disk_info=$(get_disk_usage)
 
-    if [[ -z "$usage" ]]; then
+    if [[ -z "$disk_info" ]]; then
         log_message "WARN" "Unable to determine disk usage."
         return
     fi
 
+    usage=$(echo "$disk_info" | awk '{print $1}')
+    mount_point=$(echo "$disk_info" | awk '{print $2}')
+
     if [[ "$usage" -ge "$DISK_THRESHOLD" ]]; then
-        local msg="Disk usage is at ${usage}% (threshold: ${DISK_THRESHOLD}%)"
+        local msg="Disk usage is at ${usage}% on ${mount_point} (threshold: ${DISK_THRESHOLD}%)"
         log_message "ALERT" "$msg"
         send_alert "Server Health Alert: High Disk Usage" "$msg on $(hostname) at $(date)"
     else
-        log_message "INFO" "Disk usage: ${usage}% (OK)"
+        log_message "INFO" "Disk usage: ${usage}% on ${mount_point} (OK)"
     fi
 }
 
