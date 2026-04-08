@@ -280,26 +280,54 @@ print("OK")
 PY
 }
 
-sqlite_quick_check() {
+sqlite_check_with_mode() {
   local db="$1"
-  local out
-  out="$(sqlite3 -readonly "$db" 'PRAGMA quick_check;' 2>/dev/null | tail -n 1 || true)"
-  [[ "$out" == "ok" ]] || die "SQLite quick_check failed for: $db (result: ${out:-empty})"
+  local mode="${2:-quick}"
+  local sql out rc=0
+
+  case "$mode" in
+    quick) sql='PRAGMA quick_check;' ;;
+    full)  sql='PRAGMA integrity_check;' ;;
+    *) die "Unknown sqlite check mode: $mode" ;;
+  esac
+
+  set +e
+  out="$(sqlite3 -readonly "$db" "$sql" 2>/dev/null)"
+  rc=$?
+  set -e
+
+  [[ $rc -eq 0 ]] || return 1
+  [[ -n "$out" ]] || return 1
+  grep -qx 'ok' <<< "$out"
 }
 
-sqlite_integrity_check() {
+check_db_strict() {
   local db="$1"
-  local out
-  out="$(sqlite3 -readonly "$db" 'PRAGMA integrity_check;' 2>/dev/null | tail -n 1 || true)"
-  [[ "$out" == "ok" ]] || die "SQLite integrity_check failed for: $db (result: ${out:-empty})"
+  local mode="${2:-quick}"
+
+  if ! sqlite_check_with_mode "$db" "$mode"; then
+    die "SQLite ${mode}_check failed for: $db"
+  fi
+}
+
+check_db_soft() {
+  local db="$1"
+  local mode="${2:-quick}"
+
+  if ! sqlite_check_with_mode "$db" "$mode"; then
+    warn "Skipping non-critical SQLite file that failed ${mode}_check: $db"
+    return 1
+  fi
+  return 0
 }
 
 validate_profile_integrity() {
   local profile_dir="$1"
   local profile_name="$2"
-  local db count
+  local count
   local has_logins=0
   local has_key4=0
+  local core_db db base
 
   [[ -d "$profile_dir" ]] || die "Profile directory not found: $profile_dir"
 
@@ -312,7 +340,7 @@ validate_profile_integrity() {
   if [[ -f "$profile_dir/key4.db" ]]; then
     has_key4=1
     [[ -s "$profile_dir/key4.db" ]] || die "key4.db exists but is empty in profile: $profile_name ($profile_dir)"
-    sqlite_integrity_check "$profile_dir/key4.db"
+    check_db_strict "$profile_dir/key4.db" full
   fi
 
   if (( has_logins != has_key4 )); then
@@ -326,19 +354,39 @@ validate_profile_integrity() {
     log "Profile '$profile_name': no saved-password store detected"
   fi
 
+  for core_db in \
+    places.sqlite \
+    favicons.sqlite \
+    cookies.sqlite \
+    permissions.sqlite \
+    formhistory.sqlite
+  do
+    if [[ -f "$profile_dir/$core_db" ]]; then
+      check_db_strict "$profile_dir/$core_db" quick
+    fi
+  done
+
   while IFS= read -r db; do
     [[ -n "$db" ]] || continue
-    sqlite_quick_check "$db"
+    base="$(basename "$db")"
+
+    case "$base" in
+      key4.db|places.sqlite|favicons.sqlite|cookies.sqlite|permissions.sqlite|formhistory.sqlite)
+        continue
+        ;;
+      lock|*.sqlite-wal|*.sqlite-shm)
+        continue
+        ;;
+      *)
+        check_db_soft "$db" quick || true
+        ;;
+    esac
   done < <(
     find "$profile_dir" -maxdepth 1 -type f \
-      \( -name '*.sqlite' -o -name '*.db' \) \
-      ! -name 'lock' \
-      ! -name '*.sqlite-wal' \
-      ! -name '*.sqlite-shm' \
-      | sort
+      \( -name '*.sqlite' -o -name '*.db' \) | sort
   )
 
-  log "Profile '$profile_name': SQLite checks passed."
+  log "Profile '$profile_name': integrity checks passed."
 }
 
 clean_restored_profile() {
@@ -453,8 +501,8 @@ write_profiles_ini_from_metadata() {
   local metadata_file="$1"
   local output_file="$2"
   local idx=0
-  local line name default backup_dir basename rel_path write_default=0
-  local -a lines=()
+  local name default rel_path write_default=0
+  local _idx _src_is_rel _src_path backup_dir restored_basename
 
   {
     echo "[General]"
@@ -484,20 +532,19 @@ write_profiles_ini_from_metadata() {
 
   if [[ "$write_default" -eq 0 ]]; then
     awk '
-      BEGIN { done=0 }
+      BEGIN { inserted=0; in_p0=0 }
+      /^\[Profile0\]$/ { print; in_p0=1; next }
+      in_p0 && /^Path=/ && inserted==0 { print; print "Default=1"; inserted=1; in_p0=0; next }
       { print }
-      /^\[Profile0\]$/ { in0=1; next }
-      in0 && /^Name=/ && done==0 { print "Default=1"; done=1; in0=0 }
     ' "$output_file" > "$output_file.tmp"
     mv "$output_file.tmp" "$output_file"
   fi
 }
 
 restore_mode() {
-  local profiles_dir metadata_file line
+  local profiles_dir metadata_file
   local src_profile_dir dest_basename dest_profile_dir safety_dir
   local idx name default src_is_rel src_path backup_dir ts temp_metadata
-  local restored_basename
 
   log "Starting Firefox restore..."
   detect_firefox_dir
