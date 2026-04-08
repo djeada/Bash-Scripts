@@ -186,13 +186,13 @@ main() {
         shift
     done
 
-    check_root
-
     need_cmd apt-get
     need_cmd sed
     need_cmd grep
     need_cmd getent
     need_cmd cp
+
+    check_root
 
     detect_os
     install_xfce
