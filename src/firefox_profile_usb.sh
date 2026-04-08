@@ -1,28 +1,21 @@
 #!/usr/bin/env bash
-set -Euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_NAME="${0##*/}"
 MODE=""
 QUIET=0
 
 FF_DIR="$HOME/.mozilla/firefox"
-PROFILES_INI="$FF_DIR/profiles.ini"
+PROFILES_INI=""
 USB_MOUNT=""
 BACKUP_DIR=""
 
-DEFAULT_PROFILE_SPEC=""
-IS_RELATIVE=""
-PROFILE_PATH_RAW=""
 PROFILE_DIR=""
 PROFILE_BASENAME=""
+PROFILE_REL_PATH=""
+PROFILE_NAME="restored"
 
-on_error() {
-  local exit_code=$?
-  printf '[%s] ERROR: Script failed near line %s (exit %s)\n' \
-    "$(date +%H:%M:%S)" "${BASH_LINENO[0]:-unknown}" "$exit_code" >&2
-  exit "$exit_code"
-}
-trap on_error ERR
+trap 'rc=$?; printf "[%s] ERROR: failed near line %s (exit %s)\n" "$(date +%H:%M:%S)" "${BASH_LINENO[0]:-unknown}" "$rc" >&2; exit "$rc"' ERR
 
 usage() {
   cat <<EOF
@@ -34,9 +27,8 @@ EOF
 }
 
 log() {
-  if [[ "$QUIET" -eq 0 ]]; then
-    printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >&2
-  fi
+  [[ "$QUIET" -eq 1 ]] && return 0
+  printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >&2
 }
 
 warn() {
@@ -54,77 +46,21 @@ require_cmd() {
 
 require_tools() {
   local cmd
-  log "Checking required tools..."
-  for cmd in awk grep sed cp mv rsync lsblk findmnt mkdir date basename dirname find sort tail head readlink pgrep mountpoint; do
+  for cmd in awk grep sed cp mv rsync lsblk findmnt mkdir date basename dirname find sort tail head readlink pgrep mountpoint mktemp sync; do
     require_cmd "$cmd"
   done
-  log "Required tools look good."
-}
-
-firefox_must_be_closed() {
-  log "Checking whether Firefox is closed..."
-  # Check both 'firefox' (wrapper/standard) and 'firefox-bin' (Snap/Flatpak real binary)
-  if pgrep -x firefox >/dev/null 2>&1 || pgrep -x firefox-bin >/dev/null 2>&1; then
-    die "Firefox is running. Close it completely and run again."
-  fi
-  log "Firefox is closed."
-}
-
-clean_restored_profile() {
-  # Remove session-specific files that must not survive a backup/restore cycle.
-  # Their presence causes two classes of breakage:
-  #
-  #   lock / .parentlock  – Firefox uses these to detect a running instance.
-  #                         A stale lock from a previous session causes Firefox
-  #                         to refuse to open the profile ("already running" or
-  #                         "profile cannot be loaded").
-  #
-  #   *.sqlite-wal        – SQLite Write-Ahead Log files.  They hold data that
-  #   *.sqlite-shm          has not yet been checkpointed into the main .sqlite
-  #                         file.  If Firefox did not checkpoint cleanly before
-  #                         the backup was taken the WAL on the USB may be
-  #                         inconsistent with the restored main database,
-  #                         producing SQL-level corruption ("database disk image
-  #                         is malformed").  Removing them lets SQLite fall back
-  #                         to the self-consistent main database; at worst a
-  #                         small amount of very recent history is lost, but the
-  #                         profile starts and works correctly.
-  local profile_root="$1"
-  local stale_file
-
-  log "Cleaning up stale session files from restored profile..."
-
-  [[ -d "$profile_root" ]] || { warn "Profile root not found, skipping cleanup: $profile_root"; return 0; }
-
-  # Walk every profile sub-directory (e.g. Profiles/xxxxxxxx.default-release)
-  while IFS= read -r -d '' stale_file; do
-    log "  Removing: $stale_file"
-    rm -f -- "$stale_file"
-  done < <(find "$profile_root" \
-    \( -name 'lock' -o -name '.parentlock' \
-       -o -name '*.sqlite-wal' -o -name '*.sqlite-shm' \) \
-    -print0)
-
-  log "Session file cleanup done."
 }
 
 detect_firefox_dir() {
-  # Detection order:
-  #   1. Existing Snap profile directory   (~/.../snap/firefox/common/.mozilla/firefox)
-  #   2. Existing Flatpak profile directory (~/.var/app/org.mozilla.firefox/.mozilla/firefox)
-  #   3. Firefox binary/wrapper inspection (for clean-restore when no profile dir exists yet)
-  #   4. Default standard location         (~/.mozilla/firefox)
   local snap_profile="$HOME/snap/firefox/common/.mozilla/firefox"
   local flatpak_profile="$HOME/.var/app/org.mozilla.firefox/.mozilla/firefox"
   local ff_cmd ff_real
 
-  # Prefer an already-existing profile directory (most reliable signal)
   if [[ -d "$snap_profile" ]]; then
     FF_DIR="$snap_profile"
   elif [[ -d "$flatpak_profile" ]]; then
     FF_DIR="$flatpak_profile"
   else
-    # No existing profile yet – inspect the Firefox binary/wrapper
     ff_cmd="$(command -v firefox 2>/dev/null || true)"
     if [[ -n "$ff_cmd" ]]; then
       ff_real="$(readlink -f "$ff_cmd" 2>/dev/null || true)"
@@ -133,126 +69,25 @@ detect_firefox_dir() {
       elif grep -qF "org.mozilla.firefox" "$ff_cmd" 2>/dev/null; then
         FF_DIR="$flatpak_profile"
       fi
-      # else FF_DIR stays as the default set at the top of the script
     fi
   fi
 
   PROFILES_INI="$FF_DIR/profiles.ini"
-  log "Firefox profile directory: $FF_DIR"
+  log "Firefox dir: $FF_DIR"
 }
 
-_usb_mounts_via_lsblk_tran() {
-  lsblk -P -o NAME,TRAN,MOUNTPOINT,LABEL,SIZE,FSTYPE 2>/dev/null | awk '
-    function uq(s) { gsub(/^"/, "", s); gsub(/"$/, "", s); return s }
-    {
-      name=tran=mp=label=size=fs=""
-      for (i=1; i<=NF; i++) {
-        split($i, kv, "=")
-        key=kv[1]
-        val=uq(kv[2])
-        if (key=="NAME") name=val
-        else if (key=="TRAN") tran=val
-        else if (key=="MOUNTPOINT") mp=val
-        else if (key=="LABEL") label=val
-        else if (key=="SIZE") size=val
-        else if (key=="FSTYPE") fs=val
-      }
-      if (tran=="usb" && mp!="")
-        printf "%s\t/dev/%s\t%s\t%s\t%s\n", mp, name,
-               (label==""?"-":label), (size==""?"?":size), (fs==""?"?":fs)
-    }
-  '
-}
-
-_usb_mounts_via_lsblk_removable() {
-  lsblk -P -o NAME,RM,MOUNTPOINT,LABEL,SIZE,FSTYPE 2>/dev/null | awk '
-    function uq(s) { gsub(/^"/, "", s); gsub(/"$/, "", s); return s }
-    {
-      name=rm=mp=label=size=fs=""
-      for (i=1; i<=NF; i++) {
-        split($i, kv, "=")
-        key=kv[1]
-        val=uq(kv[2])
-        if (key=="NAME") name=val
-        else if (key=="RM") rm=val
-        else if (key=="MOUNTPOINT") mp=val
-        else if (key=="LABEL") label=val
-        else if (key=="SIZE") size=val
-        else if (key=="FSTYPE") fs=val
-      }
-      if (rm=="1" && mp!="") {
-        if (name ~ /^(sr|loop|zram)/) next
-        printf "%s\t/dev/%s\t%s\t%s\t%s\n", mp, name,
-               (label==""?"-":label), (size==""?"?":size), (fs==""?"?":fs)
-      }
-    }
-  '
-}
-
-_usb_mounts_via_sysfs() {
-  local sysdev real devname
-
-  for sysdev in /sys/block/sd*; do
-    [[ -e "$sysdev" ]] || continue
-    real="$(readlink -f "$sysdev" 2>/dev/null || true)"
-    [[ -n "$real" ]] || continue
-    [[ "$real" == *"/usb"* ]] || continue
-    devname="$(basename "$sysdev")"
-
-    lsblk -P -o NAME,MOUNTPOINT,LABEL,SIZE,FSTYPE "/dev/$devname" 2>/dev/null | awk '
-      function uq(s) { gsub(/^"/, "", s); gsub(/"$/, "", s); return s }
-      {
-        name=mp=label=size=fs=""
-        for (i=1; i<=NF; i++) {
-          split($i, kv, "=")
-          key=kv[1]
-          val=uq(kv[2])
-          if (key=="NAME") name=val
-          else if (key=="MOUNTPOINT") mp=val
-          else if (key=="LABEL") label=val
-          else if (key=="SIZE") size=val
-          else if (key=="FSTYPE") fs=val
-        }
-        if (mp!="")
-          printf "%s\t/dev/%s\t%s\t%s\t%s\n", mp, name,
-                 (label==""?"-":label), (size==""?"?":size), (fs==""?"?":fs)
-      }
-    '
-  done
-}
-
-_usb_collect_mounts() {
-  local mounts="" extra=""
-
-  log "Looking for mounted USB drives..."
-
-  mounts="$(_usb_mounts_via_lsblk_tran || true)"
-  if [[ -n "$mounts" ]]; then
-    log "Found USB drives via transport detection."
-  else
-    log "No USB drives found via transport detection. Trying removable-device detection..."
-    mounts="$(_usb_mounts_via_lsblk_removable || true)"
+firefox_must_be_closed() {
+  log "Checking that Firefox is fully closed..."
+  # MainThread is common for Firefox child processes on some Linux systems.
+  if pgrep -x firefox >/dev/null 2>&1 \
+     || pgrep -x firefox-bin >/dev/null 2>&1 \
+     || pgrep -x MainThread >/dev/null 2>&1; then
+    die "Firefox appears to be running. Quit it completely and try again."
   fi
-
-  if [[ -z "$mounts" ]]; then
-    log "No USB drives found via removable-device detection. Trying sysfs fallback..."
-    mounts="$(_usb_mounts_via_sysfs || true)"
-  fi
-
-  if [[ -n "$mounts" ]]; then
-    extra="$(_usb_mounts_via_lsblk_removable || true)"
-    if [[ -n "$extra" ]]; then
-      mounts="$(printf '%s\n%s\n' "$mounts" "$extra")"
-    fi
-  fi
-
-  printf '%s\n' "$mounts" | awk -F'\t' 'NF && !seen[$1]++' | sort
 }
 
 _verify_mount_path() {
   local path="$1" probe
-  log "Verifying USB path: $path"
-
   [[ -d "$path" ]] || die "Path does not exist: $path"
 
   if ! findmnt -M "$path" >/dev/null 2>&1 && ! mountpoint -q "$path" 2>/dev/null; then
@@ -264,13 +99,37 @@ _verify_mount_path() {
   rm -f "$probe"
 }
 
+_usb_collect_mounts() {
+  lsblk -P -o NAME,TRAN,RM,MOUNTPOINT,LABEL,SIZE,FSTYPE 2>/dev/null | awk '
+    function uq(s) { gsub(/^"/, "", s); gsub(/"$/, "", s); return s }
+    {
+      name=tran=rm=mp=label=size=fs=""
+      for (i=1; i<=NF; i++) {
+        split($i, kv, "=")
+        key=kv[1]
+        val=uq(kv[2])
+        if (key=="NAME") name=val
+        else if (key=="TRAN") tran=val
+        else if (key=="RM") rm=val
+        else if (key=="MOUNTPOINT") mp=val
+        else if (key=="LABEL") label=val
+        else if (key=="SIZE") size=val
+        else if (key=="FSTYPE") fs=val
+      }
+      if (mp != "" && (tran=="usb" || rm=="1")) {
+        if (name ~ /^(sr|loop|zram)/) next
+        printf "%s\t/dev/%s\t%s\t%s\t%s\n", mp, name, (label==""?"-":label), (size==""?"?":size), (fs==""?"?":fs)
+      }
+    }
+  ' | awk -F'\t' '!seen[$1]++' | sort
+}
+
 pick_usb_mount() {
   local raw_mounts=""
   local -a mount_paths=() devices=() labels=() sizes=() fstypes=()
   local mp dev lbl sz fs count choice i
 
   if [[ -n "${USB_MOUNT:-}" ]]; then
-    log "Using USB path from command line: $USB_MOUNT"
     _verify_mount_path "$USB_MOUNT"
     return 0
   fi
@@ -292,7 +151,6 @@ pick_usb_mount() {
 
   if (( count == 1 )); then
     USB_MOUNT="${mount_paths[0]}"
-    log "One USB drive found. Auto-selecting: $USB_MOUNT"
     _verify_mount_path "$USB_MOUNT"
     return 0
   fi
@@ -312,114 +170,116 @@ pick_usb_mount() {
   (( choice >= 1 && choice <= count )) || die "Invalid selection: $choice"
 
   USB_MOUNT="${mount_paths[$((choice - 1))]}"
-  log "Selected USB mount: $USB_MOUNT"
   _verify_mount_path "$USB_MOUNT"
 }
 
-_profile_path_from_spec() {
-  local spec="$1"
-  local rel path resolved
-
-  rel="${spec%%:*}"
-  path="${spec#*:}"
-
-  if [[ "$rel" == "1" ]]; then
-    resolved="$FF_DIR/$path"
-  else
-    resolved="$path"
-  fi
-
-  [[ -d "$resolved" ]] || return 1
-  printf '%s\n' "$resolved"
-}
-
 detect_default_profile() {
-  local line spec
-  local -a default_specs=() other_specs=()
+  local line rel path def resolved
+  local -a defaults=() others=()
 
-  log "Looking for Firefox profiles in: $PROFILES_INI"
   [[ -f "$PROFILES_INI" ]] || die "profiles.ini not found: $PROFILES_INI"
 
-  while IFS= read -r line; do
-    [[ -n "$line" ]] || continue
-    if [[ "${line%%$'\t'*}" == "1" ]]; then
-      default_specs+=("${line#*$'\t'}")
+  while IFS=$'\t' read -r def rel path; do
+    [[ -n "$path" ]] || continue
+    if [[ "$rel" == "1" ]]; then
+      resolved="$FF_DIR/$path"
     else
-      other_specs+=("${line#*$'\t'}")
+      resolved="$path"
+    fi
+    [[ -d "$resolved" ]] || continue
+
+    if [[ "$def" == "1" ]]; then
+      defaults+=("$resolved")
+    else
+      others+=("$resolved")
     fi
   done < <(
     awk '
       BEGIN { in_profile=0; path=""; rel="1"; def="0" }
       function flush() {
         if (in_profile && path != "")
-          printf "%s\t%s\n", def, rel ":" path
+          printf "%s\t%s\t%s\n", def, rel, path
       }
-      /^\[Profile[0-9]+\]$/ {
-        flush()
-        in_profile=1
-        path=""
-        rel="1"
-        def="0"
-        next
-      }
-      /^\[/ {
-        flush()
-        in_profile=0
-        next
-      }
-      in_profile && /^Path=/ {
-        sub(/^Path=/, "", $0)
-        path=$0
-        next
-      }
-      in_profile && /^IsRelative=/ {
-        sub(/^IsRelative=/, "", $0)
-        rel=$0
-        next
-      }
-      in_profile && /^Default=1$/ {
-        def="1"
-        next
-      }
+      /^\[Profile[0-9]+\]$/ { flush(); in_profile=1; path=""; rel="1"; def="0"; next }
+      /^\[/               { flush(); in_profile=0; next }
+      in_profile && /^Path=/       { sub(/^Path=/, "", $0); path=$0; next }
+      in_profile && /^IsRelative=/ { sub(/^IsRelative=/, "", $0); rel=$0; next }
+      in_profile && /^Default=1$/  { def="1"; next }
       END { flush() }
     ' "$PROFILES_INI"
   )
 
-  DEFAULT_PROFILE_SPEC=""
-  PROFILE_DIR=""
-
-  for spec in "${default_specs[@]}"; do
-    if PROFILE_DIR="$(_profile_path_from_spec "$spec")"; then
-      DEFAULT_PROFILE_SPEC="$spec"
-      break
-    fi
-  done
-
-  if [[ -z "$DEFAULT_PROFILE_SPEC" ]]; then
-    warn "Default profile entry is missing or stale. Falling back to first existing profile."
-    for spec in "${other_specs[@]}" "${default_specs[@]}"; do
-      if PROFILE_DIR="$(_profile_path_from_spec "$spec")"; then
-        DEFAULT_PROFILE_SPEC="$spec"
-        break
-      fi
-    done
+  if ((${#defaults[@]} > 0)); then
+    PROFILE_DIR="${defaults[0]}"
+  elif ((${#others[@]} > 0)); then
+    PROFILE_DIR="${others[0]}"
+    warn "Default profile entry missing/stale; using first existing profile."
+  else
+    die "Could not find any existing Firefox profile directory."
   fi
 
-  [[ -n "$DEFAULT_PROFILE_SPEC" ]] || die "Could not find any existing Firefox profile directory."
-
-  IS_RELATIVE="${DEFAULT_PROFILE_SPEC%%:*}"
-  PROFILE_PATH_RAW="${DEFAULT_PROFILE_SPEC#*:}"
   PROFILE_BASENAME="$(basename "$PROFILE_DIR")"
+  PROFILE_REL_PATH="Profiles/$PROFILE_BASENAME"
 
-  log "Detected Firefox profile: $PROFILE_DIR"
+  log "Using profile: $PROFILE_DIR"
+}
+
+write_restore_metadata() {
+  local dest="$1"
+  cat > "$dest/RESTORE-METADATA.conf" <<EOF
+PROFILE_BASENAME='$PROFILE_BASENAME'
+PROFILE_REL_PATH='$PROFILE_REL_PATH'
+PROFILE_NAME='$PROFILE_NAME'
+EOF
+}
+
+backup_mode() {
+  local ts dest_root dest_profile_dir
+
+  detect_firefox_dir
+  firefox_must_be_closed
+  pick_usb_mount
+  detect_default_profile
+
+  ts="$(date +%Y%m%d-%H%M%S)"
+  dest_root="$USB_MOUNT/firefox-profile-backup-$ts"
+  dest_profile_dir="$dest_root/profile"
+
+  mkdir -p "$dest_profile_dir"
+
+  log "Backing up profile to: $dest_root"
+  rsync -aH --delete \
+    --exclude='lock' \
+    --exclude='.parentlock' \
+    --exclude='*.sqlite-shm' \
+    --exclude='*.sqlite-wal' \
+    --exclude='cache2/' \
+    --exclude='startupCache/' \
+    --exclude='crashes/' \
+    --exclude='minidumps/' \
+    "$PROFILE_DIR/" "$dest_profile_dir/"
+
+  write_restore_metadata "$dest_root"
+
+  cat > "$dest_root/RESTORE-INFO.txt" <<EOF
+Firefox profile backup
+Created: $ts
+Original Firefox dir: $FF_DIR
+Original profile dir: $PROFILE_DIR
+Original profile basename: $PROFILE_BASENAME
+Restore strategy: copy profile into current install and regenerate profiles.ini
+EOF
+
+  sync
+  echo
+  echo "Saved to:"
+  echo "  $dest_root"
 }
 
 choose_backup_dir_for_restore() {
   local search_root="$1"
   local -a backups=()
   local count choice i
-
-  log "Looking for Firefox backups in: $search_root"
 
   while IFS= read -r line; do
     [[ -n "$line" ]] && backups+=("$line")
@@ -430,7 +290,6 @@ choose_backup_dir_for_restore() {
 
   if (( count == 1 )); then
     BACKUP_DIR="${backups[0]}"
-    log "One backup found. Using: $BACKUP_DIR"
     return 0
   fi
 
@@ -445,7 +304,6 @@ choose_backup_dir_for_restore() {
   read -rp "Select backup [1-$count] (Enter for latest): " choice
   if [[ -z "$choice" ]]; then
     BACKUP_DIR="${backups[$((count - 1))]}"
-    log "Using latest backup: $BACKUP_DIR"
     return 0
   fi
 
@@ -453,58 +311,42 @@ choose_backup_dir_for_restore() {
   (( choice >= 1 && choice <= count )) || die "Invalid selection: $choice"
 
   BACKUP_DIR="${backups[$((choice - 1))]}"
-  log "Selected backup: $BACKUP_DIR"
 }
 
-backup_mode() {
-  local ts dest_root dest_profile_dir
+clean_restored_profile() {
+  local profile_root="$1"
 
-  log "Starting Firefox backup..."
-  detect_firefox_dir
-  firefox_must_be_closed
-  pick_usb_mount
-  detect_default_profile
+  [[ -d "$profile_root" ]] || return 0
 
-  ts="$(date +%Y%m%d-%H%M%S)"
-  dest_root="$USB_MOUNT/firefox-profile-backup-$ts"
-  if [[ "$IS_RELATIVE" == "1" ]]; then
-    dest_profile_dir="$dest_root/$PROFILE_PATH_RAW"
-  else
-    dest_profile_dir="$dest_root/$PROFILE_BASENAME"
-  fi
+  find "$profile_root" \
+    \( -name 'lock' -o -name '.parentlock' -o -name '*.sqlite-wal' -o -name '*.sqlite-shm' \) \
+    -type f -print0 | while IFS= read -r -d '' f; do
+      rm -f -- "$f"
+    done
 
-  log "Creating backup directory: $dest_root"
-  mkdir -p "$dest_profile_dir"
+  # Let the current Firefox install re-bind the profile cleanly.
+  rm -f -- "$profile_root/compatibility.ini"
+}
 
-  log "Copying Firefox profile..."
-  rsync -aH --delete --info=progress2 "$PROFILE_DIR/" "$dest_profile_dir/"
+write_profiles_ini() {
+  local target_rel="$1"
+  cat > "$PROFILES_INI" <<EOF
+[General]
+StartWithLastProfile=1
+Version=2
 
-  log "Copying profiles.ini..."
-  cp -a "$PROFILES_INI" "$dest_root/profiles.ini"
-
-  if [[ -f "$FF_DIR/installs.ini" ]]; then
-    log "Copying installs.ini..."
-    cp -a "$FF_DIR/installs.ini" "$dest_root/installs.ini"
-  fi
-
-  cat > "$dest_root/RESTORE-INFO.txt" <<EOF
-Firefox profile backup
-Created: $ts
-Original Firefox dir: $FF_DIR
-Original profile dir: $PROFILE_DIR
-Original profile name: $PROFILE_BASENAME
+[Profile0]
+Name=$PROFILE_NAME
+IsRelative=1
+Path=$target_rel
+Default=1
 EOF
-
-  log "Backup complete."
-  echo
-  echo "Saved to:"
-  echo "  $dest_root"
 }
 
 restore_mode() {
-  local backup_profiles_ini backup_profile_dir ts safety
+  local backup_profile_dir metadata_file
+  local target_profile_dir target_rel safety_root ts
 
-  log "Starting Firefox restore..."
   detect_firefox_dir
   firefox_must_be_closed
 
@@ -513,48 +355,60 @@ restore_mode() {
     choose_backup_dir_for_restore "$USB_MOUNT"
   else
     [[ -d "$BACKUP_DIR" ]] || die "Backup directory not found: $BACKUP_DIR"
-    log "Using backup directory from command line: $BACKUP_DIR"
   fi
 
-  backup_profiles_ini="$BACKUP_DIR/profiles.ini"
-  [[ -f "$backup_profiles_ini" ]] || die "Backup is missing profiles.ini: $backup_profiles_ini"
+  backup_profile_dir="$BACKUP_DIR/profile"
+  [[ -d "$backup_profile_dir" ]] || die "Backup profile directory not found: $backup_profile_dir"
 
-  backup_profile_dir="$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-  [[ -n "$backup_profile_dir" && -d "$backup_profile_dir" ]] || die "Backup profile directory not found in: $BACKUP_DIR"
+  metadata_file="$BACKUP_DIR/RESTORE-METADATA.conf"
+  if [[ -f "$metadata_file" ]]; then
+    # shellcheck disable=SC1090
+    source "$metadata_file"
+  else
+    warn "Metadata file missing; using backup folder basename."
+    PROFILE_BASENAME="$(basename "$backup_profile_dir")"
+    PROFILE_REL_PATH="Profiles/$PROFILE_BASENAME"
+    PROFILE_NAME="restored"
+  fi
 
-  mkdir -p "$(dirname "$FF_DIR")"
+  mkdir -p "$FF_DIR/Profiles"
+  target_profile_dir="$FF_DIR/$PROFILE_REL_PATH"
+  target_rel="$PROFILE_REL_PATH"
 
-  if [[ -e "$FF_DIR" ]]; then
+  if [[ -e "$target_profile_dir" ]]; then
     ts="$(date +%Y%m%d-%H%M%S)"
-    safety="$(dirname "$FF_DIR")/firefox.pre-restore-$ts"
-    log "Saving current Firefox directory to: $safety"
-    mv "$FF_DIR" "$safety"
+    safety_root="${target_profile_dir}.pre-restore-$ts"
+    log "Moving existing target profile aside: $safety_root"
+    mv "$target_profile_dir" "$safety_root"
   fi
 
-  log "Creating fresh Firefox directory..."
-  mkdir -p "$FF_DIR"
+  mkdir -p "$target_profile_dir"
 
-  log "Restoring profile directory..."
-  cp -a "$backup_profile_dir" "$FF_DIR/"
+  log "Restoring profile contents..."
+  rsync -aH --delete "$backup_profile_dir/" "$target_profile_dir/"
 
-  log "Restoring profiles.ini..."
-  cp -a "$backup_profiles_ini" "$FF_DIR/profiles.ini"
+  clean_restored_profile "$target_profile_dir"
 
-  if [[ -f "$BACKUP_DIR/installs.ini" ]]; then
-    log "Restoring installs.ini..."
-    cp -a "$BACKUP_DIR/installs.ini" "$FF_DIR/installs.ini"
+  log "Writing fresh profiles.ini..."
+  write_profiles_ini "$target_rel"
+
+  # Important: do NOT restore old installs.ini from another machine/install.
+  # Let Firefox regenerate it for the current installation.
+  if [[ -f "$FF_DIR/installs.ini" ]]; then
+    log "Removing stale installs.ini so Firefox can regenerate it..."
+    rm -f -- "$FF_DIR/installs.ini"
   fi
 
-  clean_restored_profile "$FF_DIR"
-
-  log "Flushing data to disk..."
   sync
 
-  log "Restore complete."
   echo
+  echo "Restore complete."
   echo "Start Firefox normally."
-  echo "If Firefox does not open the restored profile automatically, run:"
+  echo
+  echo "If Firefox still opens a different profile, run:"
   echo "  firefox -P"
+  echo "and select/create the profile using folder:"
+  echo "  $target_profile_dir"
 }
 
 parse_args() {
@@ -595,14 +449,11 @@ parse_args() {
 }
 
 main() {
-  log "Parsing arguments..."
   parse_args "$@"
-  log "Mode: $MODE"
-
   require_tools
 
   case "$MODE" in
-    backup)  backup_mode ;;
+    backup) backup_mode ;;
     restore) restore_mode ;;
     *) die "Unsupported mode: $MODE" ;;
   esac
