@@ -17,6 +17,8 @@
 #       --no-email                Disable email alerts (log only).
 # Example:
 #   ./server_health_monitor.sh -i 120 -c 85 -m 80 -d 75 -e admin@example.com
+# Note: For long-running deployments, configure external log rotation (e.g., logrotate)
+#       to prevent the log file from growing indefinitely.
 
 set -euo pipefail
 
@@ -93,7 +95,7 @@ send_alert() {
 get_cpu_usage() {
     local cpu_line_1 cpu_line_2
     cpu_line_1=$(grep '^cpu ' /proc/stat)
-    sleep 1
+    sleep 0.5
     cpu_line_2=$(grep '^cpu ' /proc/stat)
 
     local idle1 total1 idle2 total2
@@ -129,10 +131,10 @@ get_mem_usage() {
     fi
 }
 
-# Get the highest disk usage percentage and its mount point
-get_disk_usage() {
+# Get disk usage for all mounted filesystems (percentage and mount point per line)
+get_all_disk_usage() {
     df -h --output=pcent,target 2>/dev/null | tail -n +2 | \
-        awk '{gsub(/%/,"",$1); print $1, $2}' | sort -rn | head -n 1
+        awk '{gsub(/%/,"",$1); if ($1+0 == $1) print $1, $2}'
 }
 
 # Check CPU usage against threshold
@@ -163,26 +165,25 @@ check_memory() {
     fi
 }
 
-# Check disk usage against threshold
+# Check disk usage against threshold for all mounted filesystems
 check_disk() {
-    local disk_info usage mount_point
-    disk_info=$(get_disk_usage)
+    local disk_info
+    disk_info=$(get_all_disk_usage)
 
     if [[ -z "$disk_info" ]]; then
         log_message "WARN" "Unable to determine disk usage."
         return
     fi
 
-    usage=$(echo "$disk_info" | awk '{print $1}')
-    mount_point=$(echo "$disk_info" | awk '{print $2}')
-
-    if [[ "$usage" -ge "$DISK_THRESHOLD" ]]; then
-        local msg="Disk usage is at ${usage}% on ${mount_point} (threshold: ${DISK_THRESHOLD}%)"
-        log_message "ALERT" "$msg"
-        send_alert "Server Health Alert: High Disk Usage" "$msg on $(hostname) at $(date)"
-    else
-        log_message "INFO" "Disk usage: ${usage}% on ${mount_point} (OK)"
-    fi
+    while read -r usage mount_point; do
+        if [[ "$usage" -ge "$DISK_THRESHOLD" ]]; then
+            local msg="Disk usage is at ${usage}% on ${mount_point} (threshold: ${DISK_THRESHOLD}%)"
+            log_message "ALERT" "$msg"
+            send_alert "Server Health Alert: High Disk Usage" "$msg on $(hostname) at $(date)"
+        else
+            log_message "INFO" "Disk usage: ${usage}% on ${mount_point} (OK)"
+        fi
+    done <<< "$disk_info"
 }
 
 # Run a single health check cycle
@@ -288,6 +289,12 @@ for param_name in CPU_THRESHOLD MEM_THRESHOLD DISK_THRESHOLD; do
         exit 1
     fi
 done
+
+# Validate that interval is at least 1 for continuous monitoring
+if [[ "$RUN_ONCE" == false && "$INTERVAL" -lt 1 ]]; then
+    echo "Error: INTERVAL must be at least 1 for continuous monitoring." >&2
+    exit 1
+fi
 
 # Ensure the log file directory exists and is writable
 log_dir="$(dirname "$LOG_FILE")"
