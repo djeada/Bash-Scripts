@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+
+# Script Name: firefox_profile_usb.sh
+# Description: Backs up Firefox profiles to a USB-mounted directory and restores them later.
+# Usage: ./firefox_profile_usb.sh backup [--usb PATH] [--quiet]
+#        ./firefox_profile_usb.sh restore [--usb PATH] [--backup-dir PATH] [--quiet]
+#        ./firefox_profile_usb.sh --help
+# Options:
+#   --usb PATH         USB mount point to use for backup or restore.
+#   --backup-dir PATH  Specific backup directory to restore from.
+#   -q, --quiet        Suppress progress logging.
+#   -h, --help         Display this help message and exit.
+
 set -Eeuo pipefail
 
 SCRIPT_NAME="${0##*/}"
@@ -407,7 +419,7 @@ clean_restored_profile() {
 }
 
 backup_mode() {
-  local ts dest_root profiles_dir metadata_file i default_seen=0
+  local ts dest_root profiles_dir metadata_file i
   local dest_profile_dir name path rel def resolved
 
   log "Starting Firefox backup..."
@@ -465,10 +477,6 @@ backup_mode() {
       "$resolved/" "$dest_profile_dir/"
 
     validate_profile_integrity "$dest_profile_dir" "$name"
-
-    if [[ "$def" == "1" ]]; then
-      default_seen=1
-    fi
 
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$i" "$name" "$def" "$rel" "$path" "$(basename "$dest_profile_dir")" >> "$metadata_file"
@@ -689,3 +697,4 @@ main() {
 }
 
 main "$@"
+

@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+
+# Script Name: install_signal.sh
+# Description: Downloads Signal Desktop apt sources and installs Signal Desktop on Debian-based systems.
+# Usage: ./install_signal.sh
+# Example: ./install_signal.sh
+
 set -Eeuo pipefail
 
 KEY_URL="https://updates.signal.org/desktop/apt/keys.asc"
@@ -29,3 +35,4 @@ sudo apt update
 sudo apt install -y signal-desktop
 
 echo "Signal Desktop installation finished."
+

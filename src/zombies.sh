@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Script Name: zombies.sh
 # Description: Displays zombie (defunct) processes currently present in the system
 #              and provides information about their parent processes.
-# Usage: chmod +x zombies.sh && ./zombies.sh [OPTIONS]
+# Usage: ./zombies.sh [OPTIONS]
 # Options:
 #   -h, --help      Show this help message
 #   -v, --verbose   Show verbose output with detailed process information
@@ -19,6 +18,8 @@ set -euo pipefail
 #   ./zombies.sh --count            # Show only count
 #   ./zombies.sh --watch            # Monitor continuously
 #   ./zombies.sh --parents          # Include parent process info
+
+set -euo pipefail
 
 # Color codes for output formatting
 readonly RED='\033[0;31m'

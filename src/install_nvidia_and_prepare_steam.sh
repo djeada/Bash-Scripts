@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+
+# Script Name: install_nvidia_and_prepare_steam.sh
+# Description: Installs the recommended NVIDIA driver on Ubuntu and checks Steam GPU integration.
+# Usage: sudo ./install_nvidia_and_prepare_steam.sh
+# Example: sudo ./install_nvidia_and_prepare_steam.sh
+
 set -euo pipefail
 
 if [[ ${EUID} -ne 0 ]]; then
@@ -93,3 +99,4 @@ Expected:
   - nouveau is not the active driver
   - Steam can use the NVIDIA stack normally
 EOF
+

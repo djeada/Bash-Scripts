@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
-IFS=$'\n\t'
 
 # Script Name: dead_code.sh
-# Description:
-#   This script searches for function and class definitions in Python files within a specified directory
-#   and displays those with occurrences less than a specified threshold.
-#   It can exclude certain files or directories and offers a verbose mode for detailed logging.
-# Usage:
-#   find_dead_code.sh [-n threshold] [-d directory] [-e path1,path2] [-v] [-f format] [-o output]
-# Example:
-#   find_dead_code.sh -n 3 -d /path/to/project -e tests,venv,.git -v -f json -o report.json
+# Description: Searches Python files for function and class definitions with low usage counts.
+#              Supports exclusions, multiple output formats, and verbose logging.
+# Usage: ./dead_code.sh [-n threshold] [-d directory] [-e path1,path2] [-v] [-f format] [-o output]
+# Example: ./dead_code.sh -n 3 -d /path/to/project -e tests,venv,.git -v -f json -o report.json
+
+set -euo pipefail
+IFS=$'\n\t'
 
 # Color codes for output
 readonly RED='\033[0;31m'
