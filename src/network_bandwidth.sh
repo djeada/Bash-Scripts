@@ -429,7 +429,7 @@ if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -lt 1 ]]; then
     exit 1
 fi
 if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]]; then
-    echo "Error: --threshold must be a positive integer." >&2
+    echo "Error: --threshold must be a non-negative integer." >&2
     exit 1
 fi
 if ! [[ "$TOP_N" =~ ^[0-9]+$ ]] || [[ "$TOP_N" -lt 1 ]]; then
