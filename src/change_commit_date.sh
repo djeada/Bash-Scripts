@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Script Name: change_commit_date.sh
 # Description: Powerful Git commit-date tools for amending, shifting, and moving commit dates.
@@ -13,6 +12,8 @@ set -euo pipefail
 #   ./change_commit_date.sh amend-latest --date 25-12-2022
 #   ./change_commit_date.sh shift --hours 7
 #   ./change_commit_date.sh move --window night
+
+set -euo pipefail
 
 # ---------- Utilities ----------
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Script Name: orphans.sh
 # Description: This script displays processes that might be orphans,
 #              i.e. processes whose parent process is not running.
-# Usage: chmod +x orphans.sh && ./orphans.sh [OPTIONS]
+# Usage: ./orphans.sh [OPTIONS]
 # Options:
 #   -h, --help     Show this help message
 #   -v, --verbose  Show verbose output with process details
@@ -15,6 +14,8 @@ set -euo pipefail
 #   ./orphans.sh --verbose          # Show detailed information
 #   ./orphans.sh --count            # Show only count
 #   ./orphans.sh --user             # Show only current user's processes
+
+set -euo pipefail
 
 # Color codes for output formatting
 readonly RED='\033[0;31m'
