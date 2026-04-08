@@ -13,7 +13,7 @@ KEYRING_NAME="signal-desktop-keyring.gpg"
 SOURCE_NAME="signal-desktop.sources"
 
 cleanup() {
-  rm -f "$KEYRING_NAME" "$SOURCE_NAME"
+    rm -f "$KEYRING_NAME" "$SOURCE_NAME"
 }
 
 trap cleanup EXIT
