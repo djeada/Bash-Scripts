@@ -427,6 +427,8 @@ backup_mode() {
     printf 'IDX\tNAME\tDEFAULT\tSRC_IS_REL\tSRC_PATH\tBACKUP_DIR\n'
   } > "$metadata_file"
 
+  log "Copying profiles to USB (this may take several minutes for large profiles)..."
+
   for (( i=0; i<${#PROFILE_RESOLVED[@]}; i++ )); do
     name="${PROFILE_NAMES[$i]}"
     path="${PROFILE_PATHS_RAW[$i]}"
@@ -446,7 +448,7 @@ backup_mode() {
     log "Backing up profile '$name' from $resolved"
     mkdir -p "$dest_profile_dir"
 
-    rsync -aH --delete \
+    rsync -aH --delete --info=progress2 \
       --exclude='lock' \
       --exclude='.parentlock' \
       --exclude='*.sqlite-wal' \
@@ -455,6 +457,11 @@ backup_mode() {
       --exclude='startupCache/' \
       --exclude='crashes/' \
       --exclude='minidumps/' \
+      --exclude='storage/' \
+      --exclude='thumbnails/' \
+      --exclude='datareporting/' \
+      --exclude='healthreport/' \
+      --exclude='storage.sqlite' \
       "$resolved/" "$dest_profile_dir/"
 
     validate_profile_integrity "$dest_profile_dir" "$name"
@@ -575,6 +582,8 @@ restore_mode() {
     printf 'IDX\tNAME\tDEFAULT\tSRC_IS_REL\tSRC_PATH\tBACKUP_DIR\tRESTORED_BASENAME\n'
   } > "$temp_metadata"
 
+  log "Restoring profiles from USB (this may take several minutes for large profiles)..."
+
   while IFS=$'\t' read -r idx name default src_is_rel src_path backup_dir; do
     [[ "$idx" == "IDX" ]] && continue
 
@@ -595,7 +604,7 @@ restore_mode() {
     mkdir -p "$dest_profile_dir"
 
     log "Restoring profile '$name' to $dest_profile_dir"
-    rsync -aH --delete "$src_profile_dir/" "$dest_profile_dir/"
+    rsync -aH --delete --info=progress2 "$src_profile_dir/" "$dest_profile_dir/"
 
     clean_restored_profile "$dest_profile_dir"
     validate_profile_integrity "$dest_profile_dir" "$name"
