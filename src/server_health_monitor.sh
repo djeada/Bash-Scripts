@@ -132,6 +132,7 @@ get_mem_usage() {
 }
 
 # Get disk usage for all mounted filesystems (percentage and mount point per line)
+# Filter with '$1+0 == $1' to exclude non-numeric values (e.g., headers or errors)
 get_all_disk_usage() {
     df -h --output=pcent,target 2>/dev/null | tail -n +2 | \
         awk '{gsub(/%/,"",$1); if ($1+0 == $1) print $1, $2}'
