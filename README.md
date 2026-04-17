@@ -554,10 +554,19 @@ shellcheck **/*.sh
 | 4 | Combines multiple commits into a single commit. This can be useful for simplifying a commit history or for cleaning up a series of small, incremental commits that were made in error.                                                                                                                       | [squash_n_last_commits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh)                                 |
 | 5 | Removes the `n` last commits from the repository. This can be useful for undoing mistakes or for removing sensitive information that was accidentally committed.                                                                                                                                              | [remove_n_last_commits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh)                                  |
 | 6 | Changes the date of the last commit in the repository. This can be useful for altering the commit history for cosmetic purposes.                                                                                                                                                                            | [change_commit_date.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/change_commit_date.sh)                                   |
-| 7 | Downloads all of the public repositories belonging to a specified user on GitHub. This can be useful for backing up repositories.                                                                                                                                                                              | [download_all_github_repos.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh)                            |
+| 7 | Discovers GitHub repositories into an editable JSON or CSV manifest, then backs up the enabled repositories using mirror, clone, archive, or sparse modes with resumable state for cron jobs.                                                                                                                  | [download_all_github_repos.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh)                            |
 | 8 | Squashes all commits on a specified Git branch into a single commit.                                                                                                                                                                              | [squash_branch.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/squash_branch.sh)                            |
 | 9 | Counts the total lines changed by a specific author in a Git repository.                                                                                                                                                                               | [contributions_by_git_author.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/contributions_by_git_author.sh)                            |
   
+GitHub repository backups use a two-stage workflow:
+
+```bash
+./src/download_all_github_repos.sh discover --user alice --output repos.json
+./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --resume
+```
+
+Edit the generated manifest to disable repositories or choose per-repository modes. Use `mode: "mirror"` for full Git backups, `mode: "archive"` for HTTPS snapshots without Git history, and `mode: "sparse"` with `paths` for selected subdirectories.
+
 ### Utility
 
 | # | Description | Code |
@@ -642,4 +651,3 @@ This project is licensed under the [MIT License](LICENSE) - see the LICENSE file
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=djeada/Bash-Scripts&type=Date)](https://star-history.com/#djeada/Bash-Scripts&Date)
-
