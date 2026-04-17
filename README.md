@@ -560,7 +560,14 @@ GitHub repository backups use a two-stage workflow:
 ./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --resume
 ```
 
-Edit the generated manifest to disable repositories or choose per-repository modes. Use `mode: "mirror"` for full Git backups, `mode: "archive"` for HTTPS snapshots without Git history, and `mode: "sparse"` with `paths` for selected subdirectories.
+Use a token during discovery to include private repositories visible to that token:
+
+```bash
+./src/download_all_github_repos.sh discover --user alice --token "$GITHUB_TOKEN" --output repos.json
+./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --protocol ssh --resume
+```
+
+Edit the generated manifest to disable repositories or choose per-repository modes. Use `mode: "mirror"` for full Git backups, `mode: "archive"` for HTTPS snapshots without Git history, and `mode: "sparse"` with `paths` for selected subdirectories. For SSH backups, configure your normal GitHub SSH key or SSH agent and run backup with `--protocol ssh`.
 
 ### Utility
 
