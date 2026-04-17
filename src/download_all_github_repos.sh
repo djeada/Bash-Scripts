@@ -14,13 +14,11 @@
 #
 # Discovery examples:
 #   ./download_all_github_repos.sh discover --user alice --output repos.json
-#   ./download_all_github_repos.sh discover --user alice --token "$GITHUB_TOKEN" --output repos.json
 #   ./download_all_github_repos.sh discover --org my-org --token "$GITHUB_TOKEN" --output repos.csv --format csv
 #   ./download_all_github_repos.sh discover --authenticated-user --token "$GITHUB_TOKEN" --output repos.json
 #
 # Backup examples:
 #   ./download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups
-#   ./download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --protocol ssh
 #   ./download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --resume
 #   ./download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --mode archive
 #   ./download_all_github_repos.sh backup --manifest repos.json --dest /backups/github --non-interactive --log-file /var/log/github-backup.log
@@ -79,7 +77,6 @@ GITHUB_NEXT_URL=""
 DISCOVER_ENDPOINT=""
 DISCOVER_SOURCE_TYPE=""
 DISCOVER_SOURCE_VALUE=""
-DISCOVER_FILTER_OWNER=""
 
 ###############################################################################
 # Usage
@@ -94,13 +91,11 @@ Usage:
 
 Discovery examples:
   download_all_github_repos.sh discover --user alice --output repos.json
-  download_all_github_repos.sh discover --user alice --token "$GITHUB_TOKEN" --output repos.json
   download_all_github_repos.sh discover --org my-org --token "$GITHUB_TOKEN" --output repos.csv --format csv
   download_all_github_repos.sh discover --authenticated-user --token "$GITHUB_TOKEN" --output repos.json
 
 Backup examples:
   download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups
-  download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --protocol ssh
   download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --resume
   download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --mode archive
   download_all_github_repos.sh backup --manifest repos.json --dest /backups/github --non-interactive --log-file /var/log/github-backup.log
@@ -114,8 +109,7 @@ print_discover_usage() {
 Usage: download_all_github_repos.sh discover [OPTIONS]
 
 Source options:
-  --user USER                 Discover repositories for a GitHub user. With --token,
-                              includes private repos visible to that token and owned by USER.
+  --user USER                 Discover repositories for a GitHub user.
   --org ORG                   Discover repositories for a GitHub organization.
   --authenticated-user        Discover repositories visible to the token owner.
   --token TOKEN               GitHub token. Defaults to GITHUB_TOKEN.
@@ -159,7 +153,6 @@ Backup behavior:
   --mode mirror|clone|archive|sparse
                               Override per-repository manifest mode.
   --protocol https|ssh        Clone protocol for git modes. Default: https.
-                              SSH uses the manifest ssh_url and your local SSH auth.
   --token TOKEN               GitHub token. Defaults to GITHUB_TOKEN.
   --resume                    Reuse state and skip completed repositories.
   --checksum                  Write checksums for archive files. Default.
@@ -960,25 +953,15 @@ parse_discover_args() {
     if [[ "$AUTHENTICATED_USER" == true && -z "$GITHUB_TOKEN" ]]; then
         die "--authenticated-user requires --token or GITHUB_TOKEN."
     fi
-    if [[ -z "$GITHUB_TOKEN" && -n "$GITHUB_USER" && "$VISIBILITY" == "private" ]]; then
-        die "--visibility private with --user requires --token or GITHUB_TOKEN."
-    fi
 }
 
 set_discover_endpoint_and_source() {
-    DISCOVER_FILTER_OWNER=""
-
     if [[ "$AUTHENTICATED_USER" == true ]]; then
-        DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}&affiliation=owner,collaborator,organization_member"
+        DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}"
         DISCOVER_SOURCE_TYPE="authenticated-user"
         DISCOVER_SOURCE_VALUE="token-owner"
     elif [[ -n "$GITHUB_USER" ]]; then
-        if [[ -n "$GITHUB_TOKEN" ]]; then
-            DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}&affiliation=owner,collaborator,organization_member"
-            DISCOVER_FILTER_OWNER="$GITHUB_USER"
-        else
-            DISCOVER_ENDPOINT="https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=all"
-        fi
+        DISCOVER_ENDPOINT="https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=all"
         DISCOVER_SOURCE_TYPE="user"
         DISCOVER_SOURCE_VALUE="$GITHUB_USER"
     else
@@ -997,9 +980,6 @@ discover_repositories() {
     json_output="$(mktemp)"
 
     info "Discovering repositories from GitHub source: ${DISCOVER_SOURCE_TYPE}=${DISCOVER_SOURCE_VALUE}"
-    if [[ -n "$DISCOVER_FILTER_OWNER" ]]; then
-        info "Using authenticated repository listing and filtering owner: $DISCOVER_FILTER_OWNER"
-    fi
     github_api_paged "$DISCOVER_ENDPOINT" > "$pages_file"
 
     jq -s \
@@ -1007,10 +987,8 @@ discover_repositories() {
         --argjson include_archived "$DISCOVER_INCLUDE_ARCHIVED" \
         --arg visibility "$VISIBILITY" \
         --arg name_regex "$NAME_REGEX" \
-        --arg owner_filter "$DISCOVER_FILTER_OWNER" \
         --arg max_repos "${MAX_REPOS:-0}" '
         add
-        | map(select($owner_filter == "" or (.owner.login == $owner_filter)))
         | map(select($include_forks or (.fork | not)))
         | map(select($include_archived or (.archived | not)))
         | map(select(
@@ -1140,6 +1118,24 @@ repo_clone_url() {
         else
             printf 'https://github.com/%s.git' "$full_name"
         fi
+    else
+        if [[ -n "$clone_url" ]]; then
+            printf '%s' "$clone_url"
+        else
+            printf 'https://github.com/%s.git' "$full_name"
+        fi
+    fi
+}
+
+git_with_optional_auth() {
+    if [[ -n "$GITHUB_TOKEN" && "$PROTOCOL" == "https" ]]; then
+        GIT_TERMINAL_PROMPT=0 \
+        GIT_CONFIG_COUNT=1 \
+        GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
+        GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer $GITHUB_TOKEN" \
+            git "$@"
+    else
+        GIT_TERMINAL_PROMPT=0 git "$@"
     fi
 }
 

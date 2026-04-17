@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Script Name: fetch_github_repos_names.sh
 # Description: Fetches and lists all repositories of a GitHub user.
 #              Lists both public and private repositories if a personal access token is provided.
 # Usage: ./fetch_github_repos_names.sh [github_username] [github_token]
 # Example: ./fetch_github_repos_names.sh johnsmith YOUR_GITHUB_TOKEN
+
+set -euo pipefail
 
 # Display usage message and exit
 usage() {

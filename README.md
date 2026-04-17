@@ -508,21 +508,26 @@ shellcheck **/*.sh
 
 | #  | Description                                                                                                                           | Code                                                                                                             |
 |----|---------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| 1  | Retrieves basic system information, such as hostname and kernel version.                                                             | [system_info.sh](https://github.com/djeada/Bash-scripts/blob/master/src/system_info.sh)                         |
-| 2  | Determines the type and version of the operating system running on the machine.                                                      | [check_os.sh](https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh)                               |
-| 3  | Checks whether the current user has root privileges.                                                                                  | [check_if_root.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/check_if_root.sh)                     |
-| 4  | Checks if the apt command, used for package management on Debian-based systems, is available on the machine.                          | [check_apt_avail.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/check_apt_avail.sh)                 |
+| 1  | Displays detailed system information, with flags for memory, disk, CPU, network, processes, OS, kernel, filesystems, and load.      | [system_info.sh](https://github.com/djeada/Bash-scripts/blob/master/src/system_info.sh)                         |
+| 2  | Detects the host platform, distribution, and version, with optional JSON and logging output.                                         | [check_os.sh](https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh)                               |
+| 3  | Verifies whether the script is running with root privileges, with optional logging.                                                  | [check_if_root.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/check_if_root.sh)                     |
+| 4  | Verifies that the `apt` package manager is available on the current system.                                                           | [check_apt_avail.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/check_apt_avail.sh)                 |
 | 5  | Retrieves the size of the machine's random access memory (RAM).                                                                       | [ram_memory.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/ram_memory.sh)                           |
 | 6  | Gets the current temperature of the machine's central processing unit (CPU).                                                          | [cpu_temp.sh](https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh)                               |
 | 7  | Retrieves the current overall CPU usage of the machine.                                                                               | [cpu_usage.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/cpu_usage.sh)                             |
-| 8  | Blocks certain websites from being visited on the local machine by modifying the hosts file.                                          | [web_block.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/web_block.sh)                             |
-| 9  | Creates a backup of the system's files, compresses the backup, and encrypts the resulting archive for storage.                      | [backup.sh](https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh)                                   |
-| 10 | Displays processes that are not being waited on by any parent process. Orphan processes are created when the parent process terminates. | [orphans.sh](https://github.com/djeada/Bash-scripts/blob/master/src/orphans.sh)                                 |
-| 11 | Displays processes that are in an undead state, also known as a "zombie" state. Zombie processes have completed execution but remain in the process table.   | [zombies.sh](https://github.com/djeada/Bash-scripts/blob/master/src/zombies.sh)                                 |
-| 12 | Displays disk usage information with advanced filtering, sorting, and multiple output formats. | [disk_usage.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/disk_usage.sh) |
-| 13 | Adjusts the system audio volume by percentage or predefined modes using PulseAudio. | [adjust_volume.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/adjust_volume.sh) |
-| 14 | Completely removes Node.js and npm, then reinstalls them from the distribution package manager or nodejs.org. | [purge_and_reinstall_nodejs.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_and_reinstall_nodejs.sh) |
-| 15 | Safely uninstalls user-installed Python pip packages while preserving essential system packages. | [purge_pip.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_pip.sh) |
+| 8  | Monitors network bandwidth in real time, highlights heavy usage, and can log or emit JSON reports.                                   | [network_bandwidth.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/network_bandwidth.sh)             |
+| 9  | Monitors CPU, memory, and disk usage on a schedule, logging issues and optionally sending email alerts.                              | [server_health_monitor.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/server_health_monitor.sh)     |
+| 10 | Blocks certain websites from being visited on the local machine by modifying the hosts file.                                          | [web_block.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/web_block.sh)                             |
+| 11 | Creates a backup of the system's files, compresses the backup, and encrypts the resulting archive for storage.                       | [backup.sh](https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh)                                   |
+| 12 | Displays processes that are not being waited on by any parent process. Orphan processes are created when the parent process terminates. | [orphans.sh](https://github.com/djeada/Bash-scripts/blob/master/src/orphans.sh)                                 |
+| 13 | Displays processes that are in an undead state, also known as a "zombie" state. Zombie processes have completed execution but remain in the process table. | [zombies.sh](https://github.com/djeada/Bash-scripts/blob/master/src/zombies.sh)                                 |
+| 14 | Displays disk usage information with advanced filtering, sorting, and multiple output formats.                                        | [disk_usage.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/disk_usage.sh)                           |
+| 15 | Adjusts the system audio volume by percentage or predefined modes using PulseAudio.                                                   | [adjust_volume.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/adjust_volume.sh)                     |
+| 16 | Adds Signal Desktop's APT repository and installs the package on Debian-based systems.                                                | [install_signal.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/install_signal.sh)                   |
+| 17 | Installs the recommended NVIDIA driver on Ubuntu and checks Steam's desktop entry for GPU preference.                                 | [install_nvidia_and_prepare_steam.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/install_nvidia_and_prepare_steam.sh) |
+| 18 | Installs the XFCE desktop on Linux Mint and sets it as the default LightDM session.                                                   | [xfce-default.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/xfce-default.sh)                       |
+| 19 | Completely removes Node.js and npm, then reinstalls them from the distribution package manager or nodejs.org.                        | [purge_and_reinstall_nodejs.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_and_reinstall_nodejs.sh) |
+| 20 | Safely uninstalls user-installed Python pip packages while preserving essential system packages.                                      | [purge_pip.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_pip.sh)                             |
 
 ### Programming workflow
 
@@ -560,20 +565,13 @@ GitHub repository backups use a two-stage workflow:
 ./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --resume
 ```
 
-Use a token during discovery to include private repositories visible to that token:
-
-```bash
-./src/download_all_github_repos.sh discover --user alice --token "$GITHUB_TOKEN" --output repos.json
-./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --protocol ssh --resume
-```
-
-Edit the generated manifest to disable repositories or choose per-repository modes. Use `mode: "mirror"` for full Git backups, `mode: "archive"` for HTTPS snapshots without Git history, and `mode: "sparse"` with `paths` for selected subdirectories. For SSH backups, configure your normal GitHub SSH key or SSH agent and run backup with `--protocol ssh`.
+Edit the generated manifest to disable repositories or choose per-repository modes. Use `mode: "mirror"` for full Git backups, `mode: "archive"` for HTTPS snapshots without Git history, and `mode: "sparse"` with `paths` for selected subdirectories.
 
 ### Utility
 
 | # | Description | Code |
 |---|-------------|------|
-| 1	| Finds the public IP address of the device running the script. | [ip_info.sh](https://github.com/djeada/Bash-scripts/blob/master/src/ip_info.sh) |
+| 1	| Displays public and private IP details, optional geolocation data, and interface-specific addresses. | [ip_info.sh](https://github.com/djeada/Bash-scripts/blob/master/src/ip_info.sh) |
 | 2	| Deletes all files in the trash bin. | [empty_trash.sh](https://github.com/djeada/Bash-scripts/blob/master/src/empty_trash.sh) |
 | 3	| Extracts compressed archive files (tar, tar.gz, tar.bz2, zip, rar, 7z, bz2, gz, and more) to a specified output directory. | [extract.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/extract.sh) |
 | 4	| Determines which programs are currently using a specified port number on the local system. | [program_on_port.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/program_on_port.sh) |
@@ -584,10 +582,11 @@ Edit the generated manifest to disable repositories or choose per-repository mod
 | 9	| Measures the time it takes to run a program with the specified input parameters. Output the elapsed time in seconds. | [time_execution.sh](https://github.com/djeada/Bash-scripts/blob/master/src/time_execution.sh) |
 | 10	| Downloads the audio from a YouTube video or playlist in MP3 format. Specify the video or playlist URL and the destination directory for the downloaded files. | [youtube_to_mp3.sh](https://github.com/djeada/Bash-scripts/blob/master/src/youtube_to_mp3.sh) |
 | 11	| Clears the local caches in the user's cache directory (e.g. `~/.cache`) that are older than a specified number of days. | [clear_cache.sh](https://github.com/djeada/Bash-scripts/blob/master/src/clear_cache.sh) |
-| 12 | Resizes all JPG files in the current directory to a specified dimension (A4). | [resize_to_a4.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/resize_to_a4.sh) |
-| 13 | Fetches and displays current weather conditions for a specified city using the wttr.in service. | [display_weather.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/display_weather.sh) |
-| 14 | Converts Markdown files to PDF format with automatic page breaks and concatenation. | [generate_books.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/generate_books.sh) |
-| 15 | Displays an elapsed time counter in HH:MM:SS format, updated every second. | [timer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/timer.sh) |
+| 12 | Backs up Firefox profiles to a USB drive and restores them later with profile discovery and safety checks. | [firefox_profile_usb.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/firefox_profile_usb.sh) |
+| 13 | Resizes all JPG files in the current directory to a specified dimension (A4). | [resize_to_a4.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/resize_to_a4.sh) |
+| 14 | Fetches and displays current weather conditions for a specified city using the wttr.in service. | [display_weather.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/display_weather.sh) |
+| 15 | Converts Markdown files to PDF format with automatic page breaks and concatenation. | [generate_books.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/generate_books.sh) |
+| 16 | Displays an elapsed time counter in HH:MM:SS format, updated every second. | [timer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/timer.sh) |
 
 ### Multimedia
 

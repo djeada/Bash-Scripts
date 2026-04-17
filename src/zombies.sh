@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Script Name: zombies.sh
 # Description: Displays zombie (defunct) processes currently present in the system
 #              and provides information about their parent processes.
-# Usage: chmod +x zombies.sh && ./zombies.sh [OPTIONS]
+# Usage: ./zombies.sh [OPTIONS]
 # Options:
 #   -h, --help      Show this help message
 #   -v, --verbose   Show verbose output with detailed process information
@@ -19,6 +18,8 @@ set -euo pipefail
 #   ./zombies.sh --count            # Show only count
 #   ./zombies.sh --watch            # Monitor continuously
 #   ./zombies.sh --parents          # Include parent process info
+
+set -euo pipefail
 
 # Color codes for output formatting
 readonly RED='\033[0;31m'
@@ -43,13 +44,13 @@ WATCH_INTERVAL=2
 # Function to display help
 show_help() {
     cat << EOF
-${BOLD}Usage:${NC} $0 [OPTIONS]
+Usage: $0 [OPTIONS]
 
 This script displays zombie (defunct) processes currently present in the system.
 Zombie processes are terminated processes that still have entries in the process
 table because their parent hasn't read their exit status yet.
 
-${BOLD}OPTIONS:${NC}
+OPTIONS:
     -h, --help      Show this help message and exit
     -v, --verbose   Show verbose output with detailed process information
     -c, --count     Show only the count of zombie processes
@@ -58,7 +59,7 @@ ${BOLD}OPTIONS:${NC}
     -u, --user      Show zombie processes for current user only
     -t, --tree      Show process tree for zombie processes
 
-${BOLD}EXAMPLES:${NC}
+EXAMPLES:
     $0                    # Show all zombie processes
     $0 --verbose          # Show detailed process information
     $0 --count            # Show only the number of zombie processes
@@ -66,13 +67,13 @@ ${BOLD}EXAMPLES:${NC}
     $0 --parents          # Include parent process information
     $0 --user --verbose   # Show current user's zombies with details
 
-${BOLD}ABOUT ZOMBIE PROCESSES:${NC}
+ABOUT ZOMBIE PROCESSES:
     - Zombie processes consume minimal system resources (just process table entry)
     - They indicate that a parent process hasn't properly waited for child termination
     - Large numbers of zombies may indicate a bug in parent processes
     - Zombies are automatically cleaned up when their parent process exits
 
-${BOLD}TROUBLESHOOTING:${NC}
+TROUBLESHOOTING:
     - If you see many zombies, check the parent process for bugs
     - Killing the parent process will clean up zombie children
     - Zombies cannot be killed directly with kill signals
@@ -200,11 +201,13 @@ format_elapsed_time() {
 # Function to check for zombie processes
 check_zombies() {
     local zombie_count=0
-    local -a ps_options=(-eo "pid,ppid,user,comm,state,etime,lstart")
+    local -a ps_options
 
-    # Adjust ps options for user-only mode
+    # Build ps options - avoid combining -e with -u since -e overrides user filter
     if [[ "$USER_ONLY" == true ]]; then
-        ps_options+=(-u "$(id -un)")
+        ps_options=(-u "$(id -un)" -o "pid,ppid,user,comm,state,etime,lstart")
+    else
+        ps_options=(-eo "pid,ppid,user,comm,state,etime,lstart")
     fi
 
     # Get zombie processes

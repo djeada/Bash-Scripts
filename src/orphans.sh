@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Script Name: orphans.sh
 # Description: This script displays processes that might be orphans,
 #              i.e. processes whose parent process is not running.
-# Usage: chmod +x orphans.sh && ./orphans.sh [OPTIONS]
+# Usage: ./orphans.sh [OPTIONS]
 # Options:
 #   -h, --help     Show this help message
 #   -v, --verbose  Show verbose output with process details
@@ -15,6 +14,8 @@ set -euo pipefail
 #   ./orphans.sh --verbose          # Show detailed information
 #   ./orphans.sh --count            # Show only count
 #   ./orphans.sh --user             # Show only current user's processes
+
+set -euo pipefail
 
 # Color codes for output formatting
 readonly RED='\033[0;31m'
@@ -126,10 +127,12 @@ check_dependencies() {
 
 # Function to get process information based on user preference
 get_process_info() {
-    local -a ps_options=(-eo "ppid,pid,user,comm")
+    local -a ps_options
 
     if [[ "$USER_ONLY" == true ]]; then
-        ps_options+=(-u "$(id -un)")
+        ps_options=(-u "$(id -un)" -o "ppid,pid,user,comm")
+    else
+        ps_options=(-eo "ppid,pid,user,comm")
     fi
 
     # Get process information and handle potential ps command failures
@@ -162,7 +165,7 @@ check_orphans() {
     fi
 
     while IFS=' ' read -r ppid pid user comm; do
-        ((line_number++))
+        line_number=$((line_number + 1))
 
         # Skip empty lines or malformed entries
         if [[ -z "$ppid" || -z "$pid" ]]; then
@@ -176,8 +179,8 @@ check_orphans() {
         fi
 
         # Check if the parent PID exists in our running processes
-        if ! grep -qw "^$ppid$" "$PIDS_TMP_FILE"; then
-            ((orphan_count++))
+        if ! grep -Fxq "$ppid" "$PIDS_TMP_FILE"; then
+            orphan_count=$((orphan_count + 1))
 
             if [[ "$COUNT_ONLY" == false ]]; then
                 if [[ "$VERBOSE" == true ]]; then
