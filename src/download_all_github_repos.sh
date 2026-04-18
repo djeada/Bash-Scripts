@@ -1118,24 +1118,6 @@ repo_clone_url() {
         else
             printf 'https://github.com/%s.git' "$full_name"
         fi
-    else
-        if [[ -n "$clone_url" ]]; then
-            printf '%s' "$clone_url"
-        else
-            printf 'https://github.com/%s.git' "$full_name"
-        fi
-    fi
-}
-
-git_with_optional_auth() {
-    if [[ -n "$GITHUB_TOKEN" && "$PROTOCOL" == "https" ]]; then
-        GIT_TERMINAL_PROMPT=0 \
-        GIT_CONFIG_COUNT=1 \
-        GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
-        GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer $GITHUB_TOKEN" \
-            git "$@"
-    else
-        GIT_TERMINAL_PROMPT=0 git "$@"
     fi
 }
 
@@ -1492,7 +1474,12 @@ main() {
         print_usage
         exit 1
     }
-    shift || true
+
+    case "$COMMAND" in
+        discover|backup|validate-manifest|convert-manifest|-h|--help|help) shift || true ;;
+        --*) COMMAND="discover" ;;
+        *) shift || true ;;
+    esac
 
     case "$COMMAND" in
         discover)
