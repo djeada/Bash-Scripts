@@ -59,7 +59,7 @@ RESUME=false
 NON_INTERACTIVE=false
 CHECKSUM=true
 VERIFY_AFTER_BACKUP=false
-PARALLEL_JOBS=1
+PARALLEL_JOBS=""
 
 RATE_LIMIT_MODE="wait"
 SLEEP_BETWEEN_REPOS=0
@@ -78,6 +78,8 @@ DISCOVER_ENDPOINT=""
 DISCOVER_SOURCE_TYPE=""
 DISCOVER_SOURCE_VALUE=""
 DISCOVER_OWNER_FILTER=""
+MIRROR_TOTAL=0
+MIRROR_PROGRESS_FILE=""
 
 ###############################################################################
 # Usage
@@ -161,7 +163,7 @@ Backup behavior:
   --no-checksum               Disable archive checksums.
   --verify-after-backup       Run lightweight validation after each backup.
   --sleep SECONDS             Sleep between repositories.
-  --parallel N                Accepted for compatibility. Stateful backup runs serially.
+  --parallel N                Number of concurrent backup jobs. Defaults to CPU cores.
 
 Cron/logging:
   --non-interactive           Do not prompt. Current implementation never prompts.
@@ -409,6 +411,18 @@ manifest_checksum() {
     sha256sum "$1" | awk '{print $1}'
 }
 
+cpu_count() {
+    if command -v nproc >/dev/null 2>&1; then
+        nproc
+    elif command -v getconf >/dev/null 2>&1; then
+        getconf _NPROCESSORS_ONLN
+    elif command -v sysctl >/dev/null 2>&1; then
+        sysctl -n hw.ncpu
+    else
+        printf '1\n'
+    fi
+}
+
 countdown_sleep() {
     local seconds="$1"
     [[ "$seconds" =~ ^[0-9]+$ ]] || return 0
@@ -482,6 +496,7 @@ curl_headers() {
 ###############################################################################
 github_api_page() {
     local url="$1"
+    local output_file="$2"
     local attempt=1
     local delay="$RETRY_DELAY"
     local headers body status curl_rc remaining message
@@ -502,8 +517,8 @@ github_api_page() {
 
         if [[ $curl_rc -eq 0 && "$status" =~ ^2[0-9][0-9]$ ]]; then
             GITHUB_NEXT_URL="$(extract_next_link "$headers")"
-            cat "$body"
-            rm -f "$headers" "$body"
+            mv "$body" "$output_file"
+            rm -f "$headers"
             return 0
         fi
 
@@ -546,11 +561,17 @@ github_api_page() {
 
 github_api_paged() {
     local url="$1"
-    local page
+    local page_file
 
     while [[ -n "$url" ]]; do
-        page="$(github_api_page "$url")" || return 1
-        printf '%s\n' "$page"
+        page_file="$(mktemp)"
+        github_api_page "$url" "$page_file" || {
+            rm -f "$page_file"
+            return 1
+        }
+        cat "$page_file"
+        printf '\n'
+        rm -f "$page_file"
         url="$GITHUB_NEXT_URL"
     done
 }
@@ -862,28 +883,33 @@ update_state_repo() {
     local mode="$4"
     local output_path="$5"
     local error_message="${6:-}"
-    local tmp
+    local lock_file="${STATE_FILE}.lock"
 
-    tmp="$(mktemp)"
-    jq \
-        --arg updated_at "$(now_utc_iso)" \
-        --arg key "$key" \
-        --arg status "$status" \
-        --arg full_name "$full_name" \
-        --arg mode "$mode" \
-        --arg output_path "$output_path" \
-        --arg error_message "$error_message" '
-        .updated_at = $updated_at
-        | .repositories[$key] = {
-            status: $status,
-            full_name: $full_name,
-            mode: $mode,
-            output_path: $output_path,
-            error: $error_message,
-            updated_at: $updated_at
-          }
-    ' "$STATE_FILE" > "$tmp"
-    mv "$tmp" "$STATE_FILE"
+    (
+        local tmp
+
+        flock 8
+        tmp="$(mktemp)"
+        jq \
+            --arg updated_at "$(now_utc_iso)" \
+            --arg key "$key" \
+            --arg status "$status" \
+            --arg full_name "$full_name" \
+            --arg mode "$mode" \
+            --arg output_path "$output_path" \
+            --arg error_message "$error_message" '
+            .updated_at = $updated_at
+            | .repositories[$key] = {
+                status: $status,
+                full_name: $full_name,
+                mode: $mode,
+                output_path: $output_path,
+                error: $error_message,
+                updated_at: $updated_at
+              }
+        ' "$STATE_FILE" > "$tmp"
+        mv "$tmp" "$STATE_FILE"
+    ) 8>"$lock_file"
 }
 
 write_summary() {
@@ -1088,10 +1114,11 @@ parse_backup_args() {
     is_non_negative_integer "$RETRY_DELAY" || die "--retry-delay expects a non-negative integer."
     is_positive_integer "$RETRY_BACKOFF" || die "--retry-backoff expects a positive integer."
     is_non_negative_integer "$SLEEP_BETWEEN_REPOS" || die "--sleep expects a non-negative integer."
+    PARALLEL_JOBS="${PARALLEL_JOBS:-$(cpu_count)}"
     is_positive_integer "$PARALLEL_JOBS" || die "--parallel expects a positive integer."
 
-    if (( PARALLEL_JOBS > 1 )); then
-        warn "--parallel is accepted for compatibility, but resumable stateful backup currently runs serially."
+    if (( PARALLEL_JOBS > 1 && SLEEP_BETWEEN_REPOS > 0 )); then
+        warn "--sleep delays job launches when backups run in parallel."
     fi
     if [[ "$NON_INTERACTIVE" == true ]]; then
         debug "Running in non-interactive mode."
@@ -1304,9 +1331,30 @@ verify_backup_output() {
 write_archive_checksum() {
     local output_path="$1"
     local checksum_file="$RUN_DIR/checksums.sha256"
+    local lock_file="${checksum_file}.lock"
 
     [[ "$CHECKSUM" == true ]] || return 0
-    sha256sum "$output_path" >> "$checksum_file"
+    (
+        flock 8
+        sha256sum "$output_path" >> "$checksum_file"
+    ) 8>"$lock_file"
+}
+
+log_mirror_progress() {
+    local full_name="$1"
+    local count
+    local lock_file="${MIRROR_PROGRESS_FILE}.lock"
+
+    (( MIRROR_TOTAL > 0 )) || return 0
+    [[ -n "$MIRROR_PROGRESS_FILE" ]] || return 0
+
+    (
+        flock 8
+        count="$(cat "$MIRROR_PROGRESS_FILE" 2>/dev/null || printf '0')"
+        count=$((count + 1))
+        printf '%s\n' "$count" > "$MIRROR_PROGRESS_FILE"
+        info "finished ${count}/${MIRROR_TOTAL}: $full_name"
+    ) 8>"$lock_file"
 }
 
 backup_repo_once() {
@@ -1354,6 +1402,9 @@ backup_repo_with_retries() {
 
     if [[ "$RESUME" == true && "$status" == "done" ]]; then
         info "Skipping completed repository from state: $full_name"
+        if [[ "$mode" == "mirror" ]]; then
+            log_mirror_progress "$full_name"
+        fi
         return 0
     fi
 
@@ -1362,6 +1413,9 @@ backup_repo_with_retries() {
         if output_path="$(backup_repo_once "$repo_json")"; then
             update_state_repo "$key" "done" "$full_name" "$mode" "$output_path" ""
             info "Completed $full_name -> $output_path"
+            if [[ "$mode" == "mirror" ]]; then
+                log_mirror_progress "$full_name"
+            fi
             return 0
         fi
 
@@ -1379,9 +1433,46 @@ backup_repo_with_retries() {
     done
 }
 
+BACKUP_FAILURES=0
+
+run_backup_jobs() {
+    local repos_file="$1"
+    local repo_json running=0
+
+    while IFS= read -r repo_json; do
+        [[ -z "$repo_json" ]] && continue
+
+        (
+            if backup_repo_with_retries "$repo_json"; then
+                exit 0
+            fi
+            exit 1
+        ) &
+        running=$((running + 1))
+
+        if (( SLEEP_BETWEEN_REPOS > 0 )); then
+            countdown_sleep "$SLEEP_BETWEEN_REPOS"
+        fi
+
+        if (( running >= PARALLEL_JOBS )); then
+            if ! wait -n; then
+                BACKUP_FAILURES=$((BACKUP_FAILURES + 1))
+            fi
+            running=$((running - 1))
+        fi
+    done < "$repos_file"
+
+    while (( running > 0 )); do
+        if ! wait -n; then
+            BACKUP_FAILURES=$((BACKUP_FAILURES + 1))
+        fi
+        running=$((running - 1))
+    done
+}
+
 run_backup() {
-    local manifest_json checksum repo_count enabled_count failures=0
-    local repos_file repo_json
+    local manifest_json checksum repo_count enabled_count
+    local repos_file
 
     manifest_json="$(mktemp)"
     manifest_to_json "$MANIFEST" > "$manifest_json"
@@ -1399,21 +1490,27 @@ run_backup() {
     jq -c '.repositories[] | select(.enabled == true)' "$manifest_json" > "$repos_file"
     repo_count="$(jq '.repositories | length' "$manifest_json")"
     enabled_count="$(wc -l < "$repos_file" | tr -d ' ')"
+    MIRROR_TOTAL="$(jq --arg override "$BACKUP_MODE" '
+        [
+          .repositories[]
+          | select(.enabled == true)
+          | select((if $override != "" then $override else (.mode // "mirror") end) == "mirror")
+        ]
+        | length
+    ' "$manifest_json")"
+    MIRROR_PROGRESS_FILE="$RUN_DIR/.mirror-progress"
+    printf '0\n' > "$MIRROR_PROGRESS_FILE"
     info "Manifest repositories: $repo_count total, $enabled_count enabled."
+    info "Parallel backup jobs: $PARALLEL_JOBS"
 
-    while IFS= read -r repo_json; do
-        [[ -z "$repo_json" ]] && continue
-        if ! backup_repo_with_retries "$repo_json"; then
-            failures=$((failures + 1))
-        fi
-        countdown_sleep "$SLEEP_BETWEEN_REPOS"
-    done < "$repos_file"
+    BACKUP_FAILURES=0
+    run_backup_jobs "$repos_file"
 
     write_summary
     rm -f "$manifest_json" "$repos_file"
 
-    if (( failures > 0 )); then
-        die "$failures repository backup(s) failed. Re-run with --resume after fixing the issue."
+    if (( BACKUP_FAILURES > 0 )); then
+        die "$BACKUP_FAILURES repository backup(s) failed. Re-run with --resume after fixing the issue."
     fi
 
     info "Backup completed successfully."
