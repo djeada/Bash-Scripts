@@ -77,6 +77,7 @@ GITHUB_NEXT_URL=""
 DISCOVER_ENDPOINT=""
 DISCOVER_SOURCE_TYPE=""
 DISCOVER_SOURCE_VALUE=""
+DISCOVER_OWNER_FILTER=""
 
 ###############################################################################
 # Usage
@@ -109,7 +110,8 @@ print_discover_usage() {
 Usage: download_all_github_repos.sh discover [OPTIONS]
 
 Source options:
-  --user USER                 Discover repositories for a GitHub user.
+  --user USER                 Discover repositories for a GitHub user. With --token,
+                              include private repositories visible to that token.
   --org ORG                   Discover repositories for a GitHub organization.
   --authenticated-user        Discover repositories visible to the token owner.
   --token TOKEN               GitHub token. Defaults to GITHUB_TOKEN.
@@ -956,12 +958,19 @@ parse_discover_args() {
 }
 
 set_discover_endpoint_and_source() {
+    DISCOVER_OWNER_FILTER=""
+
     if [[ "$AUTHENTICATED_USER" == true ]]; then
         DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}"
         DISCOVER_SOURCE_TYPE="authenticated-user"
         DISCOVER_SOURCE_VALUE="token-owner"
     elif [[ -n "$GITHUB_USER" ]]; then
-        DISCOVER_ENDPOINT="https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=all"
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+            DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}&affiliation=owner,collaborator,organization_member"
+            DISCOVER_OWNER_FILTER="$GITHUB_USER"
+        else
+            DISCOVER_ENDPOINT="https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=all"
+        fi
         DISCOVER_SOURCE_TYPE="user"
         DISCOVER_SOURCE_VALUE="$GITHUB_USER"
     else
@@ -986,9 +995,11 @@ discover_repositories() {
         --argjson include_forks "$DISCOVER_INCLUDE_FORKS" \
         --argjson include_archived "$DISCOVER_INCLUDE_ARCHIVED" \
         --arg visibility "$VISIBILITY" \
+        --arg owner_filter "$DISCOVER_OWNER_FILTER" \
         --arg name_regex "$NAME_REGEX" \
         --arg max_repos "${MAX_REPOS:-0}" '
         add
+        | map(select($owner_filter == "" or ((.owner.login // "") | ascii_downcase) == ($owner_filter | ascii_downcase)))
         | map(select($include_forks or (.fork | not)))
         | map(select($include_archived or (.archived | not)))
         | map(select(
