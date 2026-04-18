@@ -1,115 +1,195 @@
 #!/usr/bin/env bash
 
 # Script Name: purge_and_reinstall_nodejs.sh
-# Description: Purges existing Node.js/npm installations and optionally reinstalls
-#              with support for distro packages or direct downloads from nodejs.org.
+# Description: Detects, purges, and optionally reinstalls Node.js/npm using safer
+#              defaults. Package-manager installs and official nodejs.org
+#              tarballs are supported.
 # Usage: purge_and_reinstall_nodejs.sh [options]
-#
-# Options:
-#   --purge-only          Only purge Node.js/npm without reinstalling.
-#   --distro              Install from distro package manager (apt, dnf, brew, etc.).
-#   --latest              Install the latest version from nodejs.org.
-#   --lts                 Install the latest LTS version from nodejs.org.
-#   --version VERSION     Install a specific version (e.g., 20.10.0).
-#   --skip-user-cleanup   Skip cleaning user-specific Node.js directories.
-#   -d, --dry-run         Show what would be done without making changes.
-#   -v, --verbose         Enable verbose output.
-#   -h, --help            Display this help message.
-#   -V, --version-info    Display script version.
-#
-# Examples:
-#   purge_and_reinstall_nodejs.sh --purge-only
-#   purge_and_reinstall_nodejs.sh --distro
-#   purge_and_reinstall_nodejs.sh --latest --verbose
-#   purge_and_reinstall_nodejs.sh --lts --dry-run
-#   purge_and_reinstall_nodejs.sh --version 20.10.0
 
 set -euo pipefail
 
-VERSION="2.0.0"
+VERSION="3.0.0"
+
 DRY_RUN=false
 VERBOSE=false
+ASSUME_YES=false
 PURGE_ONLY=false
-INSTALL_DISTRO=false
-INSTALL_LATEST=false
-INSTALL_LTS=false
-INSTALL_VERSION=""
-SKIP_USER_CLEANUP=false
+PURGE_SYSTEM=false
+PURGE_USER_CACHE=false
+REMOVE_ALL_VERSION_MANAGERS=false
+ALL_USERS=false
+NO_PURGE=false
+VERIFY_DOWNLOAD=true
+ENABLE_COREPACK=false
 
-# Detected system information
+INSTALL_METHOD=""
+INSTALL_CHANNEL=""
+INSTALL_VERSION=""
+INSTALL_PREFIX="/opt/nodejs"
+SYMLINK_DIR="/usr/local/bin"
+
 OS_TYPE=""
 DISTRO=""
+DISTRO_LIKE=""
 ARCH=""
+LIBC=""
 PKG_MANAGER=""
 
-# Function to display usage information
-print_usage() {
-    echo "Usage: $0 [options]"
-    echo
-    echo "Options:"
-    echo "  --purge-only          Only purge Node.js/npm without reinstalling."
-    echo "  --distro              Install from distro package manager (apt, dnf, brew, etc.)."
-    echo "  --latest              Install the latest version from nodejs.org."
-    echo "  --lts                 Install the latest LTS version from nodejs.org."
-    echo "  --version VERSION     Install a specific version (e.g., 20.10.0)."
-    echo "  --skip-user-cleanup   Skip cleaning user-specific Node.js directories."
-    echo "  -d, --dry-run         Show what would be done without making changes."
-    echo "  -v, --verbose         Enable verbose output."
-    echo "  -h, --help            Display this help message."
-    echo "  -V, --version-info    Display script version."
-    echo
-    echo "Examples:"
-    echo "  $0 --purge-only"
-    echo "  $0 --distro"
-    echo "  $0 --latest --verbose"
-    echo "  $0 --lts --dry-run"
-    echo "  $0 --version 20.10.0"
+VERSION_MANAGERS_TO_REMOVE=()
+TMP_DIRS=()
+
+cleanup_tmp_dirs() {
+    local tmp_dir
+
+    for tmp_dir in "${TMP_DIRS[@]}"; do
+        if [[ -n "$tmp_dir" && -d "$tmp_dir" ]]; then
+            rm -rf "$tmp_dir"
+        fi
+    done
 }
 
-# Function to display version information
+trap cleanup_tmp_dirs EXIT
+
+print_usage() {
+    cat <<EOF
+Usage: $0 [options]
+
+Safe default:
+  With no options, this script only detects current Node.js installations.
+
+Actions:
+  --detect                    Detect installations and exit.
+  --purge-only                Purge system Node.js/npm installations only.
+  --purge-system              Purge package-managed and unmanaged system installs.
+  --purge-user-cache          Remove current user's Node/npm cache files.
+  --all-users                 Apply user cleanup to all users; requires root.
+  --remove-version-manager M  Remove nvm, fnm, volta, asdf-node, or mise-node.
+  --remove-all-version-managers
+                              Remove supported Node.js version manager data.
+
+Install:
+  --distro, --install-distro  Install from the detected package manager.
+  --official                  Install an official nodejs.org tarball; defaults to LTS.
+  --lts                       Install latest LTS from nodejs.org.
+  --current, --latest         Install latest Current from nodejs.org.
+  --version VERSION           Install a specific version from nodejs.org.
+  --no-purge                  Install without purging system installations first.
+  --install-prefix DIR        Install official tarballs under DIR.
+                              Default: /opt/nodejs
+  --symlink-dir DIR           Create node/npm/npx/corepack symlinks in DIR.
+                              Default: /usr/local/bin
+  --skip-verify               Skip checksum/signature verification.
+  --enable-corepack           Run corepack enable after official install.
+
+Safety and output:
+  -y, --yes                   Do not ask for confirmation.
+  -d, --dry-run               Show what would be done without making changes.
+  -v, --verbose               Enable verbose output.
+  -h, --help                  Display this help message.
+  -V, --version-info          Display script version.
+
+Compatibility:
+  --skip-user-cleanup         Accepted for older usage; user cleanup is now opt-in.
+
+Examples:
+  $0
+  $0 --purge-only --dry-run
+  $0 --purge-only --yes
+  $0 --lts --yes
+  $0 --distro --purge-user-cache --yes
+  $0 --version 24.15.0 --install-prefix /opt/nodejs --yes
+EOF
+}
+
 print_version() {
     echo "$0 version $VERSION"
 }
 
-# Logging function
 log() {
-    local message="$1"
     if [[ "$VERBOSE" == true ]]; then
-        echo "[INFO] $message"
+        echo "[INFO] $*"
     fi
 }
 
-# Error logging function
-log_error() {
-    echo "[ERROR] $1" >&2
-}
-
-# Warning logging function
 log_warn() {
-    echo "[WARN] $1" >&2
+    echo "[WARN] $*" >&2
 }
 
-# Execute or simulate command based on dry-run mode
+log_error() {
+    echo "[ERROR] $*" >&2
+}
+
+die() {
+    log_error "$*"
+    exit 1
+}
+
 run_cmd() {
     if [[ "$DRY_RUN" == true ]]; then
         echo "[DRY-RUN] Would execute: $*"
-    else
-        log "Executing: $*"
-        "$@"
+        return 0
+    fi
+
+    log "Executing: $*"
+    "$@"
+}
+
+require_command() {
+    local command_name="$1"
+
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        die "Required command not found: $command_name"
     fi
 }
 
-# Execute command with sudo or simulate based on dry-run mode
-run_sudo() {
+run_as_root() {
     if [[ "$DRY_RUN" == true ]]; then
-        echo "[DRY-RUN] Would execute with sudo: $*"
+        if [[ $EUID -eq 0 ]]; then
+            echo "[DRY-RUN] Would execute: $*"
+        else
+            echo "[DRY-RUN] Would execute with sudo: $*"
+        fi
+        return 0
+    fi
+
+    if [[ $EUID -eq 0 ]]; then
+        log "Executing as root: $*"
+        "$@"
     else
+        require_command sudo
         log "Executing with sudo: $*"
         sudo "$@"
     fi
 }
 
-# Detect operating system type
+remove_root_path() {
+    local path="$1"
+
+    case "$path" in
+        ""|"/"|"/usr"|"/usr/local"|"/opt"|"/home"|"$HOME")
+            die "Refusing to remove unsafe path: $path"
+            ;;
+    esac
+
+    if [[ -e "$path" || -L "$path" || "$DRY_RUN" == true ]]; then
+        run_as_root rm -rf -- "$path"
+    fi
+}
+
+remove_user_path() {
+    local path="$1"
+
+    case "$path" in
+        ""|"/"|"$HOME")
+            die "Refusing to remove unsafe user path: $path"
+            ;;
+    esac
+
+    if [[ -e "$path" || -L "$path" || "$DRY_RUN" == true ]]; then
+        run_cmd rm -rf -- "$path"
+    fi
+}
+
 detect_os() {
     local os_name
     os_name=$(uname -s)
@@ -117,30 +197,36 @@ detect_os() {
     case "$os_name" in
         Darwin)
             OS_TYPE="macos"
-            DISTRO="macOS"
+            DISTRO="macos"
+            DISTRO_LIKE=""
             ;;
         Linux)
             OS_TYPE="linux"
-            if [[ -f /etc/os-release ]]; then
-                DISTRO=$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"')
+            if [[ -r /etc/os-release ]]; then
+                # shellcheck disable=SC1091
+                . /etc/os-release
+                DISTRO="${ID:-unknown}"
+                DISTRO_LIKE="${ID_LIKE:-}"
             else
                 DISTRO="unknown"
+                DISTRO_LIKE=""
             fi
             ;;
         MINGW*|MSYS*|CYGWIN*)
             OS_TYPE="windows"
-            DISTRO="Windows"
+            DISTRO="windows"
+            DISTRO_LIKE=""
             ;;
         *)
             OS_TYPE="unknown"
             DISTRO="unknown"
+            DISTRO_LIKE=""
             ;;
     esac
 
     log "Detected OS: $OS_TYPE ($DISTRO)"
 }
 
-# Detect system architecture and map to Node.js naming convention
 detect_arch() {
     local machine_arch
     machine_arch=$(uname -m)
@@ -166,33 +252,48 @@ detect_arch() {
             ;;
         *)
             ARCH="$machine_arch"
-            log_warn "Unknown architecture: $machine_arch, using as-is"
+            log_warn "Unknown architecture: $machine_arch; using it as-is"
             ;;
     esac
 
     log "Detected architecture: $ARCH"
 }
 
-# Detect package manager
+detect_libc() {
+    LIBC=""
+
+    if [[ "$OS_TYPE" != "linux" ]]; then
+        return
+    fi
+
+    if command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; then
+        LIBC="musl"
+    else
+        LIBC="glibc"
+    fi
+
+    log "Detected libc: $LIBC"
+}
+
 detect_pkg_manager() {
     if [[ "$OS_TYPE" == "macos" ]]; then
-        if command -v brew &>/dev/null; then
+        if command -v brew >/dev/null 2>&1; then
             PKG_MANAGER="brew"
         else
             PKG_MANAGER="none"
         fi
     elif [[ "$OS_TYPE" == "linux" ]]; then
-        if command -v apt-get &>/dev/null; then
+        if command -v apt-get >/dev/null 2>&1; then
             PKG_MANAGER="apt"
-        elif command -v dnf &>/dev/null; then
+        elif command -v dnf >/dev/null 2>&1; then
             PKG_MANAGER="dnf"
-        elif command -v yum &>/dev/null; then
+        elif command -v yum >/dev/null 2>&1; then
             PKG_MANAGER="yum"
-        elif command -v pacman &>/dev/null; then
+        elif command -v pacman >/dev/null 2>&1; then
             PKG_MANAGER="pacman"
-        elif command -v zypper &>/dev/null; then
+        elif command -v zypper >/dev/null 2>&1; then
             PKG_MANAGER="zypper"
-        elif command -v apk &>/dev/null; then
+        elif command -v apk >/dev/null 2>&1; then
             PKG_MANAGER="apk"
         else
             PKG_MANAGER="none"
@@ -204,395 +305,911 @@ detect_pkg_manager() {
     log "Detected package manager: $PKG_MANAGER"
 }
 
-# Purge Node.js installed via package manager
-purge_pkg_manager() {
-    echo "Purging Node.js/npm via package manager ($PKG_MANAGER)..."
+detect_system() {
+    detect_os
+    detect_arch
+    detect_libc
+    detect_pkg_manager
+}
+
+is_package_owned() {
+    local path="$1"
+
+    [[ -e "$path" || -L "$path" ]] || return 1
 
     case "$PKG_MANAGER" in
         apt)
-            run_sudo apt-get purge -y nodejs npm 2>/dev/null || true
-            run_sudo apt-get autoremove -y 2>/dev/null || true
+            command -v dpkg >/dev/null 2>&1 && dpkg -S "$path" >/dev/null 2>&1
             ;;
-        dnf)
-            run_sudo dnf remove -y nodejs npm 2>/dev/null || true
-            ;;
-        yum)
-            run_sudo yum remove -y nodejs npm 2>/dev/null || true
+        dnf|yum|zypper)
+            command -v rpm >/dev/null 2>&1 && rpm -qf "$path" >/dev/null 2>&1
             ;;
         pacman)
-            run_sudo pacman -Rns --noconfirm nodejs npm 2>/dev/null || true
-            ;;
-        zypper)
-            run_sudo zypper remove -y nodejs npm 2>/dev/null || true
+            command -v pacman >/dev/null 2>&1 && pacman -Qo "$path" >/dev/null 2>&1
             ;;
         apk)
-            run_sudo apk del nodejs npm 2>/dev/null || true
+            command -v apk >/dev/null 2>&1 && apk info -W "$path" >/dev/null 2>&1
             ;;
         brew)
-            run_cmd brew uninstall node 2>/dev/null || true
+            command -v brew >/dev/null 2>&1 && brew list --formula -1 2>/dev/null | grep -qx "node"
             ;;
-        none)
-            log "No package manager detected, skipping package manager purge"
+        *)
+            return 1
             ;;
     esac
 }
 
-# Purge manually installed Node.js
-purge_manual_install() {
-    echo "Purging manually installed Node.js/npm..."
+is_unmanaged_system_path() {
+    local path="$1"
 
-    # Remove binaries found in PATH
-    local node_path npm_path npx_path
-    node_path=$(command -v node 2>/dev/null || true)
-    npm_path=$(command -v npm 2>/dev/null || true)
-    npx_path=$(command -v npx 2>/dev/null || true)
+    case "$path" in
+        /usr/local/bin/*|/usr/local/sbin/*|/opt/nodejs/*|/opt/node-v*|/opt/homebrew/bin/*|/opt/local/bin/*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
 
-    for bin_path in "$node_path" "$npm_path" "$npx_path"; do
-        if [[ -n "$bin_path" && -f "$bin_path" ]]; then
-            log "Removing binary: $bin_path"
-            run_sudo rm -f "$bin_path"
+print_detected_binaries() {
+    local binary path version_output owner_note
+    local binaries=(node npm npx corepack)
+
+    echo "Detected binaries:"
+    for binary in "${binaries[@]}"; do
+        path=$(command -v "$binary" 2>/dev/null || true)
+        if [[ -z "$path" ]]; then
+            echo "  $binary: not found"
+            continue
         fi
-    done
 
-    # Common installation directories (non-glob paths)
-    local dirs_to_remove=(
-        "/usr/local/lib/node_modules"
-        "/usr/local/include/node"
-        "/usr/local/share/doc/node"
-        "/opt/nodejs"
-    )
-
-    for dir in "${dirs_to_remove[@]}"; do
-        if [[ "$DRY_RUN" == true ]]; then
-            echo "[DRY-RUN] Would remove: $dir"
+        version_output=""
+        if version_output=$("$path" --version 2>/dev/null); then
+            :
         else
-            sudo rm -rf "$dir" 2>/dev/null || true
+            version_output="version unavailable"
         fi
-    done
 
-    # Glob patterns for man pages (handled separately for security)
-    local man_patterns=(
-        "/usr/local/share/man/man1/node.*"
-        "/usr/local/share/man/man1/npm.*"
-    )
-
-    for pattern in "${man_patterns[@]}"; do
-        if [[ "$DRY_RUN" == true ]]; then
-            echo "[DRY-RUN] Would remove files matching: $pattern"
-        else
-            # Use find for safer glob handling
-            local base_dir
-            base_dir=$(dirname "$pattern")
-            local file_pattern
-            file_pattern=$(basename "$pattern")
-            if [[ -d "$base_dir" ]]; then
-                sudo find "$base_dir" -maxdepth 1 -name "$file_pattern" -exec rm -f {} \; 2>/dev/null || true
-            fi
+        owner_note="unmanaged or unknown owner"
+        if is_package_owned "$path"; then
+            owner_note="package-managed"
         fi
+
+        echo "  $binary: $path ($version_output, $owner_note)"
     done
 }
 
-# Clean user-specific Node.js directories
-cleanup_user_dirs() {
-    if [[ "$SKIP_USER_CLEANUP" == true ]]; then
-        log "Skipping user directory cleanup"
+print_detected_version_managers() {
+    local found=false
+    local xdg_data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+
+    echo "Detected version-manager data:"
+
+    if [[ -d "$HOME/.nvm" ]]; then
+        echo "  nvm: $HOME/.nvm"
+        found=true
+    fi
+    if [[ -d "$HOME/.fnm" ]]; then
+        echo "  fnm: $HOME/.fnm"
+        found=true
+    fi
+    if [[ -d "$xdg_data_home/fnm" ]]; then
+        echo "  fnm: $xdg_data_home/fnm"
+        found=true
+    fi
+    if [[ -d "$HOME/.volta" ]]; then
+        echo "  volta: $HOME/.volta"
+        found=true
+    fi
+    if [[ -d "$HOME/.asdf/installs/nodejs" ]]; then
+        echo "  asdf-node: $HOME/.asdf/installs/nodejs"
+        found=true
+    fi
+    if [[ -d "$xdg_data_home/mise/installs/node" ]]; then
+        echo "  mise-node: $xdg_data_home/mise/installs/node"
+        found=true
+    fi
+
+    if [[ "$found" == false ]]; then
+        echo "  none found"
+    fi
+}
+
+detect_installations() {
+    echo "System: $OS_TYPE ($DISTRO${DISTRO_LIKE:+, like $DISTRO_LIKE}) on $ARCH${LIBC:+/$LIBC}"
+    echo "Package manager: $PKG_MANAGER"
+    echo
+    print_detected_binaries
+    echo
+    print_detected_version_managers
+}
+
+purge_pkg_manager() {
+    echo "Purging package-managed Node.js/npm installations..."
+
+    case "$PKG_MANAGER" in
+        apt)
+            run_as_root apt-get purge -y nodejs npm
+            run_as_root apt-get autoremove -y
+            ;;
+        dnf)
+            run_as_root dnf remove -y nodejs npm
+            ;;
+        yum)
+            run_as_root yum remove -y nodejs npm
+            ;;
+        pacman)
+            run_as_root pacman -Rns --noconfirm nodejs npm
+            ;;
+        zypper)
+            run_as_root zypper remove -y nodejs npm
+            ;;
+        apk)
+            run_as_root apk del nodejs npm
+            ;;
+        brew)
+            run_cmd brew uninstall node
+            ;;
+        none)
+            log "No supported package manager detected; skipping package purge"
+            ;;
+    esac
+}
+
+purge_unmanaged_system_install() {
+    local binary path
+    local binaries=(node npm npx corepack)
+    local dirs_to_remove=(
+        "$INSTALL_PREFIX"
+        "/usr/local/lib/node_modules"
+        "/usr/local/include/node"
+        "/usr/local/share/doc/node"
+    )
+
+    if [[ "$INSTALL_PREFIX" != "/opt/nodejs" ]]; then
+        dirs_to_remove+=("/opt/nodejs")
+    fi
+
+    echo "Purging unmanaged system Node.js/npm files..."
+
+    for binary in "${binaries[@]}"; do
+        path=$(command -v "$binary" 2>/dev/null || true)
+        if [[ -z "$path" ]]; then
+            continue
+        fi
+
+        if is_package_owned "$path"; then
+            log "Skipping package-owned binary: $path"
+            continue
+        fi
+
+        if is_unmanaged_system_path "$path"; then
+            remove_root_path "$path"
+        else
+            log_warn "Skipping $path; it is outside known unmanaged prefixes"
+        fi
+    done
+
+    for path in "${dirs_to_remove[@]}"; do
+        remove_root_path "$path"
+    done
+
+    if [[ -d /usr/local/share/man/man1 || "$DRY_RUN" == true ]]; then
+        run_as_root find /usr/local/share/man/man1 -maxdepth 1 -type f \
+            \( -name "node.*" -o -name "npm.*" -o -name "npx.*" -o -name "corepack.*" \) -delete
+    fi
+}
+
+purge_system_installations() {
+    purge_pkg_manager || log_warn "Package-manager purge had non-fatal errors"
+    purge_unmanaged_system_install
+}
+
+user_home_dirs() {
+    if [[ "$ALL_USERS" == false ]]; then
+        printf '%s\n' "$HOME"
         return
     fi
 
-    echo "Cleaning user-specific Node.js directories..."
+    if [[ $EUID -ne 0 && "$DRY_RUN" == false ]]; then
+        die "--all-users requires root"
+    fi
 
-    local user_dirs_to_clean=(
-        ".npm"
-        ".nvm"
+    if command -v getent >/dev/null 2>&1; then
+        getent passwd | awk -F: '$6 ~ /^\// {print $6}' | sort -u
+    elif [[ "$OS_TYPE" == "macos" && -d /Users ]]; then
+        find /Users -mindepth 1 -maxdepth 1 -type d
+    elif [[ -d /home ]]; then
+        find /home -mindepth 1 -maxdepth 1 -type d
+    else
+        printf '%s\n' "$HOME"
+    fi
+}
+
+remove_user_path_for_home() {
+    local home_dir="$1"
+    local relative_path="$2"
+    local full_path="$home_dir/$relative_path"
+
+    if [[ "$ALL_USERS" == true && "$home_dir" != "$HOME" ]]; then
+        if [[ -e "$full_path" || -L "$full_path" || "$DRY_RUN" == true ]]; then
+            run_as_root rm -rf -- "$full_path"
+        fi
+    else
+        remove_user_path "$full_path"
+    fi
+}
+
+purge_user_cache() {
+    local home_dir
+    local cache_paths=(
+        ".npm/_cacache"
+        ".npm/_logs"
         ".node-gyp"
+        ".cache/node-gyp"
         ".node_repl_history"
         ".config/configstore/update-notifier-npm.json"
     )
 
-    # Clean current user's directories
-    for dir in "${user_dirs_to_clean[@]}"; do
-        local full_path="$HOME/$dir"
-        if [[ -e "$full_path" ]]; then
-            log "Removing: $full_path"
-            run_cmd rm -rf "$full_path"
-        fi
-    done
+    echo "Purging Node.js/npm user cache files..."
 
-    # Clean other users' directories (requires root)
-    if [[ $EUID -eq 0 ]] || [[ "$DRY_RUN" == true ]]; then
-        local user_home_base=""
+    while IFS= read -r home_dir; do
+        [[ -n "$home_dir" && -d "$home_dir" ]] || continue
+        log "Cleaning cache under $home_dir"
 
-        # Determine user home directory base path based on OS
-        case "$OS_TYPE" in
-            macos)
-                user_home_base="/Users"
-                ;;
-            linux)
-                user_home_base="/home"
-                ;;
-            *)
-                user_home_base="/home"
-                ;;
-        esac
-
-        if [[ -d "$user_home_base" ]]; then
-            for home_dir in "$user_home_base"/*; do
-                if [[ -d "$home_dir" ]]; then
-                    local username
-                    username=$(basename "$home_dir")
-                    log "Cleaning directories for user: $username"
-
-                    for dir in "${user_dirs_to_clean[@]}"; do
-                        local full_path="$home_dir/$dir"
-                        if [[ -e "$full_path" ]]; then
-                            log "Removing: $full_path"
-                            run_cmd rm -rf "$full_path"
-                        fi
-                    done
-                fi
-            done
-        fi
-    fi
+        local relative_path
+        for relative_path in "${cache_paths[@]}"; do
+            remove_user_path_for_home "$home_dir" "$relative_path"
+        done
+    done < <(user_home_dirs)
 }
 
-# Fetch the latest Node.js version from nodejs.org
-fetch_latest_version() {
-    local version
-    version=$(curl -s https://nodejs.org/dist/latest/ | grep -oE 'node-v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's/node-v//')
+remove_version_manager_for_home() {
+    local home_dir="$1"
+    local manager="$2"
+    local xdg_data_home
 
-    if [[ -z "$version" ]]; then
-        log_error "Failed to fetch latest Node.js version"
-        return 1
-    fi
-
-    echo "$version"
-}
-
-# Fetch the latest LTS version from nodejs.org
-fetch_lts_version() {
-    local version
-
-    # Prefer jq if available for robust JSON parsing
-    if command -v jq &>/dev/null; then
-        version=$(curl -s https://nodejs.org/dist/index.json | jq -r '.[] | select(.lts != false) | .version' | head -1 | sed 's/v//')
+    if [[ "$home_dir" == "$HOME" ]]; then
+        xdg_data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
     else
-        # Fallback to grep-based parsing
-        version=$(curl -s https://nodejs.org/dist/index.json | grep -oE '"version":"v[0-9]+\.[0-9]+\.[0-9]+"[^}]*"lts":"[^"]+"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | sed 's/v//')
+        xdg_data_home="$home_dir/.local/share"
     fi
 
-    if [[ -z "$version" ]]; then
-        log_error "Failed to fetch LTS Node.js version"
-        return 1
-    fi
-
-    echo "$version"
+    case "$manager" in
+        nvm)
+            remove_user_path_for_home "$home_dir" ".nvm"
+            ;;
+        fnm)
+            remove_user_path_for_home "$home_dir" ".fnm"
+            if [[ "$ALL_USERS" == true && "$home_dir" != "$HOME" ]]; then
+                run_as_root rm -rf -- "$home_dir/.local/share/fnm"
+            else
+                remove_user_path "$xdg_data_home/fnm"
+            fi
+            ;;
+        volta)
+            remove_user_path_for_home "$home_dir" ".volta"
+            ;;
+        asdf-node|asdf)
+            remove_user_path_for_home "$home_dir" ".asdf/installs/nodejs"
+            remove_user_path_for_home "$home_dir" ".asdf/plugins/nodejs"
+            ;;
+        mise-node|mise)
+            if [[ "$ALL_USERS" == true && "$home_dir" != "$HOME" ]]; then
+                run_as_root rm -rf -- "$home_dir/.local/share/mise/installs/node"
+            else
+                remove_user_path "$xdg_data_home/mise/installs/node"
+            fi
+            ;;
+        *)
+            die "Unsupported version manager: $manager"
+            ;;
+    esac
 }
 
-# Install Node.js via package manager (distro version)
+remove_version_managers() {
+    local manager home_dir
+
+    if [[ "$REMOVE_ALL_VERSION_MANAGERS" == true ]]; then
+        VERSION_MANAGERS_TO_REMOVE=(nvm fnm volta asdf-node mise-node)
+    fi
+
+    if [[ ${#VERSION_MANAGERS_TO_REMOVE[@]} -eq 0 ]]; then
+        return
+    fi
+
+    echo "Removing selected Node.js version-manager data..."
+
+    while IFS= read -r home_dir; do
+        [[ -n "$home_dir" && -d "$home_dir" ]] || continue
+        for manager in "${VERSION_MANAGERS_TO_REMOVE[@]}"; do
+            remove_version_manager_for_home "$home_dir" "$manager"
+        done
+    done < <(user_home_dirs)
+}
+
+curl_fetch() {
+    local url="$1"
+    require_command curl
+    curl -fsSL "$url"
+}
+
+fetch_latest_version() {
+    local json version
+
+    json=$(curl_fetch "https://nodejs.org/dist/index.json")
+
+    if command -v jq >/dev/null 2>&1; then
+        version=$(printf '%s' "$json" | jq -r '.[0].version | ltrimstr("v")')
+    else
+        version=$(printf '%s' "$json" | tr '{' '\n' | sed -n 's/.*"version":"v\([^"]*\)".*/\1/p' | head -n 1)
+    fi
+
+    [[ -n "$version" && "$version" != "null" ]] || die "Failed to fetch latest Node.js version"
+    printf '%s\n' "$version"
+}
+
+fetch_lts_version() {
+    local json version
+
+    json=$(curl_fetch "https://nodejs.org/dist/index.json")
+
+    if command -v jq >/dev/null 2>&1; then
+        version=$(printf '%s' "$json" | jq -r '.[] | select(.lts != false) | .version' | head -n 1 | sed 's/^v//')
+    else
+        version=$(printf '%s' "$json" | tr '{' '\n' | grep '"version":"v' | grep -v '"lts":false' | sed -n 's/.*"version":"v\([^"]*\)".*/\1/p' | head -n 1 || true)
+    fi
+
+    [[ -n "$version" && "$version" != "null" ]] || die "Failed to fetch latest LTS Node.js version"
+    printf '%s\n' "$version"
+}
+
+normalize_version() {
+    local version="$1"
+    version="${version#v}"
+
+    if [[ ! "$version" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+        die "Version must look like 24.15.0, got: $1"
+    fi
+
+    printf '%s\n' "$version"
+}
+
+official_platform() {
+    case "$OS_TYPE" in
+        linux)
+            if [[ "$LIBC" == "musl" ]]; then
+                die "Official nodejs.org Linux tarballs target glibc. Use --distro on musl/Alpine, or a version manager that supports your platform."
+            fi
+            printf '%s\n' "linux"
+            ;;
+        macos)
+            printf '%s\n' "darwin"
+            ;;
+        *)
+            die "Official tarball installation is unsupported for OS type: $OS_TYPE"
+            ;;
+    esac
+}
+
+official_archive_ext() {
+    case "$OS_TYPE" in
+        linux)
+            printf '%s\n' "tar.xz"
+            ;;
+        macos)
+            printf '%s\n' "tar.gz"
+            ;;
+        *)
+            die "Unsupported OS for official archive: $OS_TYPE"
+            ;;
+    esac
+}
+
+check_official_artifact_exists() {
+    local url="$1"
+    local output
+
+    require_command curl
+
+    if ! output=$(curl -fsI "$url" 2>&1); then
+        die "Could not access official Node.js artifact: $url
+curl said: $output"
+    fi
+}
+
+checksum_file() {
+    local file="$1"
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" | awk '{print $1}'
+    else
+        die "Need sha256sum or shasum to verify downloads"
+    fi
+}
+
+download_and_verify_archive() {
+    local version="$1"
+    local filename="$2"
+    local tmp_dir="$3"
+    local base_url="https://nodejs.org/dist/v${version}"
+    local archive_url="$base_url/$filename"
+    local shasums_file="$tmp_dir/SHASUMS256.txt"
+    local expected actual
+
+    echo "Downloading Node.js v${version}..."
+    run_cmd curl -fsSL "$archive_url" -o "$tmp_dir/$filename"
+
+    if [[ "$VERIFY_DOWNLOAD" == false ]]; then
+        log_warn "Skipping checksum verification because --skip-verify was used"
+        return
+    fi
+
+    echo "Verifying archive checksum..."
+
+    if command -v gpgv >/dev/null 2>&1; then
+        local keyring="$tmp_dir/nodejs-keyring.kbx"
+        local signed_shasums="$tmp_dir/SHASUMS256.txt.asc"
+        run_cmd curl -fsSL "https://github.com/nodejs/release-keys/raw/refs/heads/main/gpg/pubring.kbx" -o "$keyring"
+        run_cmd curl -fsSL "$base_url/SHASUMS256.txt.asc" -o "$signed_shasums"
+        if [[ "$DRY_RUN" == false ]]; then
+            gpgv --keyring "$keyring" --output "$shasums_file" "$signed_shasums"
+        else
+            echo "[DRY-RUN] Would verify SHASUMS256.txt.asc with gpgv"
+        fi
+    else
+        log_warn "gpgv is not available; falling back to unsigned SHASUMS256.txt over HTTPS"
+        run_cmd curl -fsSL "$base_url/SHASUMS256.txt" -o "$shasums_file"
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "[DRY-RUN] Would compare SHA-256 checksum for $filename"
+        return
+    fi
+
+    expected=$(awk -v file="$filename" '$2 == file {print $1}' "$shasums_file")
+    [[ -n "$expected" ]] || die "Checksum for $filename not found in SHASUMS256.txt"
+
+    actual=$(checksum_file "$tmp_dir/$filename")
+    if [[ "$actual" != "$expected" ]]; then
+        die "Checksum mismatch for $filename"
+    fi
+}
+
 install_via_pkg_manager() {
     echo "Installing Node.js via package manager ($PKG_MANAGER)..."
 
     case "$PKG_MANAGER" in
         apt)
-            run_sudo apt-get update
-            run_sudo apt-get install -y nodejs npm
+            run_as_root apt-get update
+            run_as_root apt-get install -y nodejs npm
             ;;
         dnf)
-            run_sudo dnf install -y nodejs npm
+            run_as_root dnf install -y nodejs npm
             ;;
         yum)
-            run_sudo yum install -y nodejs npm
+            run_as_root yum install -y nodejs npm
             ;;
         pacman)
-            run_sudo pacman -S --noconfirm nodejs npm
+            run_as_root pacman -S --noconfirm nodejs npm
             ;;
         zypper)
-            run_sudo zypper install -y nodejs npm
+            run_as_root zypper install -y nodejs npm
             ;;
         apk)
-            run_sudo apk add nodejs npm
+            run_as_root apk add nodejs npm
             ;;
         brew)
             run_cmd brew install node
             ;;
         none)
-            log_error "No supported package manager found. Cannot install via distro."
-            return 1
+            die "No supported package manager found. Cannot install via distro."
             ;;
     esac
 }
 
-# Install Node.js from nodejs.org binary
 install_from_nodejs_org() {
     local version="$1"
-    local platform=""
-    local archive_ext=""
+    local platform archive_ext filename download_url tmp_dir extract_dir target_dir
+    local binary
 
-    # Determine platform string for download URL
-    case "$OS_TYPE" in
-        linux)
-            platform="linux"
-            archive_ext="tar.xz"
-            ;;
-        macos)
-            platform="darwin"
-            archive_ext="tar.gz"
-            ;;
-        *)
-            log_error "Unsupported OS for direct installation: $OS_TYPE"
-            return 1
-            ;;
-    esac
+    platform=$(official_platform)
+    archive_ext=$(official_archive_ext)
+    filename="node-v${version}-${platform}-${ARCH}.${archive_ext}"
+    download_url="https://nodejs.org/dist/v${version}/${filename}"
+    target_dir="$INSTALL_PREFIX/node-v${version}-${platform}-${ARCH}"
 
-    local filename="node-v${version}-${platform}-${ARCH}.${archive_ext}"
-    local download_url="https://nodejs.org/dist/v${version}/${filename}"
-    local tmp_dir
+    check_official_artifact_exists "$download_url"
+
     tmp_dir=$(mktemp -d)
+    TMP_DIRS+=("$tmp_dir")
+    extract_dir="$tmp_dir/extract"
+    mkdir -p "$extract_dir"
 
     echo "Installing Node.js v${version} for ${platform}-${ARCH}..."
     log "Download URL: $download_url"
+    log "Install target: $target_dir"
+
+    download_and_verify_archive "$version" "$filename" "$tmp_dir"
+
+    if [[ "$DRY_RUN" == false ]]; then
+        echo "Extracting archive..."
+        case "$archive_ext" in
+            tar.xz)
+                require_command tar
+                tar -C "$extract_dir" --strip-components=1 -xJf "$tmp_dir/$filename"
+                ;;
+            tar.gz)
+                require_command tar
+                tar -C "$extract_dir" --strip-components=1 -xzf "$tmp_dir/$filename"
+                ;;
+        esac
+    else
+        echo "[DRY-RUN] Would extract $filename"
+    fi
+
+    run_as_root mkdir -p "$INSTALL_PREFIX" "$SYMLINK_DIR"
+    remove_root_path "$target_dir"
 
     if [[ "$DRY_RUN" == true ]]; then
-        echo "[DRY-RUN] Would download: $download_url"
-        echo "[DRY-RUN] Would extract to /usr/local"
-        rm -rf "$tmp_dir"
-        return 0
+        echo "[DRY-RUN] Would move extracted Node.js files to: $target_dir"
+    else
+        run_as_root mv "$extract_dir" "$target_dir"
     fi
 
-    # Download
-    echo "Downloading Node.js v${version}..."
-    if ! curl -fsSL "$download_url" -o "$tmp_dir/$filename"; then
-        log_error "Failed to download Node.js from $download_url"
-        rm -rf "$tmp_dir"
-        return 1
+    for binary in node npm npx corepack; do
+        if [[ "$DRY_RUN" == true || -e "$target_dir/bin/$binary" ]]; then
+            run_as_root ln -sfn "$target_dir/bin/$binary" "$SYMLINK_DIR/$binary"
+        fi
+    done
+
+    if [[ "$ENABLE_COREPACK" == true ]]; then
+        if [[ "$DRY_RUN" == true ]]; then
+            echo "[DRY-RUN] Would run: $SYMLINK_DIR/corepack enable"
+        elif [[ -x "$SYMLINK_DIR/corepack" ]]; then
+            run_as_root "$SYMLINK_DIR/corepack" enable
+        else
+            log_warn "corepack was not installed; skipping corepack enable"
+        fi
     fi
 
-    # Extract
-    echo "Extracting Node.js..."
-    case "$archive_ext" in
-        tar.xz)
-            if ! sudo tar -C /usr/local --strip-components=1 -xJf "$tmp_dir/$filename"; then
-                log_error "Failed to extract Node.js archive"
-                rm -rf "$tmp_dir"
-                return 1
-            fi
+    rm -rf "$tmp_dir"
+
+    if [[ "$DRY_RUN" == false ]]; then
+        echo "Verifying installation..."
+        "$target_dir/bin/node" --version
+        "$target_dir/bin/npm" --version
+
+        case ":$PATH:" in
+            *":$SYMLINK_DIR:"*)
+                :
+                ;;
+            *)
+                log_warn "$SYMLINK_DIR is not in PATH; add it or call binaries from $target_dir/bin"
+                ;;
+        esac
+    fi
+}
+
+resolve_official_version() {
+    local version
+
+    case "$INSTALL_CHANNEL" in
+        current)
+            version=$(fetch_latest_version)
             ;;
-        tar.gz)
-            if ! sudo tar -C /usr/local --strip-components=1 -xzf "$tmp_dir/$filename"; then
-                log_error "Failed to extract Node.js archive"
-                rm -rf "$tmp_dir"
-                return 1
-            fi
+        lts|"")
+            version=$(fetch_lts_version)
+            ;;
+        version)
+            version=$(normalize_version "$INSTALL_VERSION")
+            ;;
+        *)
+            die "Unknown official install channel: $INSTALL_CHANNEL"
             ;;
     esac
 
-    # Cleanup
-    rm -rf "$tmp_dir"
+    printf '%s\n' "$version"
+}
 
-    # Verify installation
-    echo "Verifying installation..."
-    if command -v node &>/dev/null; then
-        echo "Node.js $(node --version) installed successfully"
-    else
-        log_warn "Node.js binary not found in PATH. You may need to add /usr/local/bin to your PATH."
+planned_actions() {
+    local manager
+
+    echo "Planned actions:"
+
+    if [[ "$PURGE_SYSTEM" == true ]]; then
+        echo "  - Purge system Node.js/npm installations"
     fi
+    if [[ "$PURGE_USER_CACHE" == true ]]; then
+        if [[ "$ALL_USERS" == true ]]; then
+            echo "  - Purge Node.js/npm cache files for all users"
+        else
+            echo "  - Purge Node.js/npm cache files for current user"
+        fi
+    fi
+    if [[ "$REMOVE_ALL_VERSION_MANAGERS" == true ]]; then
+        echo "  - Remove all supported Node.js version-manager data"
+    elif [[ ${#VERSION_MANAGERS_TO_REMOVE[@]} -gt 0 ]]; then
+        for manager in "${VERSION_MANAGERS_TO_REMOVE[@]}"; do
+            echo "  - Remove version-manager data: $manager"
+        done
+    fi
+    case "$INSTALL_METHOD" in
+        distro)
+            echo "  - Install Node.js/npm via package manager"
+            ;;
+        official)
+            case "$INSTALL_CHANNEL" in
+                current)
+                    echo "  - Install latest Current from nodejs.org into $INSTALL_PREFIX"
+                    ;;
+                version)
+                    echo "  - Install Node.js v$INSTALL_VERSION from nodejs.org into $INSTALL_PREFIX"
+                    ;;
+                lts|"")
+                    echo "  - Install latest LTS from nodejs.org into $INSTALL_PREFIX"
+                    ;;
+            esac
+            ;;
+    esac
 
-    if command -v npm &>/dev/null; then
-        echo "npm $(npm --version) installed successfully"
+    if [[ "$PURGE_SYSTEM" == false && "$PURGE_USER_CACHE" == false && "$REMOVE_ALL_VERSION_MANAGERS" == false \
+        && ${#VERSION_MANAGERS_TO_REMOVE[@]} -eq 0 && -z "$INSTALL_METHOD" ]]; then
+        echo "  - Detect only"
     fi
 }
 
-# Main execution
+needs_confirmation() {
+    [[ "$PURGE_SYSTEM" == true ]] && return 0
+    [[ "$PURGE_USER_CACHE" == true ]] && return 0
+    [[ "$REMOVE_ALL_VERSION_MANAGERS" == true ]] && return 0
+    [[ ${#VERSION_MANAGERS_TO_REMOVE[@]} -gt 0 ]] && return 0
+    [[ -n "$INSTALL_METHOD" ]] && return 0
+    return 1
+}
+
+confirm_if_needed() {
+    local reply
+
+    if [[ "$DRY_RUN" == true || "$ASSUME_YES" == true ]]; then
+        return
+    fi
+
+    needs_confirmation || return 0
+
+    if [[ ! -t 0 ]]; then
+        die "Refusing to make changes without an interactive terminal. Re-run with --yes."
+    fi
+
+    printf 'Proceed with these changes? [y/N] '
+    read -r reply
+    case "$reply" in
+        y|Y|yes|YES)
+            ;;
+        *)
+            die "Aborted"
+            ;;
+    esac
+}
+
+validate_args() {
+    local install_count=0
+    local channel_count=0
+    local manager
+
+    if [[ -n "$INSTALL_METHOD" ]]; then
+        install_count=1
+    fi
+
+    case "$INSTALL_PREFIX" in
+        /*)
+            ;;
+        *)
+            die "--install-prefix must be an absolute path"
+            ;;
+    esac
+
+    case "$SYMLINK_DIR" in
+        /*)
+            ;;
+        *)
+            die "--symlink-dir must be an absolute path"
+            ;;
+    esac
+
+    for manager in "${VERSION_MANAGERS_TO_REMOVE[@]}"; do
+        case "$manager" in
+            nvm|fnm|volta|asdf-node|asdf|mise-node|mise)
+                ;;
+            *)
+                die "Unsupported version manager: $manager"
+                ;;
+        esac
+    done
+
+    if [[ "$INSTALL_CHANNEL" == "current" ]]; then
+        channel_count=$((channel_count + 1))
+    fi
+    if [[ "$INSTALL_CHANNEL" == "lts" ]]; then
+        channel_count=$((channel_count + 1))
+    fi
+    if [[ -n "$INSTALL_VERSION" ]]; then
+        channel_count=$((channel_count + 1))
+    fi
+
+    if [[ $install_count -gt 1 ]]; then
+        die "Only one install method can be specified."
+    fi
+
+    if [[ $channel_count -gt 1 ]]; then
+        die "Only one of --current, --latest, --lts, or --version can be specified."
+    fi
+
+    if [[ -n "$INSTALL_VERSION" ]]; then
+        INSTALL_VERSION=$(normalize_version "$INSTALL_VERSION")
+        INSTALL_CHANNEL="version"
+        if [[ -z "$INSTALL_METHOD" ]]; then
+            INSTALL_METHOD="official"
+        fi
+    fi
+
+    if [[ -n "$INSTALL_CHANNEL" && -z "$INSTALL_METHOD" ]]; then
+        INSTALL_METHOD="official"
+    fi
+
+    if [[ "$INSTALL_METHOD" == "official" && -z "$INSTALL_CHANNEL" ]]; then
+        INSTALL_CHANNEL="lts"
+    fi
+
+    if [[ "$PURGE_ONLY" == true && -n "$INSTALL_METHOD" ]]; then
+        die "--purge-only cannot be combined with install options"
+    fi
+
+    if [[ -n "$INSTALL_METHOD" && "$NO_PURGE" == false && "$PURGE_SYSTEM" == false ]]; then
+        PURGE_SYSTEM=true
+    fi
+}
+
 main() {
-    # Detect system information
-    detect_os
-    detect_arch
-    detect_pkg_manager
+    detect_system
 
-    echo "System: $OS_TYPE ($DISTRO) on $ARCH"
-    echo "Package manager: $PKG_MANAGER"
+    detect_installations
+    echo
+    planned_actions
     echo
 
-    # Purge existing installations
-    echo "=== Purging existing Node.js/npm installations ==="
-    purge_pkg_manager
-    purge_manual_install
-    cleanup_user_dirs
-    echo "Purge completed."
-    echo
+    confirm_if_needed
 
-    # Exit if purge-only mode
-    if [[ "$PURGE_ONLY" == true ]]; then
-        echo "Purge-only mode: Skipping installation."
-        return 0
+    if [[ "$PURGE_SYSTEM" == true ]]; then
+        echo "=== Purging System Installations ==="
+        purge_system_installations
+        echo
     fi
 
-    # Install based on selected method
-    echo "=== Installing Node.js/npm ==="
-
-    if [[ "$INSTALL_DISTRO" == true ]]; then
-        install_via_pkg_manager
-    elif [[ "$INSTALL_LATEST" == true ]]; then
-        local latest_version
-        latest_version=$(fetch_latest_version)
-        if [[ -n "$latest_version" ]]; then
-            echo "Latest version: v$latest_version"
-            install_from_nodejs_org "$latest_version"
-        fi
-    elif [[ "$INSTALL_LTS" == true ]]; then
-        local lts_version
-        lts_version=$(fetch_lts_version)
-        if [[ -n "$lts_version" ]]; then
-            echo "Latest LTS version: v$lts_version"
-            install_from_nodejs_org "$lts_version"
-        fi
-    elif [[ -n "$INSTALL_VERSION" ]]; then
-        echo "Installing specified version: v$INSTALL_VERSION"
-        install_from_nodejs_org "$INSTALL_VERSION"
-    else
-        # Default: install latest from nodejs.org
-        local latest_version
-        latest_version=$(fetch_latest_version)
-        if [[ -n "$latest_version" ]]; then
-            echo "Installing latest version: v$latest_version"
-            install_from_nodejs_org "$latest_version"
-        fi
+    if [[ "$PURGE_USER_CACHE" == true ]]; then
+        echo "=== Purging User Cache ==="
+        purge_user_cache
+        echo
     fi
 
-    echo
-    echo "Node.js installation completed."
+    if [[ "$REMOVE_ALL_VERSION_MANAGERS" == true || ${#VERSION_MANAGERS_TO_REMOVE[@]} -gt 0 ]]; then
+        echo "=== Removing Version-Manager Data ==="
+        remove_version_managers
+        echo
+    fi
+
+    case "$INSTALL_METHOD" in
+        distro)
+            echo "=== Installing Node.js/npm ==="
+            install_via_pkg_manager
+            ;;
+        official)
+            echo "=== Installing Node.js/npm ==="
+            local version_to_install
+            version_to_install=$(resolve_official_version)
+            echo "Resolved Node.js version: v$version_to_install"
+            install_from_nodejs_org "$version_to_install"
+            ;;
+        "")
+            ;;
+        *)
+            die "Unknown install method: $INSTALL_METHOD"
+            ;;
+    esac
+
+    echo "Done."
 }
 
-# Parse command-line arguments
+if [[ $# -eq 0 ]]; then
+    main
+    exit 0
+fi
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --detect)
+            shift
+            ;;
         --purge-only)
             PURGE_ONLY=true
+            PURGE_SYSTEM=true
             shift
             ;;
-        --distro)
-            INSTALL_DISTRO=true
+        --purge-system)
+            PURGE_SYSTEM=true
             shift
             ;;
-        --latest)
-            INSTALL_LATEST=true
+        --purge-user-cache)
+            PURGE_USER_CACHE=true
+            shift
+            ;;
+        --all-users)
+            ALL_USERS=true
+            shift
+            ;;
+        --remove-version-manager)
+            [[ -n "${2:-}" ]] || die "'--remove-version-manager' requires an argument"
+            VERSION_MANAGERS_TO_REMOVE+=("$2")
+            shift 2
+            ;;
+        --remove-all-version-managers)
+            REMOVE_ALL_VERSION_MANAGERS=true
+            shift
+            ;;
+        --distro|--install-distro)
+            [[ -z "$INSTALL_METHOD" || "$INSTALL_METHOD" == "distro" ]] || die "Only one install method can be specified"
+            INSTALL_METHOD="distro"
+            shift
+            ;;
+        --official)
+            [[ -z "$INSTALL_METHOD" || "$INSTALL_METHOD" == "official" ]] || die "Only one install method can be specified"
+            INSTALL_METHOD="official"
             shift
             ;;
         --lts)
-            INSTALL_LTS=true
+            INSTALL_CHANNEL="lts"
+            shift
+            ;;
+        --current|--latest)
+            INSTALL_CHANNEL="current"
             shift
             ;;
         --version)
-            if [[ -n "${2:-}" ]]; then
-                INSTALL_VERSION="$2"
-                shift 2
-            else
-                log_error "'--version' requires a version argument."
-                exit 1
-            fi
+            [[ -n "${2:-}" ]] || die "'--version' requires a version argument"
+            INSTALL_VERSION="$2"
+            shift 2
+            ;;
+        --no-purge)
+            NO_PURGE=true
+            shift
+            ;;
+        --install-prefix)
+            [[ -n "${2:-}" ]] || die "'--install-prefix' requires a directory"
+            INSTALL_PREFIX="${2%/}"
+            shift 2
+            ;;
+        --symlink-dir)
+            [[ -n "${2:-}" ]] || die "'--symlink-dir' requires a directory"
+            SYMLINK_DIR="${2%/}"
+            shift 2
+            ;;
+        --skip-verify)
+            VERIFY_DOWNLOAD=false
+            shift
+            ;;
+        --enable-corepack)
+            ENABLE_COREPACK=true
+            shift
             ;;
         --skip-user-cleanup)
-            SKIP_USER_CLEANUP=true
+            log_warn "--skip-user-cleanup is no longer needed; user cleanup is opt-in"
+            shift
+            ;;
+        -y|--yes)
+            ASSUME_YES=true
             shift
             ;;
         -d|--dry-run)
@@ -624,25 +1241,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate mutually exclusive options
-install_options=0
-if [[ "$INSTALL_DISTRO" == true ]]; then
-    install_options=$((install_options + 1))
-fi
-if [[ "$INSTALL_LATEST" == true ]]; then
-    install_options=$((install_options + 1))
-fi
-if [[ "$INSTALL_LTS" == true ]]; then
-    install_options=$((install_options + 1))
-fi
-if [[ -n "$INSTALL_VERSION" ]]; then
-    install_options=$((install_options + 1))
-fi
-
-if [[ $install_options -gt 1 ]]; then
-    log_error "Only one of --distro, --latest, --lts, or --version can be specified."
-    exit 1
-fi
-
+validate_args
 main
 
