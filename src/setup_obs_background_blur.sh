@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
+
+# Script Name: setup_obs_background_blur.sh
+# Description: Installs the OBS background-removal and blur-filter plugins on Ubuntu/Debian.
+# Usage: ./setup_obs_background_blur.sh
+
 set -euo pipefail
 
 if [[ "${EUID}" -eq 0 ]]; then
-  echo "Run this script as your normal user, not as root."
-  exit 1
+    echo "Run this script as your normal user, not as root."
+    exit 1
 fi
 
 need_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1"
-    exit 1
-  fi
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "Missing required command: $1"
+        exit 1
+    fi
 }
 
 need_cmd sudo
@@ -21,24 +26,24 @@ need_cmd mktemp
 
 echo "Checking OBS installation..."
 if ! command -v obs >/dev/null 2>&1; then
-  echo "OBS Studio is not installed."
-  echo "Install it first with: sudo apt-get install obs-studio"
-  exit 1
+    echo "OBS Studio is not installed."
+    echo "Install it first with: sudo apt-get install obs-studio"
+    exit 1
 fi
 
 OBS_VERSION="$(obs --version 2>/dev/null | sed 's/^OBS Studio - //')"
 echo "Found OBS Studio ${OBS_VERSION}"
 
 if pgrep -x obs >/dev/null 2>&1; then
-  echo
-  echo "OBS is currently running."
-  echo "Close OBS before running this script so the new plugins load cleanly."
-  exit 1
+    echo
+    echo "OBS is currently running."
+    echo "Close OBS before running this script so the new plugins load cleanly."
+    exit 1
 fi
 
 TMP_DIR="$(mktemp -d)"
 cleanup() {
-  rm -rf "${TMP_DIR}"
+    rm -rf "${TMP_DIR}"
 }
 trap cleanup EXIT
 
@@ -59,10 +64,10 @@ curl -fsSL "${PAGE_URL}" -o "${PAGE_HTML}"
 grep -Eo 'https://[^"]+x86_64-linux-gnu\.deb' "${PAGE_HTML}" > "${DEB_URL_FILE}" || true
 
 if [[ ! -s "${DEB_URL_FILE}" ]]; then
-  echo "Could not find the Ubuntu .deb download URL on ${PAGE_URL}"
-  echo "Open this page in a browser and download the Ubuntu package manually:"
-  echo "  ${PAGE_URL}"
-  exit 1
+    echo "Could not find the Ubuntu .deb download URL on ${PAGE_URL}"
+    echo "Open this page in a browser and download the Ubuntu package manually:"
+    echo "  ${PAGE_URL}"
+    exit 1
 fi
 
 DEB_URL="$(head -n1 "${DEB_URL_FILE}")"
@@ -107,3 +112,4 @@ Result:
 
 If the filter names do not appear immediately, restart OBS once.
 EOF
+
