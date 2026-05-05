@@ -414,6 +414,162 @@ Complete summary:
 | `\|& tee`    |   yes             |   yes             |   yes          |   yes          |  overwrite    |
 | `\|& tee -a` |   yes             |   yes             |   yes          |   yes          |  append       |  
 
+### Tilde expansion: `~`
+
+`~` expands to the current user’s home directory.
+
+```bash
+cd ~
+```
+
+Example result:
+
+```bash
+cd /home/alex
+```
+
+You can also use it with paths:
+
+```bash
+ls ~/Documents
+```
+
+### Brace expansion: `{...}`
+
+Brace expansion generates multiple strings from a pattern.
+
+```bash
+echo file{1,2,3}.txt
+```
+
+Output:
+
+```bash
+file1.txt file2.txt file3.txt
+```
+
+Useful for creating multiple files:
+
+```bash
+touch notes{1,2,3}.txt
+```
+
+You can also use ranges:
+
+```bash
+echo {a..e}
+```
+
+Output:
+
+```bash
+a b c d e
+```
+
+### Parameter expansion: `${...}`
+
+Parameter expansion gets or modifies the value of a variable.
+
+```bash
+name="Sam"
+echo ${name}
+```
+
+Output:
+
+```bash
+Sam
+```
+
+Useful when joining variables with other text:
+
+```bash
+file="report"
+echo ${file}.txt
+```
+
+Output:
+
+```bash
+report.txt
+```
+
+You can also provide a default value:
+
+```bash
+echo ${username:-Guest}
+```
+
+If `username` is not set, output is:
+
+```bash
+Guest
+```
+
+### Command substitution: `$(...)`
+
+Command substitution runs a command and replaces it with the command’s output.
+
+```bash
+today=$(date)
+echo "Today is $today"
+```
+
+Example output:
+
+```bash
+Today is Tue May 5 10:30:00 UTC 2026
+```
+
+Another example:
+
+```bash
+files=$(ls)
+echo "$files"
+```
+
+### Arithmetic expansion: `$((...))`
+
+Arithmetic expansion performs math calculations.
+
+```bash
+echo $((2 + 3))
+```
+
+Output:
+
+```bash
+5
+```
+
+You can use variables too:
+
+```bash
+x=10
+y=4
+echo $((x * y))
+```
+
+Output:
+
+```bash
+40
+```
+
+Useful in scripts:
+
+```bash
+count=5
+count=$((count + 1))
+echo $count
+```
+
+Output:
+
+```bash
+6
+```
+
 ### Formatting and linting
 
 It is important to keep the formatting of your script as consistent as possible. <a href="https://github.com/lovesegfault/beautysh">Beautysh</a> is an amazing tool that helps you to format your script. To use it, just run the following command in a directory where your scripts are located:
