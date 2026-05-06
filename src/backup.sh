@@ -650,7 +650,8 @@ apply_retention_policy() {
         fi
 
         log_msg INFO "Removing expired backup: ${target_dir%/}/$name"
-        rm -rf -- "${target_dir%/}/$name"
+        target_dir=${target_dir%/}
+        rm -rf -- "${target_dir:?}/$name"
     done
 }
 
