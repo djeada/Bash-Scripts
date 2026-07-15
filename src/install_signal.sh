@@ -1,38 +1,125 @@
 #!/usr/bin/env bash
-
-# Script Name: install_signal.sh
-# Description: Downloads Signal Desktop apt sources and installs Signal Desktop on Debian-based systems.
-# Usage: ./install_signal.sh
-# Example: ./install_signal.sh
-
 set -Eeuo pipefail
 
-KEY_URL="https://updates.signal.org/desktop/apt/keys.asc"
-SOURCE_URL="https://updates.signal.org/static/desktop/apt/signal-desktop.sources"
-KEYRING_NAME="signal-desktop-keyring.gpg"
-SOURCE_NAME="signal-desktop.sources"
+readonly KEY_URL="https://updates.signal.org/desktop/apt/keys.asc"
+readonly SOURCE_URL="https://updates.signal.org/static/desktop/apt/signal-desktop.sources"
+readonly KEYRING_PATH="/usr/share/keyrings/signal-desktop-keyring.gpg"
+readonly SOURCE_PATH="/etc/apt/sources.list.d/signal-desktop.sources"
 
-cleanup() {
-    rm -f "$KEYRING_NAME" "$SOURCE_NAME"
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [install|upgrade|purge|help]
+
+Commands:
+  install   Add Signal's apt repository and install the newest version (default)
+  upgrade   Refresh the repository and upgrade an existing Signal installation
+  purge     Purge Signal and remove its apt repository and signing key
+  help      Show this help text
+
+Examples:
+  $(basename "$0")
+  $(basename "$0") upgrade
+  $(basename "$0") purge
+EOF
 }
 
-trap cleanup EXIT
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
 
-echo "[1/5] Downloading Signal signing key"
-wget -O- "$KEY_URL" | gpg --dearmor > "$KEYRING_NAME"
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
+}
 
-echo "[2/5] Installing signing key to /usr/share/keyrings"
-sudo install -Dm644 "$KEYRING_NAME" "/usr/share/keyrings/$KEYRING_NAME"
+setup_repository() (
+  local temp_dir
+  temp_dir=$(mktemp -d)
+  trap 'rm -rf "$temp_dir"' EXIT
 
-echo "[3/5] Downloading Signal apt source file"
-wget -O "$SOURCE_NAME" "$SOURCE_URL"
+  echo "[1/3] Downloading and installing Signal's signing key"
+  curl --fail --location --silent --show-error "$KEY_URL" \
+    | gpg --batch --yes --dearmor --output "$temp_dir/signal-desktop-keyring.gpg"
+  sudo install -Dm644 "$temp_dir/signal-desktop-keyring.gpg" "$KEYRING_PATH"
 
-echo "[4/5] Installing apt source file to /etc/apt/sources.list.d"
-sudo install -Dm644 "$SOURCE_NAME" "/etc/apt/sources.list.d/$SOURCE_NAME"
+  echo "[2/3] Downloading and installing Signal's apt source"
+  curl --fail --location --silent --show-error \
+    --output "$temp_dir/signal-desktop.sources" "$SOURCE_URL"
+  sudo install -Dm644 "$temp_dir/signal-desktop.sources" "$SOURCE_PATH"
 
-echo "[5/5] Updating apt metadata and installing Signal Desktop"
-sudo apt update
-sudo apt install -y signal-desktop
+  echo "[3/3] Updating apt metadata"
+  sudo apt-get update
+)
 
-echo "Signal Desktop installation finished."
+install_signal() {
+  setup_repository
+  echo "Installing the newest Signal Desktop version"
+  sudo apt-get install -y signal-desktop
+  echo "Signal Desktop installation finished."
+}
 
+upgrade_signal() {
+  dpkg-query -W -f='${Status}' signal-desktop 2>/dev/null \
+    | grep -q '^install ok installed$' \
+    || die "Signal Desktop is not installed; run '$0 install' first."
+
+  setup_repository
+  echo "Upgrading Signal Desktop to the newest available version"
+  sudo apt-get install -y --only-upgrade signal-desktop
+  echo "Signal Desktop upgrade finished."
+}
+
+purge_signal() {
+  echo "Purging Signal Desktop"
+  if dpkg-query -W -f='${Status}' signal-desktop 2>/dev/null \
+    | grep -q '^install ok installed$'; then
+    sudo apt-get purge -y signal-desktop
+  else
+    echo "Signal Desktop is not installed; skipping package removal."
+  fi
+
+  echo "Removing Signal's apt source and signing key"
+  sudo rm -f -- "$SOURCE_PATH" "$KEYRING_PATH"
+  sudo apt-get update
+  echo "Signal Desktop purge finished. User data in ~/.config/Signal was kept."
+}
+
+main() {
+  local action=${1:-install}
+  (( $# <= 1 )) || die "Too many arguments. Run '$0 help' for usage."
+
+  case "$action" in
+    install|--install|-i)
+      require_command curl
+      require_command gpg
+      require_command sudo
+      require_command apt-get
+      install_signal
+      ;;
+    upgrade|--upgrade|-u)
+      require_command curl
+      require_command gpg
+      require_command sudo
+      require_command apt-get
+      require_command dpkg-query
+      require_command grep
+      upgrade_signal
+      ;;
+    purge|--purge|-p)
+      require_command sudo
+      require_command apt-get
+      require_command dpkg-query
+      require_command grep
+      purge_signal
+      ;;
+    help|--help|-h)
+      usage
+      ;;
+    *)
+      usage >&2
+      die "Unknown command: $action"
+      ;;
+  esac
+}
+
+main "$@"
