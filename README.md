@@ -806,4 +806,4 @@ This project is licensed under the [MIT License](LICENSE) - see the LICENSE file
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=djeada/Bash-Scripts&type=Date)](https://star-history.com/#djeada/Bash-Scripts&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=djeada/Bash-Scripts&type=Date)](https://star-history.dera.page/#djeada/Bash-Scripts&Date)
