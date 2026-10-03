@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Script Name: recently_modified_files.sh
-# Description: Lists the most recently modified files in a given directory with advanced options.
+# Description: Lists the most recently modified (or accessed/changed) files in a
+#              directory tree, with filtering and sorting options. Requires GNU find.
 # Usage: recently_modified_files.sh [options]
 #
 # Options:
@@ -76,7 +77,7 @@ while [[ $# -gt 0 ]]; do
                 DIRECTORY="$2"
                 shift 2
             else
-                echo "Error: --directory requires a non-empty argument."
+                echo "Error: --directory requires a non-empty argument." >&2
                 exit 1
             fi
             ;;
@@ -85,7 +86,7 @@ while [[ $# -gt 0 ]]; do
                 NUMBER="$2"
                 shift 2
             else
-                echo "Error: --number requires a non-empty argument."
+                echo "Error: --number requires a non-empty argument." >&2
                 exit 1
             fi
             ;;
@@ -94,7 +95,7 @@ while [[ $# -gt 0 ]]; do
                 TIME_TYPE="$2"
                 shift 2
             else
-                echo "Error: --time requires a non-empty argument."
+                echo "Error: --time requires a non-empty argument." >&2
                 exit 1
             fi
             ;;
@@ -107,7 +108,7 @@ while [[ $# -gt 0 ]]; do
                 EXCLUDE_PATTERN="$2"
                 shift 2
             else
-                echo "Error: --exclude requires a non-empty argument."
+                echo "Error: --exclude requires a non-empty argument." >&2
                 exit 1
             fi
             ;;
@@ -116,7 +117,7 @@ while [[ $# -gt 0 ]]; do
                 INCLUDE_PATTERN="$2"
                 shift 2
             else
-                echo "Error: --include requires a non-empty argument."
+                echo "Error: --include requires a non-empty argument." >&2
                 exit 1
             fi
             ;;
@@ -125,7 +126,7 @@ while [[ $# -gt 0 ]]; do
                 LOG_FILE="$2"
                 shift 2
             else
-                echo "Error: --log-file requires a non-empty argument."
+                echo "Error: --log-file requires a non-empty argument." >&2
                 exit 1
             fi
             ;;
@@ -138,8 +139,8 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
-            usage
+            echo "Unknown option: $1" >&2
+            usage >&2
             exit 1
             ;;
     esac
@@ -147,19 +148,19 @@ done
 
 # Validate directory
 if [[ ! -d "$DIRECTORY" ]]; then
-    echo "Error: Directory '$DIRECTORY' does not exist."
+    echo "Error: Directory '$DIRECTORY' does not exist." >&2
     exit 1
 fi
 
 # Validate number
-if ! [[ "$NUMBER" =~ ^[0-9]+$ ]]; then
-    echo "Error: The number of files to list must be a positive integer."
+if ! [[ "$NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: The number of files to list must be a positive integer." >&2
     exit 1
 fi
 
 # Validate time type
 if [[ "$TIME_TYPE" != "mtime" && "$TIME_TYPE" != "atime" && "$TIME_TYPE" != "ctime" ]]; then
-    echo "Error: Invalid time type '$TIME_TYPE'. Must be 'mtime', 'atime', or 'ctime'."
+    echo "Error: Invalid time type '$TIME_TYPE'. Must be 'mtime', 'atime', or 'ctime'." >&2
     exit 1
 fi
 
@@ -178,37 +179,37 @@ fi
 
 # Determine time format
 case "$TIME_TYPE" in
-    mtime)
-        TIME_FLAG="-printf"
-        TIME_FORMAT='%TY-%Tm-%Td %TT %p\n'
-        ;;
-    atime)
-        TIME_FLAG="-printf"
-        TIME_FORMAT='%AY-%Am-%Ad %AT %p\n'
-        ;;
-    ctime)
-        TIME_FLAG="-printf"
-        TIME_FORMAT='%CY-%Cm-%Cd %CT %p\n'
-        ;;
+    mtime) TIME_FORMAT='%TY-%Tm-%Td %TT %p\n' ;;
+    atime) TIME_FORMAT='%AY-%Am-%Ad %AT %p\n' ;;
+    ctime) TIME_FORMAT='%CY-%Cm-%Cd %CT %p\n' ;;
 esac
 
-# Build the full command
-FIND_CMD+=("$TIME_FLAG" "$TIME_FORMAT")
+# Build the full command (GNU find is required for -printf)
+FIND_CMD+=(-printf "$TIME_FORMAT")
 
 log "Executing command: ${FIND_CMD[*]}"
 
-# Execute find command and sort results
-if [[ "$REVERSE" == true ]]; then
-    SORT_ORDER=""
-else
-    SORT_ORDER="-r"
+# Execute find command and sort results (newest first unless --reverse)
+SORT_OPTS=()
+if [[ "$REVERSE" != true ]]; then
+    SORT_OPTS=(-r)
 fi
 
-RESULTS=$( "${FIND_CMD[@]}" | sort $SORT_ORDER | head -n "$NUMBER" )
+# Unreadable subdirectories make find exit non-zero; report them but keep the
+# results. awk (unlike head) reads all input, so sort never dies of SIGPIPE.
+RESULTS=$( { "${FIND_CMD[@]}" || true; } | sort "${SORT_OPTS[@]}" | awk -v n="$NUMBER" 'NR <= n' )
 
 # Output results
-echo "Most recently modified files in '$DIRECTORY':"
-echo "$RESULTS"
+if [[ "$REVERSE" == true ]]; then
+    echo "Files in '$DIRECTORY' by $TIME_TYPE (oldest first):"
+else
+    echo "Files in '$DIRECTORY' by $TIME_TYPE (newest first):"
+fi
+if [[ -n "$RESULTS" ]]; then
+    echo "$RESULTS"
+else
+    echo "No matching files found."
+fi
 
 # Log results
 log "Found files:"

@@ -10,10 +10,12 @@
 #   -p, --public          Display the public IP address.
 #   -l, --location        Display location information for the public IP address.
 #   -r, --private         Display private IP addresses.
-#   -i, --interface IFACE Display IP address of a specific network interface.
+#   -i, --interface IFACE Display IP address of a specific network interface (instead of all private IPs).
 #   -a, --all             Display all available information.
 #   -j, --json            Output in JSON format.
 #   -s, --save FILE       Save output to a file.
+#
+# With no selection options, public IP, private IPs and location are all shown.
 #
 # Examples:
 #   ip_info.sh --public
@@ -26,7 +28,6 @@
 # Dependencies:
 #   - curl
 #   - jq (optional, for JSON parsing)
-
 
 set -euo pipefail
 
@@ -68,7 +69,7 @@ Options:
   -p, --public          Display the public IP address.
   -l, --location        Display location information for the public IP address.
   -r, --private         Display private IP addresses.
-  -i, --interface IFACE Display IP address of a specific network interface.
+  -i, --interface IFACE Display IP address of a specific network interface (instead of all private IPs).
   -a, --all             Display all available information.
   -j, --json            Output in JSON format.
   -s, --save FILE       Save output to a file.
@@ -118,6 +119,7 @@ while [[ $# -gt 0 ]]; do
         -i|--interface)
             if [[ -n "${2-}" ]]; then
                 interface="$2"
+                include_private_ip=true
                 shift 2
             else
                 echo "Error: --interface requires a non-empty argument." >&2
@@ -152,20 +154,36 @@ while [[ $# -gt 0 ]]; do
 done
 
 # If no options are specified, default to displaying all information
-if [[ "$include_public_ip" == false && "$include_private_ip" == false && "$include_location" == false && -z "$interface" ]]; then
+if [[ "$include_public_ip" == false && "$include_private_ip" == false && "$include_location" == false ]]; then
     include_public_ip=true
     include_private_ip=true
     include_location=true
 fi
 
-display_public_ip() {
+# Fetches the public IP once and stores it in $public_ip
+fetch_public_ip() {
     if [[ -z "$public_ip" ]]; then
-        public_ip=$(curl -s https://api.ipify.org)
+        public_ip=$(curl -fsS --max-time 10 https://api.ipify.org) || public_ip=""
         if [[ -z "$public_ip" ]]; then
             echo "Error: Unable to retrieve public IP address." >&2
             exit 1
         fi
     fi
+}
+
+# Prints the given words as a JSON array of strings
+json_array() {
+    local item sep=""
+    printf '['
+    for item in "$@"; do
+        printf '%s"%s"' "$sep" "$item"
+        sep=", "
+    done
+    printf ']'
+}
+
+display_public_ip() {
+    fetch_public_ip
     if [[ "$output_json" == true ]]; then
         echo "{\"public_ip\": \"$public_ip\"}"
     else
@@ -177,9 +195,9 @@ display_private_ip() {
     if [[ -n "$interface" ]]; then
         # Get IP address of specified interface
         if [[ "$(uname)" == "Darwin" ]]; then
-            private_ip=$(ifconfig "$interface" 2>/dev/null | awk '/inet /{print $2}')
+            private_ip=$(ifconfig "$interface" 2>/dev/null | awk '/inet /{print $2}' | paste -sd' ' -) || private_ip=""
         else
-            private_ip=$(ip addr show "$interface" 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1)
+            private_ip=$(ip addr show "$interface" 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | paste -sd' ' -) || private_ip=""
         fi
         if [[ -z "$private_ip" ]]; then
             echo "Error: Unable to retrieve IP address for interface '$interface'." >&2
@@ -193,13 +211,13 @@ display_private_ip() {
     else
         # Get all private IP addresses
         if [[ "$(uname)" == "Darwin" ]]; then
-            private_ips=$(ifconfig | awk '/inet /{print $2}' | grep -v '127.0.0.1')
+            private_ips=$(ifconfig | awk '/inet /{print $2}' | grep -v '127.0.0.1') || private_ips=""
         else
-            private_ips=$(hostname -I)
+            private_ips=$(hostname -I) || private_ips=""
         fi
         if [[ "$output_json" == true ]]; then
-            ips_array=$(echo "$private_ips" | tr ' ' '\n' | jq -R . | jq -s .)
-            echo "{\"private_ips\": $ips_array}"
+            # shellcheck disable=SC2086 # split the whitespace-separated list into words
+            echo "{\"private_ips\": $(json_array $private_ips)}"
         else
             echo "Private IPs:"
             echo "$private_ips"
@@ -208,10 +226,12 @@ display_private_ip() {
 }
 
 display_location() {
-    if [[ -z "$public_ip" ]]; then
-        display_public_ip >/dev/null
+    fetch_public_ip
+    location_info=$(curl -fsS --max-time 10 http://ip-api.com/json/"$public_ip") || location_info=""
+    if [[ -z "$location_info" ]]; then
+        echo "Error: Unable to retrieve location information." >&2
+        exit 1
     fi
-    location_info=$(curl -s http://ip-api.com/json/"$public_ip")
     if [[ "$output_json" == true ]]; then
         echo "$location_info"
     else
@@ -260,6 +280,10 @@ main() {
     if [[ -n "$save_file" ]]; then
         exec > >(tee -a "$save_file") 2>&1
     fi
+    # Fetch once up front: the display functions below may run in subshells
+    if [[ "$include_public_ip" == true || "$include_location" == true ]]; then
+        fetch_public_ip
+    fi
     if [[ "$output_json" == true ]]; then
         # Collect outputs in JSON format
         output_json_data="{"
@@ -286,9 +310,7 @@ main() {
                 output_json_data+=", "
             fi
             display_location_json=$(display_location)
-            output_json_data+="\"location\": ${display_location_json#\{}"
-            output_json_data="${output_json_data%\}}"
-            first=false
+            output_json_data+="\"location\": ${display_location_json}"
         fi
         output_json_data+="}"
         echo "$output_json_data" | jq . 2>/dev/null || echo "$output_json_data"

@@ -1,58 +1,60 @@
 #!/usr/bin/env bash
 
 # Script Name: contributions_by_git_author.sh
-# Description: This script counts the number of commits by each author in a Git repository.
+# Description: This script counts the number of commits by each author in a Git repository
+#              (run it from inside the repository). With a username, it counts only the
+#              commits whose author name matches it exactly.
+#              Actions are logged to /var/log/contributions_by_git_author.log when writable.
 # Usage: ./contributions_by_git_author.sh [username]
 # Example: ./contributions_by_git_author.sh
-# Example: ./contributions_by_git_author.sh JohnDoe
+# Example: ./contributions_by_git_author.sh "John Doe"
 
 LOG_FILE="/var/log/contributions_by_git_author.log"
-LOG_ENABLED=1
 
 log_action() {
-    [ $LOG_ENABLED -eq 1 ] && echo "$(date +"%Y-%m-%d %T"): $1" >> $LOG_FILE
+    if [ -w "$LOG_FILE" ] || [ -w "$(dirname "$LOG_FILE")" ]; then
+        echo "$(date +"%Y-%m-%d %T"): $1" >> "$LOG_FILE"
+    fi
 }
 
 # Function to process git log
 process_git_log() {
-    echo "Processing git log..."
     log_action "Processing git log for all authors."
     git log --pretty="%an" |
     sort |
     uniq -c |
     sort -nr |
-    awk '{print $2,$3": "$1" commits"}'
+    awk '{count = $1; sub(/^ *[0-9]+ /, ""); print $0 ": " count " commits"}'
 }
 
 # Function to process git log for a specific user
 process_git_log_for_user() {
-    echo "Processing git log for user $1..."
+    local count
     log_action "Processing git log for user $1."
-    git log --pretty="%an" |
-    grep -c "$1" |
-    awk -v user="$1" '{print user": "$1" commits"}'
+    count=$(git log --pretty="%an" | grep -Fxc -- "$1")
+    echo "$1: $count commits"
 }
 
 main() {
-    if [[ $# -eq 0 ]] ; then
-        # No username provided, get commit counts for all authors
-        echo "Getting commit counts per author..."
-        log_action "No user specified. Retrieving commit counts for all authors."
-        git_log_output=$(process_git_log)
-        echo "Commit counts per author retrieved."
-        log_action "Commit counts for all authors retrieved."
-    else
-        # Username provided, get commit count for that user
-        echo "Getting commit count for user $1..."
-        log_action "User specified: $1. Retrieving commit count for user."
-        git_log_output=$(process_git_log_for_user "$1")
-        echo "Commit count for user $1 retrieved."
-        log_action "Commit count for user $1 retrieved."
+    if [[ $# -gt 1 ]]; then
+        echo "Usage: $0 [username]" >&2
+        exit 1
     fi
 
-    # Print the final output
-    echo "Final output:"
-    echo "$git_log_output"
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+        echo "Error: not inside a git repository." >&2
+        exit 1
+    fi
+
+    if [[ $# -eq 0 ]]; then
+        # No username provided, get commit counts for all authors
+        echo "Commit counts per author:"
+        process_git_log
+    else
+        # Username provided, get commit count for that user
+        echo "Commit count for user $1:"
+        process_git_log_for_user "$1"
+    fi
     log_action "Final output displayed."
 }
 

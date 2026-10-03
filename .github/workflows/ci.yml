@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ShellCheck and Beautysh
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          pip install beautysh==6.4.3
+          shellcheck --version
+          beautysh --version
+
+      - name: Run all hooks
+        run: ./hooks/_run_all.sh
+
+  test:
+    name: Smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: ./tests/smoke_test.sh

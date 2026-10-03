@@ -22,21 +22,22 @@
 
 set -euo pipefail
 
-# Function to display the help message
+# Function to display the help message (the header comment block) and exit
+# $1: exit status (default 0)
 function show_help() {
-    grep '^#' "$0" | cut -c 4-
-    exit 0
+    sed -n '3,/^$/s/^# \{0,1\}//p' "$0"
+    exit "${1:-0}"
 }
 
 # Function to check if a file exists and is a regular file
 function check_file_existence() {
     local file="$1"
     if [[ ! -e "$file" ]]; then
-        echo "Error: File '$file' does not exist."
+        echo "Error: File '$file' does not exist." >&2
         exit 1
     fi
     if [[ ! -f "$file" ]]; then
-        echo "Error: '$file' is not a regular file."
+        echo "Error: '$file' is not a regular file." >&2
         exit 1
     fi
 }
@@ -47,7 +48,9 @@ function create_backup() {
     local backup_file
     backup_file="${file}_backup_$(date +%Y%m%d%H%M%S)"
     cp -- "$file" "$backup_file"
-    [[ "$VERBOSE" = true ]] && echo "Backup of '$file' created as '$backup_file'."
+    if [[ "$VERBOSE" = true ]]; then
+        echo "Backup of '$file' created as '$backup_file'."
+    fi
 }
 
 # Function to swap the contents of two files
@@ -56,20 +59,28 @@ function swap_file_contents() {
     local file2="$2"
 
     # Check if both files are the same
-    if [ "$(realpath "$file1")" = "$(realpath "$file2")" ] && [ "$FORCE" = false ]; then
-        echo "Error: Cannot swap the same file. Use --force to override."
-        exit 1
+    if [ "$(realpath "$file1")" = "$(realpath "$file2")" ]; then
+        if [ "$FORCE" = false ]; then
+            echo "Error: Cannot swap the same file. Use --force to override." >&2
+            exit 1
+        fi
+        # Swapping a file with itself is a no-op.
+        return 0
     fi
 
     local temp
     temp=$(mktemp)
 
-    cp -- "$file1" "$temp"
-    cp -- "$file2" "$file1"
-    cp -- "$temp" "$file2"
+    # cp overwrites the contents in place, so permissions of both files are kept.
+    if ! cp -- "$file1" "$temp" || ! cp -- "$file2" "$file1" || ! cp -- "$temp" "$file2"; then
+        echo "Error: Swap failed. The original contents of '$file1' are kept in '$temp'." >&2
+        exit 1
+    fi
 
     rm -- "$temp"
-    [ "$VERBOSE" = true ] && echo "Swapped contents of '$file1' and '$file2'."
+    if [ "$VERBOSE" = true ]; then
+        echo "Swapped contents of '$file1' and '$file2'."
+    fi
 }
 
 # Main function to parse arguments and execute script logic
@@ -102,8 +113,8 @@ function main() {
                 break
                 ;;
             -*)
-                echo "Unknown option: $1"
-                show_help
+                echo "Unknown option: $1" >&2
+                show_help 1 >&2
                 ;;
             *)
                 break
@@ -113,8 +124,8 @@ function main() {
 
     # Check for the correct number of arguments
     if [[ $# -ne 2 ]]; then
-        echo "Error: Must provide exactly two file paths."
-        show_help
+        echo "Error: Must provide exactly two file paths." >&2
+        show_help 1 >&2
     fi
 
     local file1="$1"

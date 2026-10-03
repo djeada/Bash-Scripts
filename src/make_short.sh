@@ -37,14 +37,14 @@ Fit/Output:
       shortsmart (default): remove black bars, then crop to exact 9:16 safely, then scale 1080x1920
       pad:        keep AR, center with black bars as needed (1080x1920 canvas)
       stretch:    force 1080x1920 (distorts)
-      cropfill:   crop to fill 9:16 using centered math, then scale (no safety clamp)
+      cropfill:   same crop-to-9:16 path as shortsmart (kept for compatibility)
 
 Safety margin:
   --safe-left N               Left black margin in final 1080x1920 output (px). Default: 30. Use 0 to disable.
 
 Encoding:
   --fps N                      Output fps (default: 25)
-  --speed auto|X.Y             Speed-up factor (default: auto = max(1.0, dur/59))
+  --speed auto|X.Y             Speed factor > 0 (default: auto = max(1.0, dur/max-seconds))
   --max-seconds S              Hard cap duration (default: 59)
   --crf N                      x264 CRF (default: 18)
   --preset NAME                x264 preset (default: veryfast)
@@ -54,7 +54,21 @@ Flags:
   --debug                      Print built ffmpeg command
   -h, --help                   Show this help
 EOF
+    exit "${1:-1}"
+}
+
+die() {
+    echo "Error: $*" >&2
     exit 1
+}
+
+# Value of an option that requires one ($1 = option name, $2 = value)
+need_arg() {
+    [[ -n "${2:-}" ]] || die "Option $1 requires a value."
+}
+
+is_number() {
+    [[ "$1" =~ ^[0-9]+([.][0-9]+)?$ ]]
 }
 
 INPUT=""
@@ -75,36 +89,53 @@ SAFE_LEFT="30"
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -i|--input) INPUT="${2:-}"; shift 2 ;;
-        -o|--output) OUTPUT="${2:-}"; shift 2 ;;
-        --crop)
-            if [[ "${2:-}" == "auto" ]]; then CROP_MODE="auto"; shift 2
-            elif [[ "${2:-}" == "none" ]]; then CROP_MODE="none"; shift 2
-            elif [[ "${2:-}" =~ ^manual: ]]; then CROP_MODE="manual"; CROP_SPEC="${2#manual:}"; shift 2
-        else echo "Invalid --crop value"; exit 1; fi ;;
-        --fit) FIT="${2:-}"; shift 2 ;;
-        --fps) FPS="${2:-}"; shift 2 ;;
-        --speed) SPEED="${2:-}"; shift 2 ;;
-        --max-seconds) MAXS="${2:-}"; shift 2 ;;
-        --crf) CRF="${2:-}"; shift 2 ;;
-        --preset) PRESET="${2:-}"; shift 2 ;;
-        --probe-seconds) PROBE_S="${2:-}"; shift 2 ;;
-        --exact-crop) EXACT_CROP="${2:-false}"; shift 2 ;;
-        --safe-left) SAFE_LEFT="${2:-30}"; shift 2 ;;
-        --debug) DEBUG="true"; shift 1 ;;
-        -h|--help) usage ;;
-        *) echo "Unknown arg: $1"; usage ;;
+        -h|--help) usage 0 ;;
+        --debug) DEBUG="true"; shift; continue ;;
+        -i|--input|-o|--output|--crop|--fit|--fps|--speed|--max-seconds|--crf|--preset|--probe-seconds|--exact-crop|--safe-left)
+            need_arg "$1" "${2:-}" ;;
+        *) echo "Unknown arg: $1" >&2; usage >&2 ;;
     esac
+    case "$1" in
+        -i|--input) INPUT="$2" ;;
+        -o|--output) OUTPUT="$2" ;;
+        --crop)
+            case "$2" in
+                auto|none) CROP_MODE="$2" ;;
+                manual:*) CROP_MODE="manual"; CROP_SPEC="${2#manual:}" ;;
+                *) die "Invalid --crop value: $2" ;;
+            esac
+            ;;
+        --fit) FIT="$2" ;;
+        --fps) FPS="$2" ;;
+        --speed) SPEED="$2" ;;
+        --max-seconds) MAXS="$2" ;;
+        --crf) CRF="$2" ;;
+        --preset) PRESET="$2" ;;
+        --probe-seconds) PROBE_S="$2" ;;
+        --exact-crop) EXACT_CROP="$2" ;;
+        --safe-left) SAFE_LEFT="$2" ;;
+    esac
+    shift 2
 done
 
-[[ -z "$INPUT" || -z "$OUTPUT" ]] && usage
-[[ ! -f "$INPUT" ]] && { echo "Input not found: $INPUT"; exit 1; }
+[[ -z "$INPUT" || -z "$OUTPUT" ]] && usage >&2
+[[ -f "$INPUT" ]] || die "Input not found: $INPUT"
 
-command -v ffmpeg >/dev/null || { echo "ffmpeg not found"; exit 1; }
-command -v ffprobe >/dev/null || { echo "ffprobe not found"; exit 1; }
-command -v awk >/dev/null || { echo "awk not found"; exit 1; }
+case "$FIT" in
+    shortsmart|pad|stretch|cropfill) ;;
+    *) die "Invalid --fit: $FIT" ;;
+esac
+[[ "$SPEED" == "auto" ]] || { is_number "$SPEED" && awk -v s="$SPEED" 'BEGIN{exit !(s>0)}'; } || die "--speed must be 'auto' or a number > 0"
+{ is_number "$MAXS" && awk -v m="$MAXS" 'BEGIN{exit !(m>0.2)}'; } || die "--max-seconds must be a number > 0.2"
+is_number "$FPS" || die "--fps must be a number"
+is_number "$PROBE_S" || die "--probe-seconds must be a number"
+[[ "$CRF" =~ ^[0-9]+$ ]] || die "--crf must be an integer"
+[[ "$SAFE_LEFT" =~ ^[0-9]+$ ]] || die "--safe-left must be a non-negative integer"
+[[ "$EXACT_CROP" == "true" || "$EXACT_CROP" == "false" ]] || die "--exact-crop must be true or false"
 
-tmpdir="$(mktemp -d)"; trap 'rm -rf "$tmpdir"' EXIT
+for cmd in ffmpeg ffprobe awk; do
+    command -v "$cmd" >/dev/null || die "$cmd not found"
+done
 
 # --- Helpers (numeric) ---
 get_dims() {
@@ -121,8 +152,9 @@ clamp() { # x min max
 # --- cropdetect (stable, conservative) ---
 # Use modest threshold, small rounding so we don't lose content.
 # We take the LAST suggested crop within PROBE_S (usually stable for bars).
+# cropdetect reports at "info" log level, so ffmpeg must not run with -v error.
 autodetect_crop_whxy() {
-    ffmpeg -v error -i "$INPUT" -t "$PROBE_S" \
+    ffmpeg -hide_banner -nostats -i "$INPUT" -t "$PROBE_S" \
         -vf "cropdetect=24:2:1" -f null - 2>&1 \
         | sed -n 's/.*crop=\([0-9]\+:[0-9]\+:[0-9]\+:[0-9]\+\).*/\1/p' \
         | tail -n 1
@@ -131,9 +163,8 @@ autodetect_crop_whxy() {
 # --- SAFE 9:16 crop synthesizer ---
 # Inputs: source iw,ih and optional detected crop w,h,x,y
 # Output: FINAL evenized w:h:x:y that:
-#   - never narrower than floor_even(h*9/16)
+#   - is 9:16 (width shrunk if too wide, height shrunk if too tall), centered
 #   - stays inside the frame
-#   - centered if we need to shrink width to 9:16
 synthesize_safe_916_crop() {
     local iw="$1" ih="$2" det="$3"
     local w h x y
@@ -155,6 +186,15 @@ synthesize_safe_916_crop() {
         dx=$(LC_ALL=C awk -v W="$w" -v WM="$wmin" 'BEGIN{print (W-WM)/2.0}')
         x=$(LC_ALL=C awk -v X="$x" -v DX="$dx" 'BEGIN{print X+DX}')
         w="$wmin"
+    elif (( w < wmin )); then
+        # Too tall for 9:16 (e.g. portrait sources): shrink height and center vertically
+        local hmax dy
+        hmax="$(floor_even "$(LC_ALL=C awk -v W="$w" 'BEGIN{print W*16/9.0}')")"
+        if (( hmax >= 2 && hmax < h )); then
+            dy=$(LC_ALL=C awk -v H="$h" -v HM="$hmax" 'BEGIN{print (H-HM)/2.0}')
+            y=$(LC_ALL=C awk -v Y="$y" -v DY="$dy" 'BEGIN{print Y+DY}')
+            h="$hmax"
+        fi
     fi
 
     # Evenize and clamp to frame
@@ -175,6 +215,10 @@ synthesize_safe_916_crop() {
 # --- Manual crop (L:T:R:B -> w:h:x:y) with evenization ---
 manual_to_whxy() {
     local iw="$1" ih="$2" L="$3" T="$4" R="$5" B="$6"
+    local v
+    for v in "$L" "$T" "$R" "$B"; do
+        [[ "$v" =~ ^[0-9]+$ ]] || return 1
+    done
     local w=$(( iw - L - R ))
     local h=$(( ih - T - B ))
     local x="$L" y="$T"
@@ -188,10 +232,11 @@ DUR="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$IN
 if [[ "$SPEED" == "auto" ]]; then
     SPEED="$(LC_ALL=C awk -v d="$DUR" -v m="$MAXS" 'BEGIN{f=d/m; if(f<1.0) f=1.0; printf("%.8f",f)}')"
 fi
-echo "Computed speed factor: $SPEED"; LC_ALL=C awk -v s="$SPEED" 'BEGIN{if(s>16) print "Warning: very high speed factor (" s "x)"}'
+echo "Computed speed factor: $SPEED"; LC_ALL=C awk -v s="$SPEED" 'BEGIN{if(s>16) print "Warning: very high speed factor (" s "x)" > "/dev/stderr"}'
 
 # --- Build filter graph ---
 IFS=',' read -r IW IH <<<"$(get_dims "$INPUT")"
+[[ "$IW" =~ ^[0-9]+$ && "$IH" =~ ^[0-9]+$ ]] || die "Could not read video dimensions of $INPUT"
 
 vf_chain=()
 CROP_SUFFIX=""; [[ "$EXACT_CROP" == "true" ]] && CROP_SUFFIX=":exact=1"
@@ -201,8 +246,7 @@ SAFE_LEFT="$(clamp "${SAFE_LEFT}" 0 1078)"
 SAFE_LEFT="$(floor_even "${SAFE_LEFT}")" # keep even for yuv420 alignment
 TARGET_WIDTH=$(( 1080 - SAFE_LEFT ))
 if (( TARGET_WIDTH < 2 )); then
-    echo "--safe-left too large; resulting width < 2"
-    exit 1
+    die "--safe-left too large; resulting width < 2"
 fi
 
 case "$CROP_MODE" in
@@ -221,7 +265,7 @@ case "$CROP_MODE" in
     manual)
         IFS=':' read -r L T R B <<< "$CROP_SPEC"
         : "${L:?Missing L}"; : "${T:?Missing T}"; : "${R:?Missing R}"; : "${B:?Missing B}"
-        MAN="$(manual_to_whxy "$IW" "$IH" "$L" "$T" "$R" "$B")" || { echo "Manual crop produced invalid window"; exit 1; }
+        MAN="$(manual_to_whxy "$IW" "$IH" "$L" "$T" "$R" "$B")" || die "Manual crop must be manual:L:T:R:B (pixels) leaving a valid window"
         if [[ "$FIT" == "shortsmart" || "$FIT" == "cropfill" ]]; then
             # For portrait fill, ensure 9:16 width from the MAN height
             SAFE="$(synthesize_safe_916_crop "$IW" "$IH" "$MAN")"
@@ -233,13 +277,6 @@ case "$CROP_MODE" in
     none)
         # Explicitly disable cropping.
         ;;
-    *)  # default
-        if [[ "$FIT" == "shortsmart" || "$FIT" == "cropfill" ]]; then
-            # No bars removal requested; derive 9:16 from full frame
-            SAFE="$(synthesize_safe_916_crop "$IW" "$IH" "${IW}:${IH}:0:0")"
-            vf_chain+=("crop=${SAFE}${CROP_SUFFIX}")
-        fi
-        ;;
 esac
 
 # Fit to 9:16 frame
@@ -248,13 +285,12 @@ case "$FIT" in
         vf_chain+=("scale=1080:1920:force_divisible_by=2")
         ;;
     pad)
-        vf_chain+=("scale=1080:-2:force_original_aspect_ratio=decrease:force_divisible_by=2")
+        vf_chain+=("scale=1080:1920:force_original_aspect_ratio=decrease:force_divisible_by=2")
         vf_chain+=("pad=1080:1920:floor((ow-iw)/2):floor((oh-ih)/2)")
         ;;
     stretch)
         vf_chain+=("scale=1080:1920:force_divisible_by=2")
         ;;
-    *) echo "Invalid --fit: $FIT"; exit 1 ;;
 esac
 
 # Apply left safety margin without covering or cropping content:
@@ -277,34 +313,37 @@ VIDEO_LABEL="[v]"
 AUDIO_LABEL="[a]"
 FILTER_COMPLEX="[0:v]$(IFS=,; echo "${vf_chain[*]}")${VIDEO_LABEL}"
 
+# Build an atempo chain for speed factor $1 (each atempo stage must be within 0.5..2.0)
+build_atempo_chain() {
+    local f="$1" chain=()
+    while LC_ALL=C awk -v x="$f" 'BEGIN{exit !(x>2.0000001)}'; do
+        chain+=("atempo=2.0")
+        f="$(LC_ALL=C awk -v x="$f" 'BEGIN{printf("%.8f", x/2.0)}')"
+    done
+    while LC_ALL=C awk -v x="$f" 'BEGIN{exit !(x<0.4999999)}'; do
+        chain+=("atempo=0.5")
+        f="$(LC_ALL=C awk -v x="$f" 'BEGIN{printf("%.8f", x*2.0)}')"
+    done
+    chain+=("atempo=$(LC_ALL=C awk -v x="$f" 'BEGIN{printf("%.8f",x)}')")
+    (IFS=,; echo "${chain[*]}")
+}
+
 # Audio
-MAP_AUDIO=""
+AUDIO_ARGS=()
 if ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$INPUT" | grep -q .; then
-    # Build atempo chain
-    build_atempo_chain() {
-        local f="$1" chain=()
-        f="$(LC_ALL=C awk -v x="$f" 'BEGIN{if (x<1.000001) x=1.0; printf("%.8f",x)}')"
-        while LC_ALL=C awk -v x="$f" 'BEGIN{exit !(x>2.0000001)}'; do
-            chain+=("atempo=2.0")
-            f="$(LC_ALL=C awk -v x="$f" 'BEGIN{printf("%.8f", x/2.0)}')"
-        done
-        chain+=("atempo=$(LC_ALL=C awk -v x="$f" 'BEGIN{printf("%.8f",x)}')")
-        (IFS=,; echo "${chain[*]}")
-    }
     ATEMPO_CHAIN="$(build_atempo_chain "$SPEED")"
     FILTER_COMPLEX="${FILTER_COMPLEX};[0:a]${ATEMPO_CHAIN}${AUDIO_LABEL}"
-    MAP_AUDIO="-map ${AUDIO_LABEL} -c:a aac -b:a 128k"
+    AUDIO_ARGS=(-map "${AUDIO_LABEL}" -c:a aac -b:a 128k)
 else
-    MAP_AUDIO="-an"
+    AUDIO_ARGS=(-an)
 fi
 
 # Cap duration slightly under the limit
 CAP="$(LC_ALL=C awk -v m="$MAXS" 'BEGIN{printf("%.3f",m-0.2)}')"
 
-# shellcheck disable=SC2206
 FFCMD=( ffmpeg -y -noautorotate -i "$INPUT"
     -filter_complex "$FILTER_COMPLEX"
-    -map "${VIDEO_LABEL}" $MAP_AUDIO
+    -map "${VIDEO_LABEL}" "${AUDIO_ARGS[@]}"
     -c:v libx264 -preset "$PRESET" -crf "$CRF" -pix_fmt yuv420p
     -metadata:s:v:0 rotate=0 -map_metadata -1 -movflags +faststart
     -t "$CAP"

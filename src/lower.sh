@@ -8,8 +8,8 @@
 # Output: hello world
 
 convert_to_lowercase() {
-    # Converts a string to lowercase using tr
-    echo "$1" | tr '[:upper:]' '[:lower:]'
+    # Converts a string to lowercase using tr (printf, unlike echo, prints "-n" or "-e" literally)
+    printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
 main() {

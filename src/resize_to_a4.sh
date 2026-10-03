@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 
 # Script Name: resize_to_a4.sh
-# Description: Resize image files in a specified directory to a target dimension with various options.
+# Description: Resize image files in a specified directory to a target dimension
+#              (A4 at 300 DPI, 2480x3508, by default) with various options.
+#              Resized copies go to ./resized unless --overwrite is given.
 # Usage: ./resize_to_a4.sh [options]
-# Dependencies: Requires ImageMagick's 'convert' command.
+#        Run with --help for the list of options.
+# Dependencies: Requires ImageMagick ('magick' or 'convert'); GNU Parallel for --threads > 1.
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -12,7 +15,7 @@ IFS=$'\n\t'
 TARGET_WIDTH=2480
 TARGET_HEIGHT=3508
 INPUT_DIR="."
-OUTPUT_DIR="."
+OUTPUT_DIR="./resized"
 IMAGE_FORMATS=("jpg" "jpeg")
 OVERWRITE=false
 PRESERVE_ASPECT_RATIO=false
@@ -26,18 +29,23 @@ usage() {
     cat <<EOF
 Usage: $0 [options]
 Options:
-  -i, --input-dir DIR       Specify input directory (default: current directory)
-  -o, --output-dir DIR      Specify output directory (default: current directory)
-  -s, --size WxH            Specify target dimensions (e.g., 2480x3508)
-  -f, --formats FORMAT(S)   Specify image formats (comma-separated, e.g., jpg,png)
-  -w, --overwrite           Overwrite original files
+  -i, --input-dir DIR       Specify input directory (default: current directory; not recursive)
+  -o, --output-dir DIR      Specify output directory (default: ./resized)
+  -s, --size WxH            Specify target dimensions (default: 2480x3508, A4 at 300 DPI)
+  -f, --formats FORMAT(S)   Specify image formats (comma-separated, default: jpg,jpeg)
+  -w, --overwrite           Overwrite original files instead of writing to the output directory
   -p, --preserve-aspect     Preserve aspect ratio
-  -b, --backup              Backup original files before resizing
+  -b, --backup              Backup original files (FILE.bak) before overwriting (with -w)
   -v, --verbose             Enable verbose output
   -l, --log-file FILE       Log output to specified file
-  -t, --threads N           Number of concurrent threads (default: 1)
+  -t, --threads N           Number of concurrent jobs (default: 1; N > 1 needs GNU Parallel)
   -h, --help                Display this help message and exit
 EOF
+}
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
 }
 
 # Log function
@@ -51,33 +59,35 @@ log() {
     fi
 }
 
-# Check for ImageMagick's 'convert' command
-if ! command -v convert >/dev/null 2>&1; then
-    echo "This script requires ImageMagick's 'convert'. Please install it and rerun the script."
-    exit 1
-fi
+# Ensure an option received a value.
+require_value() {
+    [[ -n "${2:-}" ]] || die "Option $1 requires a value."
+}
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -i|--input-dir)
+            require_value "$1" "${2:-}"
             INPUT_DIR="$2"
             shift 2
             ;;
         -o|--output-dir)
+            require_value "$1" "${2:-}"
             OUTPUT_DIR="$2"
             shift 2
             ;;
         -s|--size)
+            require_value "$1" "${2:-}"
             if [[ "$2" =~ ^[0-9]+x[0-9]+$ ]]; then
                 IFS='x' read -r TARGET_WIDTH TARGET_HEIGHT <<< "$2"
             else
-                echo "Invalid size format. Use WIDTHxHEIGHT (e.g., 2480x3508)."
-                exit 1
+                die "Invalid size format. Use WIDTHxHEIGHT (e.g., 2480x3508)."
             fi
             shift 2
             ;;
         -f|--formats)
+            require_value "$1" "${2:-}"
             IFS=',' read -r -a IMAGE_FORMATS <<< "$2"
             shift 2
             ;;
@@ -98,15 +108,16 @@ while [[ "$#" -gt 0 ]]; do
             shift
             ;;
         -l|--log-file)
+            require_value "$1" "${2:-}"
             LOG_FILE="$2"
             shift 2
             ;;
         -t|--threads)
-            if [[ "$2" =~ ^[0-9]+$ ]]; then
+            require_value "$1" "${2:-}"
+            if [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
                 THREADS="$2"
             else
-                echo "Invalid number of threads. Please specify an integer."
-                exit 1
+                die "Invalid number of threads. Please specify a positive integer."
             fi
             shift 2
             ;;
@@ -115,100 +126,114 @@ while [[ "$#" -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
-            usage
+            echo "Unknown option: $1" >&2
+            usage >&2
             exit 1
             ;;
     esac
 done
 
+# Check for ImageMagick (v7 'magick', or v6 'convert')
+if command -v magick >/dev/null 2>&1; then
+    IM_CMD=magick
+elif command -v convert >/dev/null 2>&1; then
+    IM_CMD=convert
+else
+    die "This script requires ImageMagick ('magick' or 'convert'). Please install it and rerun the script."
+fi
+
+# Check for GNU Parallel if threads > 1
+if [ "$THREADS" -gt 1 ] && ! command -v parallel >/dev/null 2>&1; then
+    die "GNU Parallel is not installed. Please install it or set threads to 1."
+fi
+
 # Validate input directory
 if [ ! -d "$INPUT_DIR" ]; then
-    echo "Input directory '$INPUT_DIR' does not exist."
-    exit 1
+    die "Input directory '$INPUT_DIR' does not exist."
 fi
 
-# Create output directory if it doesn't exist
-if [ "$OVERWRITE" = false ] && [ ! -d "$OUTPUT_DIR" ]; then
+# Create output directory if needed, and refuse to silently overwrite originals
+if [ "$OVERWRITE" = false ]; then
     mkdir -p -- "$OUTPUT_DIR"
+    if [ "$(cd -- "$INPUT_DIR" && pwd -P)" = "$(cd -- "$OUTPUT_DIR" && pwd -P)" ]; then
+        die "Output directory is the input directory; use --overwrite to replace the originals."
+    fi
 fi
 
-# Find image files
+# Find image files (top level of INPUT_DIR only; -iname is case-insensitive)
 FILES=()
 for format in "${IMAGE_FORMATS[@]}"; do
     while IFS= read -r -d '' file; do
         FILES+=("$file")
-    done < <(find "$INPUT_DIR" -type f \( -iname "*.${format}" -o -iname "*.${format^^}" \) -print0)
+    done < <(find "$INPUT_DIR" -maxdepth 1 -type f -iname "*.${format}" -print0)
 done
 
 # Check if there are any image files
 if [ "${#FILES[@]}" -eq 0 ]; then
-    echo "No image files found in '$INPUT_DIR' with formats: ${IMAGE_FORMATS[*]}."
-    exit 1
+    die "No image files found in '$INPUT_DIR' with formats: $(IFS=','; echo "${IMAGE_FORMATS[*]}")."
 fi
 
 # Function to resize images
 resize_image() {
     local file="$1"
     local output_file="$2"
-    local options=()
+    local geometry="${TARGET_WIDTH}x${TARGET_HEIGHT}"
 
-    if [ "$PRESERVE_ASPECT_RATIO" = true ]; then
-        options+=("-resize" "${TARGET_WIDTH}x${TARGET_HEIGHT}")
-    else
-        options+=("-resize" "${TARGET_WIDTH}x${TARGET_HEIGHT}!")
+    if [ "$PRESERVE_ASPECT_RATIO" = false ]; then
+        geometry+="!"
     fi
 
     log "Processing '$file'..."
 
     if [ "$BACKUP" = true ] && [ "$OVERWRITE" = true ]; then
-        cp -- "$file" "${file}.bak"
+        if ! cp -- "$file" "${file}.bak"; then
+            echo "Error: could not back up '$file'; skipping it." >&2
+            return 1
+        fi
         log "Backup created for '$file'."
     fi
 
-    if ! convert "$file" "${options[@]}" "$output_file"; then
-        log "Error resizing '$file'."
+    if ! "$IM_CMD" "$file" -resize "$geometry" "$output_file"; then
+        echo "Error resizing '$file'." >&2
+        if [ -n "$LOG_FILE" ]; then
+            echo "Error resizing '$file'." >> "$LOG_FILE"
+        fi
         return 1
     fi
     log "Successfully resized '$file' -> '$output_file'."
 }
 
-# Export variables and functions for GNU Parallel
-export TARGET_WIDTH TARGET_HEIGHT PRESERVE_ASPECT_RATIO BACKUP OVERWRITE LOG_FILE VERBOSE
-export -f resize_image log
-
-# Check for GNU Parallel if threads > 1
-if [ "$THREADS" -gt 1 ]; then
-    if ! command -v parallel >/dev/null 2>&1; then
-        echo "GNU Parallel is not installed. Please install it or set threads to 1."
-        exit 1
+# Print "input<TAB>output" for a file
+output_path_for() {
+    if [ "$OVERWRITE" = true ]; then
+        printf '%s\t%s\n' "$1" "$1"
+    else
+        printf '%s\t%s\n' "$1" "$OUTPUT_DIR/$(basename -- "$1")"
     fi
-fi
+}
 
 # Process images
+failures=0
 if [ "$THREADS" -gt 1 ]; then
-    # Use a here-string to safely pass arguments to parallel, handling spaces and special characters
-    parallel -j "$THREADS" --bar --colsep '\t' resize_image :::: <(
-        for file in "${FILES[@]}"; do
-            if [ "$OVERWRITE" = true ]; then
-                printf '%s\t%s\n' "$file" "$file"
-            else
-                filename="$(basename -- "$file")"
-                printf '%s\t%s\n' "$file" "$OUTPUT_DIR/$filename"
-            fi
-        done
-    )
+    # Export variables and functions for GNU Parallel
+    export TARGET_WIDTH TARGET_HEIGHT PRESERVE_ASPECT_RATIO BACKUP OVERWRITE LOG_FILE VERBOSE IM_CMD
+    export -f resize_image log
+    for file in "${FILES[@]}"; do
+        output_path_for "$file"
+    done | parallel -j "$THREADS" --bar --colsep '\t' resize_image || failures=$?
 else
     for file in "${FILES[@]}"; do
-        filename="$(basename -- "$file")"
-        if [ "$OVERWRITE" = true ]; then
-            output_file="$file"
-        else
-            output_file="$OUTPUT_DIR/$filename"
+        output_file="$file"
+        if [ "$OVERWRITE" = false ]; then
+            output_file="$OUTPUT_DIR/$(basename -- "$file")"
         fi
-        resize_image "$file" "$output_file"
+        resize_image "$file" "$output_file" || failures=$((failures + 1))
     done
 fi
 
+if [ "$failures" -ne 0 ]; then
+    echo "Image resizing finished with $failures failure(s)." >&2
+    exit 1
+fi
 echo "Image resizing complete."
 

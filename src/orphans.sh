@@ -85,25 +85,6 @@ parse_arguments() {
     done
 }
 
-# Create temporary files for process data
-create_temp_files() {
-    if ! TMP_FILE=$(mktemp /tmp/orphans_processes.XXXXXX 2>/dev/null); then
-        echo -e "${RED}Error: Failed to create temporary file${NC}" >&2
-        exit 1
-    fi
-
-    if ! PIDS_TMP_FILE=$(mktemp /tmp/orphans_pids.XXXXXX 2>/dev/null); then
-        rm -f "$TMP_FILE"
-        echo -e "${RED}Error: Failed to create temporary PID file${NC}" >&2
-        exit 1
-    fi
-}
-
-# Cleanup function to remove temporary files
-cleanup() {
-    rm -f "${TMP_FILE:-}" "${PIDS_TMP_FILE:-}"
-}
-
 # Error handling function
 error_exit() {
     echo -e "${RED}Error: $1${NC}" >&2
@@ -112,51 +93,45 @@ error_exit() {
 
 # Function to check if required commands are available
 check_dependencies() {
-    local missing_deps=()
-
-    for cmd in ps awk sort grep mktemp; do
-        if ! command -v "$cmd" >/dev/null 2>&1; then
-            missing_deps+=("$cmd")
-        fi
-    done
-
-    if [[ ${#missing_deps[@]} -gt 0 ]]; then
-        error_exit "Missing required commands: ${missing_deps[*]}"
+    if ! command -v ps >/dev/null 2>&1; then
+        error_exit "Missing required command: ps"
     fi
 }
+
+# Running PIDs (keys) and the candidate processes to check ("ppid pid user comm" lines)
+declare -A RUNNING_PIDS=()
+PROCESS_LINES=()
 
 # Function to get process information based on user preference
 get_process_info() {
-    local -a ps_options
+    local all_processes line pid
 
-    if [[ "$USER_ONLY" == true ]]; then
-        ps_options=(-u "$(id -un)" -o "ppid,pid,user,comm")
-    else
-        ps_options=(-eo "ppid,pid,user,comm")
+    # Always look up parents among ALL processes; --user only limits which
+    # children are reported (a user's process may have a root-owned parent).
+    if ! all_processes=$(ps -eo "ppid,pid,user,comm" --no-headers 2>/dev/null); then
+        error_exit "Failed to retrieve process information."
     fi
-
-    # Get process information and handle potential ps command failures
-    if ! ps "${ps_options[@]}" --no-headers 2>/dev/null > "$TMP_FILE"; then
-        error_exit "Failed to retrieve process information. You may need elevated privileges."
-    fi
-
-    # Verify that we got some data
-    if [[ ! -s "$TMP_FILE" ]]; then
+    if [[ -z "$all_processes" ]]; then
         error_exit "No process information retrieved"
     fi
-}
 
-# Function to create PID lookup table
-create_pid_lookup() {
-    if ! awk '{print $2}' "$TMP_FILE" | sort -u > "$PIDS_TMP_FILE"; then
-        error_exit "Failed to create PID lookup table"
-    fi
+    local current_user
+    current_user=$(id -un)
+    while read -r _ pid _; do
+        RUNNING_PIDS[$pid]=1
+    done <<< "$all_processes"
+
+    while IFS= read -r line; do
+        read -r _ _ user _ <<< "$line"
+        if [[ "$USER_ONLY" == false || "$user" == "$current_user" ]]; then
+            PROCESS_LINES+=("$line")
+        fi
+    done <<< "$all_processes"
 }
 
 # Function to check for orphan processes
 check_orphans() {
     local orphan_count=0
-    local line_number=0
 
     if [[ "$VERBOSE" == true && "$COUNT_ONLY" == false ]]; then
         echo -e "${BLUE}Checking for orphaned processes...${NC}"
@@ -165,8 +140,6 @@ check_orphans() {
     fi
 
     while IFS=' ' read -r ppid pid user comm; do
-        line_number=$((line_number + 1))
-
         # Skip empty lines or malformed entries
         if [[ -z "$ppid" || -z "$pid" ]]; then
             continue
@@ -179,7 +152,7 @@ check_orphans() {
         fi
 
         # Check if the parent PID exists in our running processes
-        if ! grep -Fxq "$ppid" "$PIDS_TMP_FILE"; then
+        if [[ -z "${RUNNING_PIDS[$ppid]:-}" ]]; then
             orphan_count=$((orphan_count + 1))
 
             if [[ "$COUNT_ONLY" == false ]]; then
@@ -191,7 +164,7 @@ check_orphans() {
             fi
         fi
 
-    done < "$TMP_FILE"
+    done < <(printf '%s\n' "${PROCESS_LINES[@]}")
 
     # Display results summary
     if [[ "$COUNT_ONLY" == true ]]; then
@@ -223,17 +196,8 @@ main() {
     # Check for required dependencies
     check_dependencies
 
-    # Create temporary files
-    create_temp_files
-
-    # Set trap to cleanup on exit
-    trap cleanup EXIT INT TERM
-
     # Get process information
     get_process_info
-
-    # Create PID lookup table
-    create_pid_lookup
 
     # Check for orphaned processes
     check_orphans

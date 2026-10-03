@@ -131,11 +131,11 @@ get_mem_usage() {
     fi
 }
 
-# Get disk usage for all mounted filesystems (percentage and mount point per line)
-# Filter with '$1+0 == $1' to exclude non-numeric values (e.g., headers or errors)
+# Get disk usage for all mounted filesystems ("<percent> <mount point>" per line)
+# Lines without a numeric percentage (e.g. "-" for pseudo filesystems) are skipped;
+# the whole rest of the line is kept so mount points containing spaces survive
 get_all_disk_usage() {
-    df -h --output=pcent,target 2>/dev/null | tail -n +2 | \
-        awk '{gsub(/%/,"",$1); if ($1+0 == $1) print $1, $2}'
+    df --output=pcent,target 2>/dev/null | tail -n +2 | sed -nE 's/^ *([0-9]+)% +/\1 /p'
 }
 
 # Check CPU usage against threshold
@@ -267,7 +267,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown option: $1" >&2
-            print_usage
+            print_usage >&2
             exit 1
             ;;
     esac
@@ -277,7 +277,7 @@ done
 for param_name in INTERVAL CPU_THRESHOLD MEM_THRESHOLD DISK_THRESHOLD; do
     param_value="${!param_name}"
     if ! [[ "$param_value" =~ ^[0-9]+$ ]]; then
-        echo "Error: $param_name must be a positive integer." >&2
+        echo "Error: $param_name must be a non-negative integer." >&2
         exit 1
     fi
 done
@@ -297,13 +297,17 @@ if [[ "$RUN_ONCE" == false && "$INTERVAL" -lt 1 ]]; then
     exit 1
 fi
 
-# Ensure the log file directory exists and is writable
+# Ensure the log file directory exists and the log file is writable
 log_dir="$(dirname "$LOG_FILE")"
 if [[ ! -d "$log_dir" ]]; then
     mkdir -p "$log_dir" 2>/dev/null || {
         echo "Error: Cannot create log directory: $log_dir" >&2
         exit 1
     }
+fi
+if ! { : >> "$LOG_FILE"; } 2>/dev/null; then
+    echo "Error: Cannot write to log file: $LOG_FILE (use -l to choose another path)" >&2
+    exit 1
 fi
 
 # Main execution

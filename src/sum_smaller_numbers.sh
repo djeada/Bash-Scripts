@@ -5,18 +5,18 @@
 # Usage: sum_smaller_numbers.sh number
 #        number - the number to sum integers smaller than
 # Example: ./sum_smaller_numbers.sh 10
-# Output: The sum of integers smaller than 10 is 45
+# Output: The sum of integers smaller than 10 is 45.
 
 validate_arguments() {
     if [ $# -ne 1 ]; then
-        echo "Usage: sum_smaller_numbers.sh number"
-        echo "       number - the number to sum integers smaller than"
+        echo "Usage: sum_smaller_numbers.sh number" >&2
+        echo "       number - the number to sum integers smaller than" >&2
         exit 1
     fi
 
     re='^[0-9]+$'
     if ! [[ $1 =~ $re ]]; then
-        echo "You must provide a positive integer."
+        echo "You must provide a non-negative integer." >&2
         exit 1
     fi
 }

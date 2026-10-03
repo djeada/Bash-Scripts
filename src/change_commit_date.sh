@@ -6,12 +6,12 @@
 # Usage: ./change_commit_date.sh <command> [options]
 # Options:
 #   amend-latest --date DD-MM-YYYY [--time HH:MM] [--tz +HHMM]
-#   shift --hours N [--days N] [--tz +HHMM]
-#   move --window day|night [--tz +HHMM]
+#   shift [--hours N] [--days N] [--tz +HHMM]
+#   move --to day|night [--day-window HH-HH] [--night-window HH-HH,HH-HH] [--tz +HHMM]
 # Examples:
 #   ./change_commit_date.sh amend-latest --date 25-12-2022
 #   ./change_commit_date.sh shift --hours 7
-#   ./change_commit_date.sh move --window night
+#   ./change_commit_date.sh move --to night
 
 set -euo pipefail
 
@@ -29,13 +29,13 @@ if ! "$DATE_BIN" -d "@0" +%s >/dev/null 2>&1; then
 fi
 
 require_git_repo() {
-    git rev-parse --git-dir >/dev/null 2>&1 || { echo "Not a git repo."; exit 1; }
+    git rev-parse --git-dir >/dev/null 2>&1 || { echo "Not a git repo." >&2; exit 1; }
 }
 
 # Parse "+HHMM" or "-HHMM" into seconds (supports half-hours like +0530)
 tz_to_seconds() {
     local tz="$1" sign hh mm secs
-    [[ "$tz" =~ ^[+-][0-9]{4}$ ]] || { echo "Invalid tz offset '$tz' (use +HHMM/-HHMM)"; exit 1; }
+    [[ "$tz" =~ ^[+-][0-9]{4}$ ]] || { echo "Invalid tz offset '$tz' (use +HHMM/-HHMM)" >&2; exit 1; }
     sign="${tz:0:1}"
     hh=$((10#${tz:1:2}))
     mm=$((10#${tz:3:2}))
@@ -50,38 +50,12 @@ rand_int() {
     echo $(( min + RANDOM % (max - min + 1) ))
 }
 
-# Build a space-separated list of allowed hours from a window spec like "09-18" or "20-23,00-05"
-expand_windows_to_hours() {
-    local spec="$1" part start end h hours=()
-    IFS=',' read -ra PARTS <<< "$spec"
-    for part in "${PARTS[@]}"; do
-        [[ "$part" =~ ^([0-1][0-9]|2[0-3])\-([0-1][0-9]|2[0-3])$ ]] \
-            || { echo "Invalid window '$part' (use HH-HH,HH-HH)"; exit 1; }
-        start="${part%-*}"; end="${part#*-}"
-        start=$((10#$start)); end=$((10#$end))
-        if (( start <= end )); then
-            for ((h=start; h<=end; h++)); do hours+=("$h"); done
-        else
-            # Wrap around midnight (e.g., 20-05)
-            for ((h=start; h<=23; h++)); do hours+=("$h"); done
-            for ((h=0; h<=end; h++));   do hours+=("$h"); done
-        fi
-    done
-    echo "${hours[*]}"
-}
-
-# Turn Y-m-d H:M:S in the *local tz* into epoch seconds:
-ymd_hms_to_epoch_in_tz() {
-    local y="$1" m="$2" d="$3" H="$4" M="$5" S="$6" tz="$7"
-    "$DATE_BIN" -d "${y}-${m}-${d} ${H}:${M}:${S} ${tz}" +%s
-}
-
 # ---------- Modes ----------
 
 print_help() {
     cat <<'EOF'
 Usage:
-  commit_date_tools.sh <mode> [options]
+  change_commit_date.sh <mode> [options]
 
 Modes:
   amend-latest      Set the latest commit to a specific date/time.
@@ -113,7 +87,8 @@ EOF
 # ---------- Argument parsing ----------
 
 MODE="${1:-}"
-[[ -z "${MODE}" ]] && { print_help; exit 1; }
+[[ -z "${MODE}" ]] && { print_help >&2; exit 1; }
+[[ "$MODE" == "-h" || "$MODE" == "--help" ]] && { print_help; exit 0; }
 shift || true
 
 TZ_OFFSET="+0200"
@@ -136,7 +111,7 @@ while (( "$#" )); do
         --day-window)    DAY_WINDOW="${2:?}"; shift 2 ;;
         --night-window)  NIGHT_WINDOW="${2:?}"; shift 2 ;;
         -h|--help)       print_help; exit 0 ;;
-        *) echo "Unknown option: $1"; echo; print_help; exit 1 ;;
+        *) echo "Unknown option: $1" >&2; echo >&2; print_help >&2; exit 1 ;;
     esac
 done
 
@@ -149,7 +124,7 @@ tz_to_seconds "$TZ_OFFSET" >/dev/null || exit 1
 
 amend_latest() {
     [[ "$DATE_DDMMYYYY" =~ ^([0-2][0-9]|3[0-1])-([0][1-9]|1[0-2])-[0-9]{4}$ ]] \
-        || { echo "Invalid --date. Use DD-MM-YYYY"; exit 1; }
+        || { echo "Invalid --date. Use DD-MM-YYYY" >&2; exit 1; }
     IFS='-' read -r DD MM YYYY <<< "$DATE_DDMMYYYY"
 
     if [[ -z "$TIME_HHMM" ]]; then
@@ -158,7 +133,7 @@ amend_latest() {
         printf -v TIME_HHMM "%02d:%02d" "$HH" "$MMm"
     else
         [[ "$TIME_HHMM" =~ ^([0-1][0-9]|2[0-3]):([0-5][0-9])$ ]] \
-            || { echo "Invalid --time. Use HH:MM"; exit 1; }
+            || { echo "Invalid --time. Use HH:MM" >&2; exit 1; }
     fi
 
     HH="${TIME_HHMM%:*}"
@@ -167,30 +142,31 @@ amend_latest() {
 
     EPOCH="$("$DATE_BIN" -d "${YYYY}-${MM}-${DD} ${HH}:${MI}:${SS} ${TZ_OFFSET}" +%s)"
 
-    GIT_AUTHOR_DATE="${EPOCH} ${TZ_OFFSET}" \
-        GIT_COMMITTER_DATE="${EPOCH} ${TZ_OFFSET}" \
-        git commit --amend --no-edit
+    # --date sets the author date (the env var alone is ignored by --amend)
+    GIT_COMMITTER_DATE="${EPOCH} ${TZ_OFFSET}" \
+        git commit --amend --no-edit --date="${EPOCH} ${TZ_OFFSET}"
 
     echo "✓ Amended latest commit date to ${YYYY}-${MM}-${DD} ${HH}:${MI}:${SS} ${TZ_OFFSET}"
 }
 
 shift_history() {
+    local int_re='^-?(0|[1-9][0-9]*)$'
+    [[ "$SHIFT_HOURS" =~ $int_re && "$SHIFT_DAYS" =~ $int_re ]] \
+        || { echo "--hours and --days must be integers" >&2; exit 1; }
     local shift_secs=$(( SHIFT_DAYS*86400 + SHIFT_HOURS*3600 ))
     echo "Shifting ALL commits by ${SHIFT_DAYS} day(s) and ${SHIFT_HOURS} hour(s) [${shift_secs}s]; tz=${TZ_OFFSET}"
     if [[ "$shift_secs" -eq 0 ]]; then
         echo "Nothing to do (shift is zero)."; exit 0
     fi
 
-    git filter-branch -f --tag-name-filter cat --env-filter "
-    shift_secs=${shift_secs}
-    tz='${TZ_OFFSET}'
-    to_epoch() { $DATE_BIN -d \"\$1\" +%s; }
-
-    a_ep=\$(to_epoch \"\$GIT_AUTHOR_DATE\");     c_ep=\$(to_epoch \"\$GIT_COMMITTER_DATE\")
-    a_new=\$((a_ep + shift_secs));               c_new=\$((c_ep + shift_secs))
-    export GIT_AUTHOR_DATE=\"\$a_new \$tz\"
-    export GIT_COMMITTER_DATE=\"\$c_new \$tz\"
-  " -- --branches --tags >/dev/null
+    # Inside the env-filter, git provides the dates as "@<epoch> <tz>".
+    SHIFT_SECS_APPLY="$shift_secs" TZ_OFFSET_APPLY="$TZ_OFFSET" \
+    git filter-branch -f --tag-name-filter cat --env-filter '
+    a_ep=${GIT_AUTHOR_DATE#@};    a_ep=${a_ep%% *}
+    c_ep=${GIT_COMMITTER_DATE#@}; c_ep=${c_ep%% *}
+    export GIT_AUTHOR_DATE="$((a_ep + SHIFT_SECS_APPLY)) $TZ_OFFSET_APPLY"
+    export GIT_COMMITTER_DATE="$((c_ep + SHIFT_SECS_APPLY)) $TZ_OFFSET_APPLY"
+  ' -- --branches --tags >/dev/null
     echo "✓ Done. Remember to: git push --force-with-lease"
 }
 
@@ -201,7 +177,7 @@ parse_windows_to_intervals() {
     IFS=',' read -ra PARTS <<< "$spec"
     for part in "${PARTS[@]}"; do
         [[ "$part" =~ ^([0-1][0-9]|2[0-3])\-([0-1][0-9]|2[0-3])$ ]] \
-            || { echo "Invalid window segment '$part' (use HH-HH)"; exit 1; }
+            || { echo "Invalid window segment '$part' (use HH-HH)" >&2; exit 1; }
         local s="${BASH_REMATCH[1]}" e="${BASH_REMATCH[2]}"
         local ssec=$((10#$s * 3600))
         local esec=$(( (10#$e + 1) * 3600 )) # end is exclusive
@@ -244,7 +220,7 @@ parse_windows_to_intervals() {
     for ((i=0;i<${#WIN_STARTS[@]};i++)); do
         ALLOWED_LEN=$((ALLOWED_LEN + WIN_ENDS[i] - WIN_STARTS[i]))
     done
-    (( ALLOWED_LEN > 0 )) || { echo "Window has zero length"; exit 1; }
+    (( ALLOWED_LEN > 0 )) || { echo "Window has zero length" >&2; exit 1; }
 }
 
 # Map a position p in [0, ALLOWED_LEN-1] to absolute seconds since local midnight
@@ -288,13 +264,12 @@ move_history() {
         local day
         day="$($DATE_BIN -u -d "@$local_ep" +%Y-%m-%d)"
         DAY_COUNT["$day"]=$(( ${DAY_COUNT["$day"]:-0} + 1 ))
-    done < <(git log --all --reverse --pretty=format:'%H %ct')
+    done < <(git log --all --reverse --pretty=tformat:'%H %ct')
 
     # 2) Second pass: assign evenly spaced times inside window per day, preserving order
-    local STATE
+    # STATE is global so the EXIT trap can still see it after this function returns
     STATE="$(mktemp -d)"
-    # Clean up when this function returns; safe with set -u
-    trap '[[ -n "${STATE:-}" ]] && rm -rf "$STATE"' RETURN
+    trap 'rm -rf "$STATE"' EXIT
     mkdir -p "$STATE/map"
 
     declare -A DAY_INDEX=()
@@ -322,7 +297,7 @@ move_history() {
 
         printf '%s' "$new_epoch" > "$STATE/map/$sha"
         DAY_INDEX["$day"]=$(( idx + 1 ))
-    done < <(git log --all --reverse --pretty=format:'%H %ct')
+    done < <(git log --all --reverse --pretty=tformat:'%H %ct')
 
     # 3) Apply mapping in one pass
     MAPPING_DIR="$STATE/map" TZ_OFFSET_APPLY="$TZ_OFFSET" \
@@ -342,19 +317,19 @@ move_history() {
 
 case "$MODE" in
     amend-latest)
-        [[ -n "$DATE_DDMMYYYY" ]] || { echo "amend-latest requires --date DD-MM-YYYY"; exit 1; }
+        [[ -n "$DATE_DDMMYYYY" ]] || { echo "amend-latest requires --date DD-MM-YYYY" >&2; exit 1; }
         amend_latest
         ;;
     shift)
         shift_history
         ;;
     move)
-        [[ "$MOVE_TO" =~ ^(day|night)$ ]] || { echo "move requires --to day|night"; exit 1; }
+        [[ "$MOVE_TO" =~ ^(day|night)$ ]] || { echo "move requires --to day|night" >&2; exit 1; }
         move_history "$MOVE_TO"
         ;;
     *)
-        echo "Unknown mode: $MODE"
-        print_help
+        echo "Unknown mode: $MODE" >&2
+        print_help >&2
         exit 1
         ;;
 esac

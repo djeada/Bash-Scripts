@@ -10,77 +10,76 @@ set -euo pipefail
 
 # Display usage message and exit
 usage() {
-    echo "Usage: $0 [github_username] [github_token]"
-    echo "  github_username - Optional. GitHub username to fetch repositories for."
-    echo "  github_token    - Optional. Personal access token to access private repositories."
+    echo "Usage: $0 [github_username] [github_token]" >&2
+    echo "  github_username - Optional. GitHub username to fetch repositories for." >&2
+    echo "  github_token    - Optional. Personal access token to access private repositories." >&2
     exit 1
 }
 
-echo "GitHub Repository Fetcher"
-
-# Check if jq is installed
-check_jq_installed() {
-    if ! command -v jq &>/dev/null; then
-        echo "Error: jq is not installed. Please install jq to run this script."
-        exit 1
-    fi
+# Check that the required tools are installed
+check_dependencies() {
+    local cmd
+    for cmd in curl jq; do
+        if ! command -v "$cmd" &>/dev/null; then
+            echo "Error: $cmd is not installed. Please install $cmd to run this script." >&2
+            exit 1
+        fi
+    done
 }
+
+# Extra curl arguments (the authorization header when a token is given; set in main)
+curl_auth_args=()
 
 # Get authenticated user's login using provided token
 get_authenticated_user() {
-    local token="$1"
-    local auth_header="Authorization: token $token"
-    local user_login
-    user_login=$(curl -s -H "$auth_header" https://api.github.com/user | jq -r '.login')
-    echo "$user_login"
+    curl -s "${curl_auth_args[@]}" https://api.github.com/user | jq -r '.login // empty' 2>/dev/null || true
 }
 
-# Global variable for authorization header (set in main)
-auth_header=""
-
-# Fetch a page with a single curl call to get both headers and body
-# The function echoes the body and sets the global variable 'next_url' if more pages exist.
+# Fetch one page of results.
+# Sets the globals 'page_body' (the JSON body) and 'next_url' (next page URL, or empty).
+# Globals are used because a command substitution would run in a subshell and lose next_url.
+page_body=""
+next_url=""
+header_file=""
 fetch_page() {
     local url="$1"
-    # Fetch headers and body together
-    local response
-    response=$(curl -s -D - "$url" -H "$auth_header")
-    # Separate headers (everything until the first blank line)
     local header
-    header=$(printf "%s" "$response" | sed -n '1,/^$/p')
-    # Separate body (everything after the first blank line)
-    local body
-    body=$(printf "%s" "$response" | sed -n '/^$/,$p' | sed '1d')
+
+    page_body=$(curl -s -D "$header_file" "${curl_auth_args[@]}" "$url") || {
+        echo "Error: request to $url failed." >&2
+        exit 1
+    }
+    # HTTP header lines end with CRLF; strip the CR before matching
+    header=$(tr -d '\r' < "$header_file")
+
     # Extract next page URL from the Link header, if available
     if [[ "$header" =~ \<([^>]+)\>\;\ *rel=\"next\" ]]; then
         next_url="${BASH_REMATCH[1]}"
     else
         next_url=""
     fi
-    echo "$body"
 }
 
 # Main function
 main() {
-    check_jq_installed
-
     if [ "$#" -gt 2 ]; then
         usage
     fi
+
+    echo "GitHub Repository Fetcher"
+    check_dependencies
 
     local USERNAME="${1:-}"
     local GITHUB_TOKEN="${2:-}"
     local AUTHENTICATED_USER=""
 
     if [ -n "$GITHUB_TOKEN" ]; then
-        auth_header="Authorization: token $GITHUB_TOKEN"
-        AUTHENTICATED_USER=$(get_authenticated_user "$GITHUB_TOKEN")
-        if [ -z "$AUTHENTICATED_USER" ] || [ "$AUTHENTICATED_USER" = "null" ]; then
-            echo "Error: Invalid or expired GitHub token."
+        curl_auth_args=(-H "Authorization: token $GITHUB_TOKEN")
+        AUTHENTICATED_USER=$(get_authenticated_user)
+        if [ -z "$AUTHENTICATED_USER" ]; then
+            echo "Error: Invalid or expired GitHub token." >&2
             exit 1
         fi
-    else
-        auth_header=""
     fi
 
     local URL=""
@@ -92,17 +91,24 @@ main() {
         URL="https://api.github.com/users/$USERNAME/repos?per_page=100"
         echo "Fetching public repositories for user '$USERNAME'..."
     else
-        echo "Error: Username required if no token is provided."
+        echo "Error: Username required if no token is provided." >&2
         usage
     fi
+
+    header_file=$(mktemp)
+    trap 'rm -f "$header_file"' EXIT
 
     echo "--------------------------------"
 
     # Fetch repositories with pagination
     while [ -n "$URL" ]; do
-        local page_body
-        page_body=$(fetch_page "$URL")
-        echo "$page_body" | jq -r '.[] | .name'
+        fetch_page "$URL"
+        # The API returns an object with a "message" on errors (unknown user, rate limit...)
+        if ! jq -e 'type == "array"' <<< "$page_body" >/dev/null 2>&1; then
+            echo "Error: GitHub API: $(jq -r '.message // "unexpected response"' <<< "$page_body" 2>/dev/null || echo "unexpected response")" >&2
+            exit 1
+        fi
+        jq -r '.[] | .name' <<< "$page_body"
         URL="$next_url"
     done
 

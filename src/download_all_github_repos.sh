@@ -6,6 +6,9 @@
 #              JSON/CSV manifests, HTTPS or SSH clones, mirror/clone/archive/
 #              sparse backup modes, resumable runs, retries, rate-limit waits,
 #              cron-friendly logging, and checksums for downloaded archives.
+#              Backups are incremental: DEST/backup-manifest.json records the
+#              last backed-up commit of every repository, and repositories whose
+#              remote refs have not changed since are skipped.
 # Usage:
 #   ./download_all_github_repos.sh discover [OPTIONS]
 #   ./download_all_github_repos.sh backup [OPTIONS]
@@ -16,6 +19,7 @@
 #   ./download_all_github_repos.sh discover --user alice --output repos.json
 #   ./download_all_github_repos.sh discover --org my-org --token "$GITHUB_TOKEN" --output repos.csv --format csv
 #   ./download_all_github_repos.sh discover --authenticated-user --token "$GITHUB_TOKEN" --output repos.json
+#   ./download_all_github_repos.sh discover --authenticated-user --auth gh --output repos.json
 #
 # Backup examples:
 #   ./download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups
@@ -36,6 +40,7 @@ GITHUB_USER=""
 GITHUB_ORG=""
 AUTHENTICATED_USER=false
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+AUTH_MODE="auto"
 VISIBILITY="all"
 
 MANIFEST=""
@@ -45,6 +50,7 @@ OUTPUT_FORMAT="json"
 DEST_DIR=""
 RUN_DIR=""
 STATE_FILE=""
+BACKUP_MANIFEST=""
 LOCK_FILE=""
 CONFIG_FILE=""
 
@@ -60,6 +66,8 @@ NON_INTERACTIVE=false
 CHECKSUM=true
 VERIFY_AFTER_BACKUP=false
 PARALLEL_JOBS=""
+FORCE=false
+KEEP_ARCHIVES=0""
 
 RATE_LIMIT_MODE="wait"
 SLEEP_BETWEEN_REPOS=0
@@ -80,6 +88,7 @@ DISCOVER_SOURCE_VALUE=""
 DISCOVER_OWNER_FILTER=""
 MIRROR_TOTAL=0
 MIRROR_PROGRESS_FILE=""
+WORK_TMPDIR=""
 
 ###############################################################################
 # Usage
@@ -96,6 +105,7 @@ Discovery examples:
   download_all_github_repos.sh discover --user alice --output repos.json
   download_all_github_repos.sh discover --org my-org --token "$GITHUB_TOKEN" --output repos.csv --format csv
   download_all_github_repos.sh discover --authenticated-user --token "$GITHUB_TOKEN" --output repos.json
+  download_all_github_repos.sh discover --authenticated-user --auth gh --output repos.json
 
 Backup examples:
   download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups
@@ -112,11 +122,18 @@ print_discover_usage() {
 Usage: download_all_github_repos.sh discover [OPTIONS]
 
 Source options:
-  --user USER                 Discover repositories for a GitHub user. With --token,
+  --user USER                 Discover repositories for a GitHub user. When
+                              authenticated (token or gh),
                               include private repositories visible to that token.
   --org ORG                   Discover repositories for a GitHub organization.
   --authenticated-user        Discover repositories visible to the token owner.
   --token TOKEN               GitHub token. Defaults to GITHUB_TOKEN.
+  --auth auto|token|gh|public How to authenticate with GitHub:
+                                token  - use --token / GITHUB_TOKEN (required)
+                                gh     - use the GitHub CLI login (gh auth token)
+                                public - no authentication, public repos only
+                                auto   - token if given, else gh if logged in,
+                                         else public (default)
 
 Manifest options:
   --output FILE               Manifest path to write. Required.
@@ -151,14 +168,26 @@ Usage: download_all_github_repos.sh backup [OPTIONS]
 Required:
   --manifest FILE             JSON or CSV manifest created by discover.
   --dest DIR                  Backup destination root.
-  --config FILE               Load defaults from a JSON config file. CLI flags override.
 
 Backup behavior:
+  --config FILE               Load defaults from a JSON config file. CLI flags override.
   --mode mirror|clone|archive|sparse
                               Override per-repository manifest mode.
   --protocol https|ssh        Clone protocol for git modes. Default: https.
   --token TOKEN               GitHub token. Defaults to GITHUB_TOKEN.
+  --auth auto|token|gh|public How to authenticate with GitHub:
+                                token  - use --token / GITHUB_TOKEN (required)
+                                gh     - use the GitHub CLI login (gh auth token)
+                                public - no authentication, public repos only
+                                auto   - token if given, else gh if logged in,
+                                         else public (default)
   --resume                    Reuse state and skip completed repositories.
+  --force                     Back up every repository, even if its remote refs
+                              match the last backup recorded in the backup manifest.
+  --backup-manifest FILE      Record of backed-up commits used to skip unchanged
+                              repositories. Default: DEST/backup-manifest.json.
+  --keep-archives N           Archive mode: keep only the newest N archives per
+                              repository. Default: 0 (keep all).
   --checksum                  Write checksums for archive files. Default.
   --no-checksum               Disable archive checksums.
   --verify-after-backup       Run lightweight validation after each backup.
@@ -255,9 +284,46 @@ check_backup_dependencies() {
     check_common_dependencies
     require_command git
     require_command tar
-    if [[ -n "$LOCK_FILE" ]]; then
-        require_command flock
-    fi
+    require_command flock
+}
+
+need_arg() {
+    [[ $# -ge 2 && -n "$2" ]] || die "$1 requires a value."
+}
+
+# Picks the GitHub credentials according to --auth and leaves the token (if
+# any) in GITHUB_TOKEN, which both API calls and git operations use.
+resolve_auth() {
+    local gh_token=""
+
+    case "$AUTH_MODE" in
+        public)
+            GITHUB_TOKEN=""
+            ;;
+        token)
+            [[ -n "$GITHUB_TOKEN" ]] || die "--auth token requires --token TOKEN or the GITHUB_TOKEN environment variable."
+            ;;
+        gh)
+            require_command gh
+            gh_token="$(gh auth token 2>/dev/null)" || true
+            [[ -n "$gh_token" ]] || die "GitHub CLI is not logged in. Run 'gh auth login' first."
+            GITHUB_TOKEN="$gh_token"
+            ;;
+        auto)
+            if [[ -n "$GITHUB_TOKEN" ]]; then
+                AUTH_MODE="token"
+            elif command -v gh >/dev/null 2>&1 && gh_token="$(gh auth token 2>/dev/null)" && [[ -n "$gh_token" ]]; then
+                AUTH_MODE="gh"
+                GITHUB_TOKEN="$gh_token"
+            else
+                AUTH_MODE="public"
+            fi
+            ;;
+        *)
+            die "--auth must be auto, token, gh, or public."
+            ;;
+    esac
+    info "GitHub authentication: $AUTH_MODE"
 }
 
 is_positive_integer() {
@@ -297,7 +363,8 @@ config_arg_from_args() {
 
 config_string() {
     local filter="$1"
-    jq -r "$filter // empty" "$CONFIG_FILE"
+    # Not "$filter // empty": that would also drop an explicit false.
+    jq -r "($filter) | if . == null then empty else . end" "$CONFIG_FILE"
 }
 
 set_config_string() {
@@ -329,6 +396,7 @@ load_discover_config() {
     set_config_string GITHUB_ORG '.org'
     set_config_bool AUTHENTICATED_USER '.authenticated_user'
     set_config_string GITHUB_TOKEN '.token'
+    set_config_string AUTH_MODE '.auth'
     set_config_string OUTPUT_FILE '.output'
     set_config_string OUTPUT_FORMAT '.format'
     set_config_string INPUT_MANIFEST '.input'
@@ -352,6 +420,7 @@ load_backup_config() {
     set_config_string BACKUP_MODE '.mode'
     set_config_string PROTOCOL '.protocol'
     set_config_string GITHUB_TOKEN '.token'
+    set_config_string AUTH_MODE '.auth'
     set_config_bool RESUME '.resume'
     set_config_bool CHECKSUM '.checksum'
     set_config_bool VERIFY_AFTER_BACKUP '.verify_after_backup'
@@ -638,6 +707,7 @@ write_json_manifest() {
     if [[ -n "$existing" && -f "$existing" ]]; then
         manifest_to_json "$existing" > "$existing_arg"
     else
+        [[ -z "$existing" ]] || warn "Input manifest not found, starting fresh: $existing"
         printf '{"repositories":[]}\n' > "$existing_arg"
     fi
 
@@ -686,9 +756,10 @@ json_manifest_to_csv() {
     local manifest="$1"
     local output="$2"
 
-    {
-        printf 'enabled,full_name,clone_url,ssh_url,html_url,default_branch,private,fork,archived,mode,paths,exclude_paths\n'
-        jq -r '
+    # Built entirely in jq so empty cells keep their column position.
+    jq -r '
+        "enabled,full_name,clone_url,ssh_url,html_url,default_branch,private,fork,archived,mode,paths,exclude_paths",
+        (
             .repositories[]
             | [
                 ((if has("enabled") then .enabled else true end) | tostring),
@@ -704,50 +775,46 @@ json_manifest_to_csv() {
                 ((.paths // []) | join(";")),
                 ((.exclude_paths // []) | join(";"))
               ]
-            | @tsv
-        ' "$manifest" | while IFS=$'\t' read -r enabled full_name clone_url ssh_url html_url default_branch private fork archived mode paths exclude_paths; do
-        printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
-            "$enabled" "$full_name" "$clone_url" "$ssh_url" "$html_url" "$default_branch" \
-            "$private" "$fork" "$archived" "$mode" "$paths" "$exclude_paths"
-    done
-} > "$output"
+            | join(",")
+        )
+    ' "$manifest" > "$output"
 }
 
 csv_manifest_to_json() {
-local manifest="$1"
-local objects
-objects="$(mktemp)"
+    local manifest="$1"
+    local objects
+    objects="$(mktemp)"
 
-tail -n +2 "$manifest" | while IFS=, read -r enabled full_name clone_url ssh_url html_url default_branch private fork archived mode paths exclude_paths _extra; do
-    [[ -z "${full_name:-}" ]] && continue
+    tail -n +2 "$manifest" | while IFS=, read -r enabled full_name clone_url ssh_url html_url default_branch private fork archived mode paths exclude_paths _extra || [[ -n "${enabled:-}" ]]; do
+        [[ -z "${full_name:-}" ]] && continue
 
-    enabled="$(normalize_bool "$(trim_csv_cell "${enabled:-true}")")"
-    private="$(normalize_bool "$(trim_csv_cell "${private:-false}")")"
-    fork="$(normalize_bool "$(trim_csv_cell "${fork:-false}")")"
-    archived="$(normalize_bool "$(trim_csv_cell "${archived:-false}")")"
+        enabled="$(normalize_bool "$(trim_csv_cell "${enabled:-true}")")"
+        private="$(normalize_bool "$(trim_csv_cell "${private:-false}")")"
+        fork="$(normalize_bool "$(trim_csv_cell "${fork:-false}")")"
+        archived="$(normalize_bool "$(trim_csv_cell "${archived:-false}")")"
 
-    full_name="$(trim_csv_cell "${full_name:-}")"
-    clone_url="$(trim_csv_cell "${clone_url:-}")"
-    ssh_url="$(trim_csv_cell "${ssh_url:-}")"
-    html_url="$(trim_csv_cell "${html_url:-}")"
-    default_branch="$(trim_csv_cell "${default_branch:-}")"
-    mode="$(trim_csv_cell "${mode:-mirror}")"
-    paths="$(trim_csv_cell "${paths:-}")"
-    exclude_paths="$(trim_csv_cell "${exclude_paths:-}")"
+        full_name="$(trim_csv_cell "${full_name:-}")"
+        clone_url="$(trim_csv_cell "${clone_url:-}")"
+        ssh_url="$(trim_csv_cell "${ssh_url:-}")"
+        html_url="$(trim_csv_cell "${html_url:-}")"
+        default_branch="$(trim_csv_cell "${default_branch:-}")"
+        mode="$(trim_csv_cell "${mode:-mirror}")"
+        paths="$(trim_csv_cell "${paths:-}")"
+        exclude_paths="$(trim_csv_cell "${exclude_paths:-}")"
 
-    jq -cn \
-        --argjson enabled "$enabled" \
-        --arg full_name "$full_name" \
-        --arg clone_url "$clone_url" \
-        --arg ssh_url "$ssh_url" \
-        --arg html_url "$html_url" \
-        --arg default_branch "$default_branch" \
-        --argjson private "$private" \
-        --argjson fork "$fork" \
-        --argjson archived "$archived" \
-        --arg mode "$mode" \
-        --argjson paths "$(json_string_array_from_semicolon "$paths")" \
-    --argjson exclude_paths "$(json_string_array_from_semicolon "$exclude_paths")" '
+        jq -cn \
+            --argjson enabled "$enabled" \
+            --arg full_name "$full_name" \
+            --arg clone_url "$clone_url" \
+            --arg ssh_url "$ssh_url" \
+            --arg html_url "$html_url" \
+            --arg default_branch "$default_branch" \
+            --argjson private "$private" \
+            --argjson fork "$fork" \
+            --argjson archived "$archived" \
+            --arg mode "$mode" \
+            --argjson paths "$(json_string_array_from_semicolon "$paths")" \
+        --argjson exclude_paths "$(json_string_array_from_semicolon "$exclude_paths")" '
             {
               enabled: $enabled,
               full_name: $full_name,
@@ -763,10 +830,10 @@ tail -n +2 "$manifest" | while IFS=, read -r enabled full_name clone_url ssh_url
               exclude_paths: $exclude_paths
             }
         ' >> "$objects"
-done
+    done
 
-jq -s \
---arg created_at "$(now_utc_iso)" '
+    jq -s \
+    --arg created_at "$(now_utc_iso)" '
         {
           version: 1,
           created_at: $created_at,
@@ -788,72 +855,78 @@ jq -s \
         }
     ' "$objects"
 
-rm -f "$objects"
+    rm -f "$objects"
 }
 
 manifest_to_json() {
-local manifest="$1"
+    local manifest="$1"
 
-[[ -f "$manifest" ]] || die "Manifest not found: $manifest"
-[[ -s "$manifest" ]] || die "Manifest is empty: $manifest"
+    [[ -f "$manifest" ]] || die "Manifest not found: $manifest"
+    [[ -s "$manifest" ]] || die "Manifest is empty: $manifest"
 
-if jq -e 'type == "object" and has("repositories")' "$manifest" >/dev/null 2>&1; then
-    jq '.' "$manifest"
-else
-    csv_manifest_to_json "$manifest"
-fi
+    if jq -e 'type == "object" and has("repositories")' "$manifest" >/dev/null 2>&1; then
+        jq '.' "$manifest"
+    else
+        csv_manifest_to_json "$manifest"
+    fi
 }
 
 validate_manifest_file() {
-local manifest="$1"
-local tmp
-
-tmp="$(mktemp)"
-manifest_to_json "$manifest" > "$tmp"
-
-jq -e '
+    local manifest="$1"
+    local label="${2:-$1}"
+    local tmp
+    local filter='
         type == "object"
         and (.repositories | type == "array")
-        and all(.repositories[]; (.enabled | type == "boolean") and (.full_name | type == "string") and (.mode | type == "string"))
-    ' "$tmp" >/dev/null || {
-rm -f "$tmp"
-die "Manifest validation failed: $manifest"
-}
+        and all(.repositories[];
+            (.enabled | type == "boolean")
+            and (.full_name | type == "string" and length > 0)
+            and (.mode | IN("mirror", "clone", "archive", "sparse")))
+    '
 
-info "Manifest is valid: $manifest"
-info "Enabled repositories: $(jq '[.repositories[] | select(.enabled == true)] | length' "$tmp")"
-info "Total repositories: $(jq '.repositories | length' "$tmp")"
-rm -f "$tmp"
+    tmp="$(mktemp)"
+    manifest_to_json "$manifest" > "$tmp"
+
+    if ! jq -e "$filter" "$tmp" >/dev/null; then
+        rm -f "$tmp"
+        die "Manifest validation failed: $label (each repository needs boolean enabled, non-empty full_name, and mode mirror|clone|archive|sparse)"
+    fi
+
+    info "Manifest is valid: $label"
+    info "Enabled repositories: $(jq '[.repositories[] | select(.enabled == true)] | length' "$tmp")"
+    info "Total repositories: $(jq '.repositories | length' "$tmp")"
+    rm -f "$tmp"
 }
 
 ###############################################################################
 # State helpers
 ###############################################################################
 init_state_file() {
-local manifest_json="$1"
-local checksum="$2"
+    local manifest_json="$1"
+    local checksum="$2"
 
-if [[ "$RESUME" == true && -f "$STATE_FILE" ]]; then
-STATE_MANIFEST_CHECKSUM="$(jq -r '.manifest_checksum // empty' "$STATE_FILE")"
-if [[ -n "$STATE_MANIFEST_CHECKSUM" && "$STATE_MANIFEST_CHECKSUM" != "$checksum" ]]; then
-    warn "State manifest checksum differs from current manifest. Completed entries may not match."
-fi
-RUN_DIR="$(jq -r '.run_dir // empty' "$STATE_FILE")"
-if [[ -z "$RUN_DIR" || ! -d "$RUN_DIR" ]]; then
-    RUN_DIR="${DEST_DIR}/runs/$(now_utc_compact)"
-fi
-return 0
-fi
+    if [[ "$RESUME" == true && -f "$STATE_FILE" ]]; then
+        STATE_MANIFEST_CHECKSUM="$(jq -r '.manifest_checksum // empty' "$STATE_FILE")"
+        if [[ -n "$STATE_MANIFEST_CHECKSUM" && "$STATE_MANIFEST_CHECKSUM" != "$checksum" ]]; then
+            warn "State manifest checksum differs from current manifest. Completed entries may not match."
+        fi
+        RUN_DIR="$(jq -r '.run_dir // empty' "$STATE_FILE")"
+        if [[ -z "$RUN_DIR" || ! -d "$RUN_DIR" ]]; then
+            warn "Run directory from state is missing; repositories marked done will still be skipped."
+            RUN_DIR="${DEST_DIR}/runs/$(now_utc_compact)"
+        fi
+        return 0
+    fi
 
-RUN_DIR="${RUN_DIR:-${DEST_DIR}/runs/$(now_utc_compact)}"
-mkdir -p "$RUN_DIR"
+    RUN_DIR="${RUN_DIR:-${DEST_DIR}/runs/$(now_utc_compact)}"
+    mkdir -p "$RUN_DIR"
 
-jq -n \
---arg started_at "$(now_utc_iso)" \
---arg manifest "$MANIFEST" \
---arg manifest_checksum "$checksum" \
---arg run_dir "$RUN_DIR" \
---argjson repo_count "$(jq '.repositories | length' "$manifest_json")" '
+    jq -n \
+        --arg started_at "$(now_utc_iso)" \
+        --arg manifest "$MANIFEST" \
+        --arg manifest_checksum "$checksum" \
+        --arg run_dir "$RUN_DIR" \
+    --argjson repo_count "$(jq '.repositories | length' "$manifest_json")" '
         {
           version: 1,
           started_at: $started_at,
@@ -868,36 +941,36 @@ jq -n \
 }
 
 state_repo_status() {
-local key="$1"
-[[ -f "$STATE_FILE" ]] || {
-printf 'pending'
-return 0
-}
-jq -r --arg key "$key" '.repositories[$key].status // "pending"' "$STATE_FILE"
+    local key="$1"
+    [[ -f "$STATE_FILE" ]] || {
+        printf 'pending'
+        return 0
+    }
+    jq -r --arg key "$key" '.repositories[$key].status // "pending"' "$STATE_FILE"
 }
 
 update_state_repo() {
-local key="$1"
-local status="$2"
-local full_name="$3"
-local mode="$4"
-local output_path="$5"
-local error_message="${6:-}"
-local lock_file="${STATE_FILE}.lock"
+    local key="$1"
+    local status="$2"
+    local full_name="$3"
+    local mode="$4"
+    local output_path="$5"
+    local error_message="${6:-}"
+    local lock_file="${STATE_FILE}.lock"
 
-(
-local tmp
+    (
+        local tmp
 
-flock 8
-tmp="$(mktemp)"
-jq \
-    --arg updated_at "$(now_utc_iso)" \
-    --arg key "$key" \
-    --arg status "$status" \
-    --arg full_name "$full_name" \
-    --arg mode "$mode" \
-    --arg output_path "$output_path" \
---arg error_message "$error_message" '
+        flock 8
+        tmp="$(mktemp)"
+        jq \
+            --arg updated_at "$(now_utc_iso)" \
+            --arg key "$key" \
+            --arg status "$status" \
+            --arg full_name "$full_name" \
+            --arg mode "$mode" \
+            --arg output_path "$output_path" \
+        --arg error_message "$error_message" '
             .updated_at = $updated_at
             | .repositories[$key] = {
                 status: $status,
@@ -908,13 +981,13 @@ jq \
                 updated_at: $updated_at
               }
         ' "$STATE_FILE" > "$tmp"
-mv "$tmp" "$STATE_FILE"
-) 8>"$lock_file"
+        mv "$tmp" "$STATE_FILE"
+    ) 8>"$lock_file"
 }
 
 write_summary() {
-local summary_file="$RUN_DIR/summary.json"
-jq '
+    local summary_file="$RUN_DIR/summary.json"
+    jq '
         . as $state
         | {
             started_at: $state.started_at,
@@ -924,115 +997,117 @@ jq '
             repo_count: $state.repo_count,
             done: ([.repositories[] | select(.status == "done")] | length),
             failed: ([.repositories[] | select(.status == "failed")] | length),
-            skipped: ([.repositories[] | select(.status == "skipped")] | length),
+            unchanged: ([.repositories[] | select(.status == "unchanged")] | length),
             repositories: $state.repositories
           }
     ' "$STATE_FILE" > "$summary_file"
-info "Summary written to $summary_file"
+    info "Summary written to $summary_file"
 }
 
 ###############################################################################
 # Discovery
 ###############################################################################
 parse_discover_args() {
-while [[ $# -gt 0 ]]; do
-case "$1" in
-    --user) GITHUB_USER="${2:-}"; shift 2 ;;
-    --org) GITHUB_ORG="${2:-}"; shift 2 ;;
-    --authenticated-user) AUTHENTICATED_USER=true; shift ;;
-    --token) GITHUB_TOKEN="${2:-}"; shift 2 ;;
-    --output) OUTPUT_FILE="${2:-}"; shift 2 ;;
-    --format) OUTPUT_FORMAT="${2:-}"; shift 2 ;;
-    --input) INPUT_MANIFEST="${2:-}"; shift 2 ;;
-    --config) CONFIG_FILE="${2:-}"; shift 2 ;;
-    --include-forks) DISCOVER_INCLUDE_FORKS=true; shift ;;
-    --exclude-forks) DISCOVER_INCLUDE_FORKS=false; shift ;;
-    --include-archived) DISCOVER_INCLUDE_ARCHIVED=true; shift ;;
-    --exclude-archived) DISCOVER_INCLUDE_ARCHIVED=false; shift ;;
-    --visibility) VISIBILITY="${2:-}"; shift 2 ;;
-    --name-regex) NAME_REGEX="${2:-}"; shift 2 ;;
-    --max-repos) MAX_REPOS="${2:-}"; shift 2 ;;
-    --rate-limit) RATE_LIMIT_MODE="${2:-}"; shift 2 ;;
-    --max-retries) MAX_RETRIES="${2:-}"; shift 2 ;;
-    --retry-delay) RETRY_DELAY="${2:-}"; shift 2 ;;
-    --log-file) LOG_FILE="${2:-}"; shift 2 ;;
-    --quiet) QUIET=true; shift ;;
-    --verbose) VERBOSE=true; shift ;;
-    --no-color) NO_COLOR=true; shift ;;
-    -h|--help) print_discover_usage; exit 0 ;;
-    *) die "Unknown discover argument: $1" ;;
-esac
-done
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --user) need_arg "$@"; GITHUB_USER="$2"; shift 2 ;;
+            --org) need_arg "$@"; GITHUB_ORG="$2"; shift 2 ;;
+            --authenticated-user) AUTHENTICATED_USER=true; shift ;;
+            --token) need_arg "$@"; GITHUB_TOKEN="$2"; shift 2 ;;
+            --auth) need_arg "$@"; AUTH_MODE="$2"; shift 2 ;;
+            --output) need_arg "$@"; OUTPUT_FILE="$2"; shift 2 ;;
+            --format) need_arg "$@"; OUTPUT_FORMAT="$2"; shift 2 ;;
+            --input) need_arg "$@"; INPUT_MANIFEST="$2"; shift 2 ;;
+            --config) need_arg "$@"; CONFIG_FILE="$2"; shift 2 ;;
+            --include-forks) DISCOVER_INCLUDE_FORKS=true; shift ;;
+            --exclude-forks) DISCOVER_INCLUDE_FORKS=false; shift ;;
+            --include-archived) DISCOVER_INCLUDE_ARCHIVED=true; shift ;;
+            --exclude-archived) DISCOVER_INCLUDE_ARCHIVED=false; shift ;;
+            --visibility) need_arg "$@"; VISIBILITY="$2"; shift 2 ;;
+            --name-regex) need_arg "$@"; NAME_REGEX="$2"; shift 2 ;;
+            --max-repos) need_arg "$@"; MAX_REPOS="$2"; shift 2 ;;
+            --rate-limit) need_arg "$@"; RATE_LIMIT_MODE="$2"; shift 2 ;;
+            --max-retries) need_arg "$@"; MAX_RETRIES="$2"; shift 2 ;;
+            --retry-delay) need_arg "$@"; RETRY_DELAY="$2"; shift 2 ;;
+            --log-file) need_arg "$@"; LOG_FILE="$2"; shift 2 ;;
+            --quiet) QUIET=true; shift ;;
+            --verbose) VERBOSE=true; shift ;;
+            --no-color) NO_COLOR=true; shift ;;
+            -h|--help) print_discover_usage; exit 0 ;;
+            *) die "Unknown discover argument: $1" ;;
+        esac
+    done
 
-[[ -n "$OUTPUT_FILE" ]] || die "discover requires --output FILE."
-case "$OUTPUT_FORMAT" in
-json | csv) ;;
-*) die "--format must be json or csv." ;;
-esac
-case "$VISIBILITY" in
-all | public | private) ;;
-*) die "--visibility must be all, public, or private." ;;
-esac
-case "$RATE_LIMIT_MODE" in
-wait | fail) ;;
-*) die "--rate-limit must be wait or fail." ;;
-esac
-is_positive_integer "$MAX_RETRIES" || die "--max-retries expects a positive integer."
-is_non_negative_integer "$RETRY_DELAY" || die "--retry-delay expects a non-negative integer."
-[[ -z "$MAX_REPOS" ]] || is_positive_integer "$MAX_REPOS" || die "--max-repos expects a positive integer."
+    [[ -n "$OUTPUT_FILE" ]] || die "discover requires --output FILE."
+    case "$OUTPUT_FORMAT" in
+        json | csv) ;;
+        *) die "--format must be json or csv." ;;
+    esac
+    case "$VISIBILITY" in
+        all | public | private) ;;
+        *) die "--visibility must be all, public, or private." ;;
+    esac
+    case "$RATE_LIMIT_MODE" in
+        wait | fail) ;;
+        *) die "--rate-limit must be wait or fail." ;;
+    esac
+    is_positive_integer "$MAX_RETRIES" || die "--max-retries expects a positive integer."
+    is_non_negative_integer "$RETRY_DELAY" || die "--retry-delay expects a non-negative integer."
+    [[ -z "$MAX_REPOS" ]] || is_positive_integer "$MAX_REPOS" || die "--max-repos expects a positive integer."
 
-local sources=0
-[[ -n "$GITHUB_USER" ]] && ((sources += 1))
-[[ -n "$GITHUB_ORG" ]] && ((sources += 1))
-[[ "$AUTHENTICATED_USER" == true ]] && ((sources += 1))
-(( sources == 1 )) || die "Specify exactly one of --user, --org, or --authenticated-user."
+    local sources=0
+    [[ -n "$GITHUB_USER" ]] && ((sources += 1))
+    [[ -n "$GITHUB_ORG" ]] && ((sources += 1))
+    [[ "$AUTHENTICATED_USER" == true ]] && ((sources += 1))
+    (( sources == 1 )) || die "Specify exactly one of --user, --org, or --authenticated-user."
 
-if [[ "$AUTHENTICATED_USER" == true && -z "$GITHUB_TOKEN" ]]; then
-die "--authenticated-user requires --token or GITHUB_TOKEN."
-fi
+    resolve_auth
+    if [[ "$AUTHENTICATED_USER" == true && -z "$GITHUB_TOKEN" ]]; then
+        die "--authenticated-user requires authentication (--auth token or --auth gh)."
+    fi
 }
 
 set_discover_endpoint_and_source() {
-DISCOVER_OWNER_FILTER=""
+    DISCOVER_OWNER_FILTER=""
 
-if [[ "$AUTHENTICATED_USER" == true ]]; then
-DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}"
-DISCOVER_SOURCE_TYPE="authenticated-user"
-DISCOVER_SOURCE_VALUE="token-owner"
-elif [[ -n "$GITHUB_USER" ]]; then
-if [[ -n "$GITHUB_TOKEN" ]]; then
-    DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}&affiliation=owner,collaborator,organization_member"
-    DISCOVER_OWNER_FILTER="$GITHUB_USER"
-else
-    DISCOVER_ENDPOINT="https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=all"
-fi
-DISCOVER_SOURCE_TYPE="user"
-DISCOVER_SOURCE_VALUE="$GITHUB_USER"
-else
-DISCOVER_ENDPOINT="https://api.github.com/orgs/${GITHUB_ORG}/repos?per_page=100&type=all"
-DISCOVER_SOURCE_TYPE="org"
-DISCOVER_SOURCE_VALUE="$GITHUB_ORG"
-fi
+    if [[ "$AUTHENTICATED_USER" == true ]]; then
+        DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}"
+        DISCOVER_SOURCE_TYPE="authenticated-user"
+        DISCOVER_SOURCE_VALUE="token-owner"
+    elif [[ -n "$GITHUB_USER" ]]; then
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+            DISCOVER_ENDPOINT="https://api.github.com/user/repos?per_page=100&visibility=${VISIBILITY}&affiliation=owner,collaborator,organization_member"
+            DISCOVER_OWNER_FILTER="$GITHUB_USER"
+        else
+            DISCOVER_ENDPOINT="https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=all"
+        fi
+        DISCOVER_SOURCE_TYPE="user"
+        DISCOVER_SOURCE_VALUE="$GITHUB_USER"
+    else
+        DISCOVER_ENDPOINT="https://api.github.com/orgs/${GITHUB_ORG}/repos?per_page=100&type=all"
+        DISCOVER_SOURCE_TYPE="org"
+        DISCOVER_SOURCE_VALUE="$GITHUB_ORG"
+    fi
 }
 
 discover_repositories() {
-local pages_file filtered_file json_output
+    local pages_file filtered_file json_output
 
-set_discover_endpoint_and_source
-pages_file="$(mktemp)"
-filtered_file="$(mktemp)"
-json_output="$(mktemp)"
+    set_discover_endpoint_and_source
+    pages_file="$(mktemp)"
+    filtered_file="$(mktemp)"
+    json_output="$(mktemp)"
 
-info "Discovering repositories from GitHub source: ${DISCOVER_SOURCE_TYPE}=${DISCOVER_SOURCE_VALUE}"
-github_api_paged "$DISCOVER_ENDPOINT" > "$pages_file"
+    info "Discovering repositories from GitHub source: ${DISCOVER_SOURCE_TYPE}=${DISCOVER_SOURCE_VALUE}"
+    github_api_paged "$DISCOVER_ENDPOINT" > "$pages_file"
 
-jq -s \
---argjson include_forks "$DISCOVER_INCLUDE_FORKS" \
---argjson include_archived "$DISCOVER_INCLUDE_ARCHIVED" \
---arg visibility "$VISIBILITY" \
---arg owner_filter "$DISCOVER_OWNER_FILTER" \
---arg name_regex "$NAME_REGEX" \
---arg max_repos "${MAX_REPOS:-0}" '
+    jq -s \
+        --argjson include_forks "$DISCOVER_INCLUDE_FORKS" \
+        --argjson include_archived "$DISCOVER_INCLUDE_ARCHIVED" \
+        --arg visibility "$VISIBILITY" \
+        --arg owner_filter "$DISCOVER_OWNER_FILTER" \
+        --arg name_regex "$NAME_REGEX" \
+    --arg max_repos "${MAX_REPOS:-0}" '
         add
         | map(select($owner_filter == "" or ((.owner.login // "") | ascii_downcase) == ($owner_filter | ascii_downcase)))
         | map(select($include_forks or (.fork | not)))
@@ -1064,445 +1139,629 @@ jq -s \
           })
     ' "$pages_file" > "$filtered_file"
 
-write_json_manifest "$filtered_file" "$json_output" "$DISCOVER_SOURCE_TYPE" "$DISCOVER_SOURCE_VALUE" "$INPUT_MANIFEST"
+    write_json_manifest "$filtered_file" "$json_output" "$DISCOVER_SOURCE_TYPE" "$DISCOVER_SOURCE_VALUE" "$INPUT_MANIFEST"
 
-mkdir -p "$(dirname "$OUTPUT_FILE")"
-if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-mv "$json_output" "$OUTPUT_FILE"
-else
-json_manifest_to_csv "$json_output" "$OUTPUT_FILE"
-rm -f "$json_output"
-fi
+    mkdir -p "$(dirname "$OUTPUT_FILE")"
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        cat "$json_output" > "$OUTPUT_FILE"
+    else
+        json_manifest_to_csv "$json_output" "$OUTPUT_FILE"
+    fi
+    rm -f "$json_output"
 
-info "Manifest written to $OUTPUT_FILE"
-info "Repositories in manifest: $(jq '. | length' "$filtered_file")"
+    info "Manifest written to $OUTPUT_FILE"
+    info "Repositories in manifest: $(jq '. | length' "$filtered_file")"
 
-rm -f "$pages_file" "$filtered_file"
+    rm -f "$pages_file" "$filtered_file"
 }
 
 ###############################################################################
 # Backup
 ###############################################################################
 parse_backup_args() {
-while [[ $# -gt 0 ]]; do
-case "$1" in
-    --manifest) MANIFEST="${2:-}"; shift 2 ;;
-    --dest) DEST_DIR="${2:-}"; shift 2 ;;
-    --config) CONFIG_FILE="${2:-}"; shift 2 ;;
-    --mode) BACKUP_MODE="${2:-}"; shift 2 ;;
-    --protocol) PROTOCOL="${2:-}"; shift 2 ;;
-    --token) GITHUB_TOKEN="${2:-}"; shift 2 ;;
-    --resume) RESUME=true; shift ;;
-    --checksum) CHECKSUM=true; shift ;;
-    --no-checksum) CHECKSUM=false; shift ;;
-    --verify-after-backup) VERIFY_AFTER_BACKUP=true; shift ;;
-    --sleep) SLEEP_BETWEEN_REPOS="${2:-}"; shift 2 ;;
-    --parallel) PARALLEL_JOBS="${2:-}"; shift 2 ;;
-    --non-interactive) NON_INTERACTIVE=true; shift ;;
-    --log-file) LOG_FILE="${2:-}"; shift 2 ;;
-    --lock-file) LOCK_FILE="${2:-}"; shift 2 ;;
-    --state-file) STATE_FILE="${2:-}"; shift 2 ;;
-    --rate-limit) RATE_LIMIT_MODE="${2:-}"; shift 2 ;;
-    --max-retries) MAX_RETRIES="${2:-}"; shift 2 ;;
-    --retry-delay) RETRY_DELAY="${2:-}"; shift 2 ;;
-    --retry-backoff) RETRY_BACKOFF="${2:-}"; shift 2 ;;
-    --quiet) QUIET=true; shift ;;
-    --verbose) VERBOSE=true; shift ;;
-    --no-color) NO_COLOR=true; shift ;;
-    -h|--help) print_backup_usage; exit 0 ;;
-    *) die "Unknown backup argument: $1" ;;
-esac
-done
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --manifest) need_arg "$@"; MANIFEST="$2"; shift 2 ;;
+            --dest) need_arg "$@"; DEST_DIR="$2"; shift 2 ;;
+            --config) need_arg "$@"; CONFIG_FILE="$2"; shift 2 ;;
+            --mode) need_arg "$@"; BACKUP_MODE="$2"; shift 2 ;;
+            --protocol) need_arg "$@"; PROTOCOL="$2"; shift 2 ;;
+            --token) need_arg "$@"; GITHUB_TOKEN="$2"; shift 2 ;;
+            --auth) need_arg "$@"; AUTH_MODE="$2"; shift 2 ;;
+            --resume) RESUME=true; shift ;;
+            --force) FORCE=true; shift ;;
+            --backup-manifest) need_arg "$@"; BACKUP_MANIFEST="$2"; shift 2 ;;
+            --keep-archives) need_arg "$@"; KEEP_ARCHIVES="$2"; shift 2 ;;
+            --checksum) CHECKSUM=true; shift ;;
+            --no-checksum) CHECKSUM=false; shift ;;
+            --verify-after-backup) VERIFY_AFTER_BACKUP=true; shift ;;
+            --sleep) need_arg "$@"; SLEEP_BETWEEN_REPOS="$2"; shift 2 ;;
+            --parallel) need_arg "$@"; PARALLEL_JOBS="$2"; shift 2 ;;
+            --non-interactive) NON_INTERACTIVE=true; shift ;;
+            --log-file) need_arg "$@"; LOG_FILE="$2"; shift 2 ;;
+            --lock-file) need_arg "$@"; LOCK_FILE="$2"; shift 2 ;;
+            --state-file) need_arg "$@"; STATE_FILE="$2"; shift 2 ;;
+            --rate-limit) need_arg "$@"; RATE_LIMIT_MODE="$2"; shift 2 ;;
+            --max-retries) need_arg "$@"; MAX_RETRIES="$2"; shift 2 ;;
+            --retry-delay) need_arg "$@"; RETRY_DELAY="$2"; shift 2 ;;
+            --retry-backoff) need_arg "$@"; RETRY_BACKOFF="$2"; shift 2 ;;
+            --quiet) QUIET=true; shift ;;
+            --verbose) VERBOSE=true; shift ;;
+            --no-color) NO_COLOR=true; shift ;;
+            -h|--help) print_backup_usage; exit 0 ;;
+            *) die "Unknown backup argument: $1" ;;
+        esac
+    done
 
-[[ -n "$MANIFEST" ]] || die "backup requires --manifest FILE."
-[[ -n "$DEST_DIR" ]] || die "backup requires --dest DIR."
-[[ -z "$BACKUP_MODE" || "$BACKUP_MODE" =~ ^(mirror|clone|archive|sparse)$ ]] || die "--mode must be mirror, clone, archive, or sparse."
-[[ "$PROTOCOL" =~ ^(https|ssh)$ ]] || die "--protocol must be https or ssh."
-case "$RATE_LIMIT_MODE" in
-wait | fail) ;;
-*) die "--rate-limit must be wait or fail." ;;
-esac
-is_positive_integer "$MAX_RETRIES" || die "--max-retries expects a positive integer."
-is_non_negative_integer "$RETRY_DELAY" || die "--retry-delay expects a non-negative integer."
-is_positive_integer "$RETRY_BACKOFF" || die "--retry-backoff expects a positive integer."
-is_non_negative_integer "$SLEEP_BETWEEN_REPOS" || die "--sleep expects a non-negative integer."
-PARALLEL_JOBS="${PARALLEL_JOBS:-$(cpu_count)}"
-is_positive_integer "$PARALLEL_JOBS" || die "--parallel expects a positive integer."
+    [[ -n "$MANIFEST" ]] || die "backup requires --manifest FILE."
+    [[ -n "$DEST_DIR" ]] || die "backup requires --dest DIR."
+    [[ -z "$BACKUP_MODE" || "$BACKUP_MODE" =~ ^(mirror|clone|archive|sparse)$ ]] || die "--mode must be mirror, clone, archive, or sparse."
+    [[ "$PROTOCOL" =~ ^(https|ssh)$ ]] || die "--protocol must be https or ssh."
+    case "$RATE_LIMIT_MODE" in
+        wait | fail) ;;
+        *) die "--rate-limit must be wait or fail." ;;
+    esac
+    is_positive_integer "$MAX_RETRIES" || die "--max-retries expects a positive integer."
+    is_non_negative_integer "$RETRY_DELAY" || die "--retry-delay expects a non-negative integer."
+    is_positive_integer "$RETRY_BACKOFF" || die "--retry-backoff expects a positive integer."
+    is_non_negative_integer "$SLEEP_BETWEEN_REPOS" || die "--sleep expects a non-negative integer."
+    is_non_negative_integer "$KEEP_ARCHIVES" || die "--keep-archives expects a non-negative integer."
+    resolve_auth
+    PARALLEL_JOBS="${PARALLEL_JOBS:-$(cpu_count)}"
+    is_positive_integer "$PARALLEL_JOBS" || die "--parallel expects a positive integer."
 
-if (( PARALLEL_JOBS > 1 && SLEEP_BETWEEN_REPOS > 0 )); then
-warn "--sleep delays job launches when backups run in parallel."
-fi
-if [[ "$NON_INTERACTIVE" == true ]]; then
-debug "Running in non-interactive mode."
-fi
+    if (( PARALLEL_JOBS > 1 && SLEEP_BETWEEN_REPOS > 0 )); then
+        warn "--sleep delays job launches when backups run in parallel."
+    fi
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+        debug "Running in non-interactive mode."
+    fi
 
-mkdir -p "$DEST_DIR"
-STATE_FILE="${STATE_FILE:-${DEST_DIR}/.github-backup-state.json}"
-LOCK_FILE="${LOCK_FILE:-${DEST_DIR}/.github-backup.lock}"
+    mkdir -p "$DEST_DIR"
+    STATE_FILE="${STATE_FILE:-${DEST_DIR}/.github-backup-state.json}"
+    BACKUP_MANIFEST="${BACKUP_MANIFEST:-${DEST_DIR}/backup-manifest.json}"
+    LOCK_FILE="${LOCK_FILE:-${DEST_DIR}/.github-backup.lock}"
 }
 
 acquire_lock() {
-[[ -n "$LOCK_FILE" ]] || return 0
-mkdir -p "$(dirname "$LOCK_FILE")"
-exec 9>"$LOCK_FILE"
-flock -n 9 || die "Another backup appears to be running. Lock file: $LOCK_FILE"
+    [[ -n "$LOCK_FILE" ]] || return 0
+    mkdir -p "$(dirname "$LOCK_FILE")"
+    exec 9>"$LOCK_FILE"
+    flock -n 9 || die "Another backup appears to be running. Lock file: $LOCK_FILE"
 }
 
 repo_clone_url() {
-local repo_json="$1"
-local clone_url ssh_url full_name
+    local repo_json="$1"
+    local clone_url ssh_url full_name
 
-clone_url="$(jq -r '.clone_url // empty' <<< "$repo_json")"
-ssh_url="$(jq -r '.ssh_url // empty' <<< "$repo_json")"
-full_name="$(jq -r '.full_name' <<< "$repo_json")"
+    clone_url="$(jq -r '.clone_url // empty' <<< "$repo_json")"
+    ssh_url="$(jq -r '.ssh_url // empty' <<< "$repo_json")"
+    full_name="$(jq -r '.full_name' <<< "$repo_json")"
 
-if [[ "$PROTOCOL" == "ssh" ]]; then
-if [[ -n "$ssh_url" ]]; then
-    printf '%s' "$ssh_url"
-else
-    printf 'git@github.com:%s.git' "$full_name"
-fi
-else
-if [[ -n "$clone_url" ]]; then
-    printf '%s' "$clone_url"
-else
-    printf 'https://github.com/%s.git' "$full_name"
-fi
-fi
+    if [[ "$PROTOCOL" == "ssh" ]]; then
+        if [[ -n "$ssh_url" ]]; then
+            printf '%s' "$ssh_url"
+        else
+            printf 'git@github.com:%s.git' "$full_name"
+        fi
+    else
+        if [[ -n "$clone_url" ]]; then
+            printf '%s' "$clone_url"
+        else
+            printf 'https://github.com/%s.git' "$full_name"
+        fi
+    fi
 }
 
+# Runs git with only the credentials chosen by --auth. Credential helpers from
+# the user's git config (e.g. "gh auth git-credential") are disabled for HTTPS,
+# so "public" really is anonymous and token/gh use exactly that token.
 git_with_optional_auth() {
-if [[ -n "$GITHUB_TOKEN" && "$PROTOCOL" == "https" ]]; then
-GIT_TERMINAL_PROMPT=0 \
-    GIT_CONFIG_COUNT=1 \
-    GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
-    GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer $GITHUB_TOKEN" \
-    git "$@"
-else
-GIT_TERMINAL_PROMPT=0 git "$@"
-fi
+    if [[ "$PROTOCOL" != "https" ]]; then
+        GIT_TERMINAL_PROMPT=0 git "$@"
+    elif [[ -n "$GITHUB_TOKEN" ]]; then
+        GIT_TERMINAL_PROMPT=0 \
+            GIT_CONFIG_COUNT=2 \
+            GIT_CONFIG_KEY_0='credential.helper' \
+            GIT_CONFIG_VALUE_0='' \
+            GIT_CONFIG_KEY_1='http.https://github.com/.extraheader' \
+            GIT_CONFIG_VALUE_1="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)" \
+            git "$@"
+    else
+        GIT_TERMINAL_PROMPT=0 \
+            GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0='credential.helper' \
+            GIT_CONFIG_VALUE_0='' \
+            git "$@"
+    fi
 }
 
 archive_url_for_repo() {
-local full_name="$1"
-local ref="$2"
-printf 'https://api.github.com/repos/%s/tarball/%s' "$full_name" "$ref"
+    local full_name="$1"
+    local ref="$2"
+    printf 'https://api.github.com/repos/%s/tarball/%s' "$full_name" "$ref"
 }
 
 read_json_array_into() {
-local repo_json="$1"
-local field="$2"
-local -n array_ref="$3"
-# shellcheck disable=SC2034 # array_ref is a nameref output parameter.
-mapfile -t array_ref < <(jq -r --arg field "$field" '.[$field][]? // empty' <<< "$repo_json")
+    local repo_json="$1"
+    local field="$2"
+    local -n array_ref="$3"
+    # shellcheck disable=SC2034 # array_ref is a nameref output parameter.
+    mapfile -t array_ref < <(jq -r --arg field "$field" '.[$field][]? // empty' <<< "$repo_json")
 }
 
 backup_mirror_repo() {
-local repo_json="$1"
-local full_name="$2"
-local output_path="$3"
-local url
+    local repo_json="$1"
+    local full_name="$2"
+    local output_path="$3"
+    local url
 
-url="$(repo_clone_url "$repo_json")"
-if [[ -d "$output_path" ]]; then
-info "Updating mirror: $full_name"
-git_with_optional_auth -C "$output_path" remote update --prune || return 1
-else
-info "Creating mirror: $full_name"
-git_with_optional_auth clone --mirror "$url" "$output_path" || return 1
-fi
+    url="$(repo_clone_url "$repo_json")"
+    if [[ -d "$output_path" ]]; then
+        info "Updating mirror: $full_name"
+        git_with_optional_auth -C "$output_path" remote update --prune || return 1
+    else
+        info "Creating mirror: $full_name"
+        git_with_optional_auth clone --mirror "$url" "$output_path" || return 1
+    fi
 }
 
 backup_clone_repo() {
-local repo_json="$1"
-local full_name="$2"
-local output_path="$3"
-local url
+    local repo_json="$1"
+    local full_name="$2"
+    local output_path="$3"
+    local url
 
-url="$(repo_clone_url "$repo_json")"
-if [[ -d "$output_path/.git" ]]; then
-info "Updating clone: $full_name"
-git_with_optional_auth -C "$output_path" fetch --all --prune --tags || return 1
-git_with_optional_auth -C "$output_path" pull --ff-only || warn "Pull failed for $full_name after fetch. Working tree may have local changes."
-else
-info "Creating clone: $full_name"
-git_with_optional_auth clone "$url" "$output_path" || return 1
-fi
+    url="$(repo_clone_url "$repo_json")"
+    if [[ -d "$output_path/.git" ]]; then
+        info "Updating clone: $full_name"
+        git_with_optional_auth -C "$output_path" fetch --all --prune --tags || return 1
+        git_with_optional_auth -C "$output_path" pull --ff-only || warn "Pull failed for $full_name after fetch. Working tree may have local changes."
+    else
+        info "Creating clone: $full_name"
+        git_with_optional_auth clone "$url" "$output_path" || return 1
+    fi
 }
 
 backup_sparse_repo() {
-local repo_json="$1"
-local full_name="$2"
-local output_path="$3"
-local url default_branch
-local paths=()
+    local repo_json="$1"
+    local full_name="$2"
+    local output_path="$3"
+    local url default_branch
+    local paths=()
 
-read_json_array_into "$repo_json" "paths" paths
-if (( ${#paths[@]} == 0 )); then
-warn "Sparse mode requested for $full_name without paths. Falling back to clone mode."
-backup_clone_repo "$repo_json" "$full_name" "$output_path"
-return
-fi
+    read_json_array_into "$repo_json" "paths" paths
+    if (( ${#paths[@]} == 0 )); then
+        warn "Sparse mode requested for $full_name without paths. Falling back to clone mode."
+        backup_clone_repo "$repo_json" "$full_name" "$output_path"
+        return
+    fi
 
-url="$(repo_clone_url "$repo_json")"
-default_branch="$(jq -r '.default_branch // "main"' <<< "$repo_json")"
+    url="$(repo_clone_url "$repo_json")"
+    default_branch="$(jq -r '.default_branch // "main"' <<< "$repo_json")"
 
-if [[ -d "$output_path/.git" ]]; then
-info "Updating sparse clone: $full_name"
-git_with_optional_auth -C "$output_path" sparse-checkout set "${paths[@]}" || return 1
-git_with_optional_auth -C "$output_path" fetch --all --prune --tags || return 1
-git_with_optional_auth -C "$output_path" checkout "$default_branch" || true
-git_with_optional_auth -C "$output_path" pull --ff-only || warn "Pull failed for sparse clone $full_name."
-else
-info "Creating sparse clone: $full_name"
-git_with_optional_auth clone --filter=blob:none --sparse "$url" "$output_path" || return 1
-git_with_optional_auth -C "$output_path" sparse-checkout set "${paths[@]}" || return 1
-fi
+    if [[ -d "$output_path/.git" ]]; then
+        info "Updating sparse clone: $full_name"
+        git_with_optional_auth -C "$output_path" sparse-checkout set "${paths[@]}" || return 1
+        git_with_optional_auth -C "$output_path" fetch --all --prune --tags || return 1
+        git_with_optional_auth -C "$output_path" checkout "$default_branch" || true
+        git_with_optional_auth -C "$output_path" pull --ff-only || warn "Pull failed for sparse clone $full_name."
+    else
+        info "Creating sparse clone: $full_name"
+        git_with_optional_auth clone --filter=blob:none --sparse "$url" "$output_path" || return 1
+        git_with_optional_auth -C "$output_path" sparse-checkout set "${paths[@]}" || return 1
+    fi
 }
 
 backup_archive_repo() {
-local repo_json="$1"
-local full_name="$2"
-local output_path="$3"
-local default_branch url tmp_archive tmp_dir extract_dir root_dir
-local paths=()
-local exclude_paths=()
-local tar_excludes=()
+    local repo_json="$1"
+    local full_name="$2"
+    local output_path="$3"
+    local ref="${4:-}"
+    local default_branch url tmp_archive tmp_dir extract_dir root_dir excluded
+    local paths=()
+    local exclude_paths=()
+    local tar_excludes=()
 
-default_branch="$(jq -r '.default_branch // "main"' <<< "$repo_json")"
-url="$(archive_url_for_repo "$full_name" "$default_branch")"
-tmp_archive="$(mktemp)"
+    default_branch="$(jq -r '.default_branch // "main"' <<< "$repo_json")"
+    ref="${ref:-$default_branch}"
+    url="$(archive_url_for_repo "$full_name" "$ref")"
+    tmp_archive="$(mktemp)"
 
-info "Downloading archive: $full_name@$default_branch"
-download_with_retries "$url" "$tmp_archive" || {
-rm -f "$tmp_archive"
-return 1
-}
+    info "Downloading archive: $full_name@$ref"
+    download_with_retries "$url" "$tmp_archive" || {
+        rm -f "$tmp_archive"
+        return 1
+    }
 
-read_json_array_into "$repo_json" "paths" paths
-read_json_array_into "$repo_json" "exclude_paths" exclude_paths
+    read_json_array_into "$repo_json" "paths" paths
+    read_json_array_into "$repo_json" "exclude_paths" exclude_paths
 
-mkdir -p "$(dirname "$output_path")"
-if (( ${#paths[@]} == 0 && ${#exclude_paths[@]} == 0 )); then
-mv "$tmp_archive" "$output_path" || return 1
-return 0
-fi
+    mkdir -p "$(dirname "$output_path")"
+    if (( ${#paths[@]} == 0 && ${#exclude_paths[@]} == 0 )); then
+        mv "$tmp_archive" "$output_path" || return 1
+        return 0
+    fi
 
-tmp_dir="$(mktemp -d)"
-extract_dir="$tmp_dir/extract"
-mkdir -p "$extract_dir"
-tar -xzf "$tmp_archive" -C "$extract_dir" || {
-rm -rf "$tmp_dir" "$tmp_archive"
-return 1
-}
-root_dir="$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-[[ -n "$root_dir" ]] || {
-rm -rf "$tmp_dir" "$tmp_archive"
-return 1
-}
+    tmp_dir="$(mktemp -d)"
+    extract_dir="$tmp_dir/extract"
+    mkdir -p "$extract_dir"
+    tar -xzf "$tmp_archive" -C "$extract_dir" || {
+        rm -rf "$tmp_dir" "$tmp_archive"
+        return 1
+    }
+    root_dir="$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+    [[ -n "$root_dir" ]] || {
+        rm -rf "$tmp_dir" "$tmp_archive"
+        return 1
+    }
 
-for excluded in "${exclude_paths[@]}"; do
-tar_excludes+=(--exclude="$excluded")
-done
+    for excluded in "${exclude_paths[@]}"; do
+        tar_excludes+=(--exclude="$excluded")
+    done
 
-if (( ${#paths[@]} == 0 )); then
-paths=(".")
-fi
+    if (( ${#paths[@]} == 0 )); then
+        paths=(".")
+    fi
 
-info "Creating filtered archive for $full_name"
-tar -czf "${output_path}.tmp" -C "$root_dir" "${tar_excludes[@]}" "${paths[@]}" || {
-rm -rf "$tmp_dir" "$tmp_archive"
-return 1
-}
-mv "${output_path}.tmp" "$output_path" || {
-rm -rf "$tmp_dir" "$tmp_archive"
-return 1
-}
-rm -rf "$tmp_dir" "$tmp_archive"
+    info "Creating filtered archive for $full_name"
+    tar -czf "${output_path}.tmp" -C "$root_dir" "${tar_excludes[@]}" "${paths[@]}" || {
+        rm -rf "$tmp_dir" "$tmp_archive" "${output_path}.tmp"
+        return 1
+    }
+    mv "${output_path}.tmp" "$output_path" || {
+        rm -rf "$tmp_dir" "$tmp_archive"
+        return 1
+    }
+    rm -rf "$tmp_dir" "$tmp_archive"
 }
 
 verify_backup_output() {
-local mode="$1"
-local output_path="$2"
+    local mode="$1"
+    local output_path="$2"
 
-[[ "$VERIFY_AFTER_BACKUP" == true ]] || return 0
+    [[ "$VERIFY_AFTER_BACKUP" == true ]] || return 0
 
-case "$mode" in
-mirror)
-    git -C "$output_path" rev-parse --is-bare-repository >/dev/null
-    ;;
-clone|sparse)
-    git -C "$output_path" rev-parse --is-inside-work-tree >/dev/null
-    ;;
-archive)
-    tar -tzf "$output_path" >/dev/null
-    ;;
-esac
+    case "$mode" in
+        mirror)
+            [[ "$(git -C "$output_path" rev-parse --is-bare-repository)" == true ]]
+            ;;
+        clone|sparse)
+            [[ "$(git -C "$output_path" rev-parse --is-inside-work-tree)" == true ]]
+            ;;
+        archive)
+            tar -tzf "$output_path" >/dev/null
+            ;;
+    esac
 }
 
 write_archive_checksum() {
-local output_path="$1"
-local checksum_file="$RUN_DIR/checksums.sha256"
-local lock_file="${checksum_file}.lock"
+    local output_path="$1"
+    local checksum_file="$RUN_DIR/checksums.sha256"
+    local lock_file="${checksum_file}.lock"
 
-[[ "$CHECKSUM" == true ]] || return 0
-(
-flock 8
-sha256sum "$output_path" >> "$checksum_file"
-) 8>"$lock_file"
+    [[ "$CHECKSUM" == true ]] || return 0
+    (
+        flock 8
+        sha256sum "$output_path" >> "$checksum_file"
+    ) 8>"$lock_file"
 }
 
 log_mirror_progress() {
-local full_name="$1"
-local count
-local lock_file="${MIRROR_PROGRESS_FILE}.lock"
+    local full_name="$1"
+    local count
+    local lock_file="${MIRROR_PROGRESS_FILE}.lock"
 
-(( MIRROR_TOTAL > 0 )) || return 0
-[[ -n "$MIRROR_PROGRESS_FILE" ]] || return 0
+    (( MIRROR_TOTAL > 0 )) || return 0
+    [[ -n "$MIRROR_PROGRESS_FILE" ]] || return 0
 
-(
-flock 8
-count="$(cat "$MIRROR_PROGRESS_FILE" 2>/dev/null || printf '0')"
-count=$((count + 1))
-printf '%s\n' "$count" > "$MIRROR_PROGRESS_FILE"
-info "finished ${count}/${MIRROR_TOTAL}: $full_name"
-) 8>"$lock_file"
+    (
+        flock 8
+        count="$(cat "$MIRROR_PROGRESS_FILE" 2>/dev/null || printf '0')"
+        count=$((count + 1))
+        printf '%s\n' "$count" > "$MIRROR_PROGRESS_FILE"
+        info "finished ${count}/${MIRROR_TOTAL}: $full_name"
+    ) 8>"$lock_file"
+}
+
+# Prints where a repository is stored. Git modes update one copy in place;
+# archives are named after the commit they contain, so older snapshots are kept.
+repo_output_path() {
+    local mode="$1"
+    local safe="$2"
+    local head_commit="${3:-}"
+
+    case "$mode" in
+        mirror) printf '%s' "$DEST_DIR/repos/${safe}.git" ;;
+        clone|sparse) printf '%s' "$DEST_DIR/repos/${safe}" ;;
+        archive)
+            if [[ -n "$head_commit" ]]; then
+                printf '%s' "$DEST_DIR/archives/${safe}@${head_commit:0:12}.tar.gz"
+            else
+                printf '%s' "$DEST_DIR/archives/${safe}@$(now_utc_compact).tar.gz"
+            fi
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+prune_old_archives() {
+    local safe="$1"
+    local archive
+    local archives=()
+
+    (( KEEP_ARCHIVES > 0 )) || return 0
+    mapfile -t archives < <(ls -1t -- "$DEST_DIR/archives/${safe}@"*.tar.gz 2>/dev/null)
+    for archive in "${archives[@]:KEEP_ARCHIVES}"; do
+        info "Removing old archive: $archive"
+        rm -f -- "$archive"
+    done
 }
 
 backup_repo_once() {
-local repo_json="$1"
-local full_name mode safe output_path
+    local repo_json="$1"
+    local head_commit="${2:-}"
+    local full_name mode safe output_path
 
-full_name="$(jq -r '.full_name' <<< "$repo_json")"
-safe="$(safe_repo_name "$full_name")"
-mode="${BACKUP_MODE:-$(jq -r '.mode // "mirror"' <<< "$repo_json")}"
+    full_name="$(jq -r '.full_name' <<< "$repo_json")"
+    safe="$(safe_repo_name "$full_name")"
+    mode="${BACKUP_MODE:-$(jq -r '.mode // "mirror"' <<< "$repo_json")}"
+    output_path="$(repo_output_path "$mode" "$safe" "$head_commit")" || die "Invalid backup mode for $full_name: $mode"
 
-case "$mode" in
-mirror) output_path="$RUN_DIR/repos/${safe}.git" ;;
-clone|sparse) output_path="$RUN_DIR/repos/${safe}" ;;
-archive) output_path="$RUN_DIR/archives/${safe}.tar.gz" ;;
-*) die "Invalid backup mode for $full_name: $mode" ;;
-esac
+    mkdir -p "$DEST_DIR/repos" "$DEST_DIR/archives"
 
-mkdir -p "$RUN_DIR/repos" "$RUN_DIR/archives"
+    case "$mode" in
+        mirror) backup_mirror_repo "$repo_json" "$full_name" "$output_path" >&2 || return 1 ;;
+        clone) backup_clone_repo "$repo_json" "$full_name" "$output_path" >&2 || return 1 ;;
+        sparse) backup_sparse_repo "$repo_json" "$full_name" "$output_path" >&2 || return 1 ;;
+        archive) backup_archive_repo "$repo_json" "$full_name" "$output_path" "$head_commit" >&2 || return 1 ;;
+    esac
 
-case "$mode" in
-mirror) backup_mirror_repo "$repo_json" "$full_name" "$output_path" ;;
-clone) backup_clone_repo "$repo_json" "$full_name" "$output_path" ;;
-sparse) backup_sparse_repo "$repo_json" "$full_name" "$output_path" ;;
-archive) backup_archive_repo "$repo_json" "$full_name" "$output_path" ;;
-esac
+    verify_backup_output "$mode" "$output_path" >&2 || return 1
+    if [[ "$mode" == "archive" ]]; then
+        write_archive_checksum "$output_path" || return 1
+        prune_old_archives "$safe" >&2
+    fi
 
-verify_backup_output "$mode" "$output_path" || return 1
-if [[ "$mode" == "archive" ]]; then
-write_archive_checksum "$output_path" || return 1
-fi
+    printf '%s' "$output_path"
+}
 
-printf '%s' "$output_path"
+###############################################################################
+# Backup manifest (change detection)
+###############################################################################
+init_backup_manifest() {
+    local tmp
+
+    mkdir -p "$(dirname "$BACKUP_MANIFEST")"
+    if [[ ! -f "$BACKUP_MANIFEST" ]]; then
+        jq -n --arg now "$(now_utc_iso)" --arg source "$MANIFEST" '
+            {version: 1, created_at: $now, updated_at: $now, source_manifest: $source, repositories: {}}
+        ' > "$BACKUP_MANIFEST"
+        info "Created backup manifest: $BACKUP_MANIFEST"
+        return 0
+    fi
+
+    jq -e '.repositories | type == "object"' "$BACKUP_MANIFEST" >/dev/null 2>&1 ||
+    die "Backup manifest is not valid: $BACKUP_MANIFEST (move it away to start fresh)"
+    tmp="$(mktemp "${BACKUP_MANIFEST}.XXXXXX")"
+    jq --arg source "$MANIFEST" '.source_manifest = $source' "$BACKUP_MANIFEST" > "$tmp"
+    mv "$tmp" "$BACKUP_MANIFEST"
+}
+
+backup_manifest_entry() {
+    local full_name="$1"
+    jq -c --arg name "$full_name" '.repositories[$name] // {}' "$BACKUP_MANIFEST"
+}
+
+# Merges the JSON object $2 into the entry for repository $1.
+backup_manifest_update() {
+    local full_name="$1"
+    local fields="$2"
+
+    (
+        local tmp
+
+        flock 8
+        tmp="$(mktemp "${BACKUP_MANIFEST}.XXXXXX")"
+        jq --arg name "$full_name" --arg now "$(now_utc_iso)" --argjson fields "$fields" '
+            .updated_at = $now
+            | .repositories[$name] = ((.repositories[$name] // {}) + $fields)
+        ' "$BACKUP_MANIFEST" > "$tmp"
+        mv "$tmp" "$BACKUP_MANIFEST"
+    ) 8>"${BACKUP_MANIFEST}.lock"
+}
+
+# Lists the remote refs that matter for a mode, sorted, as "<sha>\t<ref>" lines.
+# Mirrors track every ref, clones track branches and tags, and archive/sparse
+# backups only track the default branch (HEAD).
+remote_refs_for_mode() {
+    local repo_json="$1"
+    local mode="$2"
+    local url refs
+
+    url="$(repo_clone_url "$repo_json")"
+    refs="$(git_with_optional_auth ls-remote "$url" 2>/dev/null)" || return 1
+
+    case "$mode" in
+        mirror) printf '%s\n' "$refs" ;;
+        clone) printf '%s\n' "$refs" | grep -E $'\t(HEAD|refs/heads/.*|refs/tags/.*)$' || true ;;
+        archive|sparse) printf '%s\n' "$refs" | grep -E $'\tHEAD$' || true ;;
+    esac | LC_ALL=C sort
+}
+
+# Fingerprint of the backup settings, so changing mode or paths forces a new backup.
+backup_config_fingerprint() {
+    local repo_json="$1"
+    local mode="$2"
+    jq -cS --arg mode "$mode" '{mode: $mode, paths: (.paths // []), exclude_paths: (.exclude_paths // [])}' <<< "$repo_json" |
+    sha256sum | awk '{print $1}'
+}
+
+record_backup() {
+    local repo_json="$1"
+    local mode="$2"
+    local output_path="$3"
+    local head_commit="$4"
+    local refs_fingerprint="$5"
+    local config_fingerprint="$6"
+    local full_name size archive_sha=""
+
+    full_name="$(jq -r '.full_name' <<< "$repo_json")"
+    size="$(du -sb -- "$output_path" 2>/dev/null | awk '{print $1}')"
+    if [[ "$mode" == "archive" ]]; then
+        archive_sha="$(sha256sum -- "$output_path" | awk '{print $1}')"
+    fi
+
+    backup_manifest_update "$full_name" "$(jq -cn \
+            --arg now "$(now_utc_iso)" \
+            --arg mode "$mode" \
+            --arg output_path "${output_path#"$DEST_DIR"/}" \
+            --arg head_commit "$head_commit" \
+            --arg default_branch "$(jq -r '.default_branch // empty' <<< "$repo_json")" \
+            --arg refs_fingerprint "$refs_fingerprint" \
+            --arg config_fingerprint "$config_fingerprint" \
+            --arg size "${size:-0}" \
+    --arg archive_sha "$archive_sha" '
+        {
+          mode: $mode,
+          output_path: $output_path,
+          default_branch: $default_branch,
+          head_commit: $head_commit,
+          refs_fingerprint: $refs_fingerprint,
+          config_fingerprint: $config_fingerprint,
+          size_bytes: ($size | tonumber),
+          last_backup_at: $now,
+          last_checked_at: $now,
+          last_result: "updated"
+        }
+        + (if $archive_sha != "" then {archive_sha256: $archive_sha} else {} end)
+    ')"
 }
 
 backup_repo_with_retries() {
-local repo_json="$1"
-local full_name mode key status output_path
-local attempt=1
-local delay="$RETRY_DELAY"
+    local repo_json="$1"
+    local full_name mode key status output_path
+    local refs refs_fingerprint="" head_commit="" config_fingerprint previous previous_output
+    local attempt=1
+    local delay="$RETRY_DELAY"
 
-full_name="$(jq -r '.full_name' <<< "$repo_json")"
-mode="${BACKUP_MODE:-$(jq -r '.mode // "mirror"' <<< "$repo_json")}"
-key="$(safe_repo_name "$full_name")"
-status="$(state_repo_status "$key")"
+    full_name="$(jq -r '.full_name' <<< "$repo_json")"
+    mode="${BACKUP_MODE:-$(jq -r '.mode // "mirror"' <<< "$repo_json")}"
+    key="$(safe_repo_name "$full_name")"
+    status="$(state_repo_status "$key")"
 
-if [[ "$RESUME" == true && "$status" == "done" ]]; then
-info "Skipping completed repository from state: $full_name"
-if [[ "$mode" == "mirror" ]]; then
-    log_mirror_progress "$full_name"
-fi
-return 0
-fi
-
-while true; do
-update_state_repo "$key" "running" "$full_name" "$mode" "" ""
-if output_path="$(backup_repo_once "$repo_json")"; then
-    update_state_repo "$key" "done" "$full_name" "$mode" "$output_path" ""
-    info "Completed $full_name -> $output_path"
-    if [[ "$mode" == "mirror" ]]; then
-        log_mirror_progress "$full_name"
+    if [[ "$RESUME" == true && "$status" == "done" ]]; then
+        info "Skipping completed repository from state: $full_name"
+        if [[ "$mode" == "mirror" ]]; then
+            log_mirror_progress "$full_name"
+        fi
+        return 0
     fi
-    return 0
-fi
 
-if (( attempt > MAX_RETRIES )); then
-    update_state_repo "$key" "failed" "$full_name" "$mode" "" "backup failed after retries"
-    error "Backup failed for $full_name after $MAX_RETRIES retries."
-    return 1
-fi
+    config_fingerprint="$(backup_config_fingerprint "$repo_json" "$mode")"
+    if refs="$(remote_refs_for_mode "$repo_json" "$mode")"; then
+        refs_fingerprint="$(printf '%s' "$refs" | sha256sum | awk '{print $1}')"
+        head_commit="$(awk -F '\t' '$2 == "HEAD" {print $1; exit}' <<< "$refs")"
+    else
+        warn "Could not list remote refs for $full_name; backing it up without change detection."
+    fi
 
-warn "Backup failed for $full_name. Retry ${attempt}/${MAX_RETRIES} in ${delay}s."
-update_state_repo "$key" "failed" "$full_name" "$mode" "" "retry pending"
-countdown_sleep "$delay"
-delay=$(( delay * RETRY_BACKOFF ))
-((attempt++))
-done
+    previous="$(backup_manifest_entry "$full_name")"
+    previous_output="$(jq -r '.output_path // empty' <<< "$previous")"
+    [[ -z "$previous_output" ]] || previous_output="$DEST_DIR/$previous_output"
+    if [[ "$FORCE" != true && -n "$refs_fingerprint" && -n "$previous_output" && -e "$previous_output" ]] &&
+    jq -e --arg refs "$refs_fingerprint" --arg config "$config_fingerprint" \
+        '.refs_fingerprint == $refs and .config_fingerprint == $config' <<< "$previous" >/dev/null; then
+        info "Unchanged since last backup, skipping: $full_name (${head_commit:0:12})"
+        backup_manifest_update "$full_name" "$(jq -cn --arg now "$(now_utc_iso)" '{last_checked_at: $now, last_result: "unchanged"}')"
+        update_state_repo "$key" "unchanged" "$full_name" "$mode" "$previous_output" ""
+        if [[ "$mode" == "mirror" ]]; then
+            log_mirror_progress "$full_name"
+        fi
+        return 0
+    fi
+
+    while true; do
+        update_state_repo "$key" "running" "$full_name" "$mode" "" ""
+        if output_path="$(backup_repo_once "$repo_json" "$head_commit")"; then
+            update_state_repo "$key" "done" "$full_name" "$mode" "$output_path" ""
+            record_backup "$repo_json" "$mode" "$output_path" "$head_commit" "$refs_fingerprint" "$config_fingerprint"
+            info "Completed $full_name -> $output_path"
+            if [[ "$mode" == "mirror" ]]; then
+                log_mirror_progress "$full_name"
+            fi
+            return 0
+        fi
+
+        if (( attempt > MAX_RETRIES )); then
+            update_state_repo "$key" "failed" "$full_name" "$mode" "" "backup failed after retries"
+            error "Backup failed for $full_name after $MAX_RETRIES retries."
+            return 1
+        fi
+
+        warn "Backup failed for $full_name. Retry ${attempt}/${MAX_RETRIES} in ${delay}s."
+        update_state_repo "$key" "failed" "$full_name" "$mode" "" "retry pending"
+        countdown_sleep "$delay"
+        delay=$(( delay * RETRY_BACKOFF ))
+        ((attempt++))
+    done
 }
 
 BACKUP_FAILURES=0
 
 run_backup_jobs() {
-local repos_file="$1"
-local repo_json running=0
+    local repos_file="$1"
+    local repo_json running=0
 
-while IFS= read -r repo_json; do
-[[ -z "$repo_json" ]] && continue
+    while IFS= read -r repo_json; do
+        [[ -z "$repo_json" ]] && continue
 
-(
-    if backup_repo_with_retries "$repo_json"; then
-        exit 0
-    fi
-    exit 1
-) &
-running=$((running + 1))
+        backup_repo_with_retries "$repo_json" &
+        running=$((running + 1))
 
-if (( SLEEP_BETWEEN_REPOS > 0 )); then
-    countdown_sleep "$SLEEP_BETWEEN_REPOS"
-fi
+        if (( SLEEP_BETWEEN_REPOS > 0 )); then
+            countdown_sleep "$SLEEP_BETWEEN_REPOS"
+        fi
 
-if (( running >= PARALLEL_JOBS )); then
-    if ! wait -n; then
-        BACKUP_FAILURES=$((BACKUP_FAILURES + 1))
-    fi
-    running=$((running - 1))
-fi
-done < "$repos_file"
+        if (( running >= PARALLEL_JOBS )); then
+            if ! wait -n; then
+                BACKUP_FAILURES=$((BACKUP_FAILURES + 1))
+            fi
+            running=$((running - 1))
+        fi
+    done < "$repos_file"
 
-while (( running > 0 )); do
-if ! wait -n; then
-    BACKUP_FAILURES=$((BACKUP_FAILURES + 1))
-fi
-running=$((running - 1))
-done
+    while (( running > 0 )); do
+        if ! wait -n; then
+            BACKUP_FAILURES=$((BACKUP_FAILURES + 1))
+        fi
+        running=$((running - 1))
+    done
 }
 
 run_backup() {
-local manifest_json checksum repo_count enabled_count
-local repos_file
+    local manifest_json checksum repo_count enabled_count
+    local repos_file
 
-manifest_json="$(mktemp)"
-manifest_to_json "$MANIFEST" > "$manifest_json"
-validate_manifest_file "$manifest_json"
+    manifest_json="$(mktemp)"
+    manifest_to_json "$MANIFEST" > "$manifest_json"
+    validate_manifest_file "$manifest_json" "$MANIFEST"
 
-checksum="$(manifest_checksum "$manifest_json")"
-mkdir -p "$DEST_DIR"
-init_state_file "$manifest_json" "$checksum"
-mkdir -p "$RUN_DIR/repos" "$RUN_DIR/archives"
+    checksum="$(manifest_checksum "$manifest_json")"
+    mkdir -p "$DEST_DIR"
+    init_state_file "$manifest_json" "$checksum"
+    init_backup_manifest
+    mkdir -p "$RUN_DIR" "$DEST_DIR/repos" "$DEST_DIR/archives"
 
-info "Backup run directory: $RUN_DIR"
-info "State file: $STATE_FILE"
+    info "Backup run directory: $RUN_DIR"
+    info "State file: $STATE_FILE"
+    info "Backup manifest: $BACKUP_MANIFEST"
 
-repos_file="$(mktemp)"
-jq -c '.repositories[] | select(.enabled == true)' "$manifest_json" > "$repos_file"
-repo_count="$(jq '.repositories | length' "$manifest_json")"
-enabled_count="$(wc -l < "$repos_file" | tr -d ' ')"
-MIRROR_TOTAL="$(jq --arg override "$BACKUP_MODE" '
+    repos_file="$(mktemp)"
+    jq -c '.repositories[] | select(.enabled == true)' "$manifest_json" > "$repos_file"
+    repo_count="$(jq '.repositories | length' "$manifest_json")"
+    enabled_count="$(wc -l < "$repos_file" | tr -d ' ')"
+    MIRROR_TOTAL="$(jq --arg override "$BACKUP_MODE" '
         [
           .repositories[]
           | select(.enabled == true)
@@ -1510,131 +1769,138 @@ MIRROR_TOTAL="$(jq --arg override "$BACKUP_MODE" '
         ]
         | length
     ' "$manifest_json")"
-MIRROR_PROGRESS_FILE="$RUN_DIR/.mirror-progress"
-printf '0\n' > "$MIRROR_PROGRESS_FILE"
-info "Manifest repositories: $repo_count total, $enabled_count enabled."
-info "Parallel backup jobs: $PARALLEL_JOBS"
+    MIRROR_PROGRESS_FILE="$RUN_DIR/.mirror-progress"
+    printf '0\n' > "$MIRROR_PROGRESS_FILE"
+    info "Manifest repositories: $repo_count total, $enabled_count enabled."
+    info "Parallel backup jobs: $PARALLEL_JOBS"
 
-BACKUP_FAILURES=0
-run_backup_jobs "$repos_file"
+    BACKUP_FAILURES=0
+    run_backup_jobs "$repos_file"
 
-write_summary
-rm -f "$manifest_json" "$repos_file"
+    write_summary
+    rm -f "$manifest_json" "$repos_file"
 
-if (( BACKUP_FAILURES > 0 )); then
-die "$BACKUP_FAILURES repository backup(s) failed. Re-run with --resume after fixing the issue."
-fi
+    if (( BACKUP_FAILURES > 0 )); then
+        die "$BACKUP_FAILURES repository backup(s) failed. Re-run with --resume after fixing the issue."
+    fi
 
-info "Backup completed successfully."
+    info "Backup completed successfully: $(jq -r '[.repositories[] | select(.status == "done")] | length' "$STATE_FILE") updated, $(jq -r '[.repositories[] | select(.status == "unchanged")] | length' "$STATE_FILE") unchanged."
 }
 
 ###############################################################################
 # Convert and validate commands
 ###############################################################################
 parse_validate_args() {
-while [[ $# -gt 0 ]]; do
-case "$1" in
-    --manifest) MANIFEST="${2:-}"; shift 2 ;;
-    --log-file) LOG_FILE="${2:-}"; shift 2 ;;
-    --quiet) QUIET=true; shift ;;
-    --verbose) VERBOSE=true; shift ;;
-    --no-color) NO_COLOR=true; shift ;;
-    -h|--help)
-        printf 'Usage: %s validate-manifest --manifest FILE\n' "$SCRIPT_NAME"
-        exit 0
-        ;;
-    *) die "Unknown validate-manifest argument: $1" ;;
-esac
-done
-[[ -n "$MANIFEST" ]] || die "validate-manifest requires --manifest FILE."
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --manifest) need_arg "$@"; MANIFEST="$2"; shift 2 ;;
+            --log-file) need_arg "$@"; LOG_FILE="$2"; shift 2 ;;
+            --quiet) QUIET=true; shift ;;
+            --verbose) VERBOSE=true; shift ;;
+            --no-color) NO_COLOR=true; shift ;;
+            -h|--help)
+                printf 'Usage: %s validate-manifest --manifest FILE\n' "$SCRIPT_NAME"
+                exit 0
+                ;;
+            *) die "Unknown validate-manifest argument: $1" ;;
+        esac
+    done
+    [[ -n "$MANIFEST" ]] || die "validate-manifest requires --manifest FILE."
 }
 
 parse_convert_args() {
-while [[ $# -gt 0 ]]; do
-case "$1" in
-    --manifest) MANIFEST="${2:-}"; shift 2 ;;
-    --output) OUTPUT_FILE="${2:-}"; shift 2 ;;
-    --format) OUTPUT_FORMAT="${2:-}"; shift 2 ;;
-    --log-file) LOG_FILE="${2:-}"; shift 2 ;;
-    --quiet) QUIET=true; shift ;;
-    --verbose) VERBOSE=true; shift ;;
-    --no-color) NO_COLOR=true; shift ;;
-    -h|--help)
-        printf 'Usage: %s convert-manifest --manifest FILE --output FILE --format json|csv\n' "$SCRIPT_NAME"
-        exit 0
-        ;;
-    *) die "Unknown convert-manifest argument: $1" ;;
-esac
-done
-[[ -n "$MANIFEST" ]] || die "convert-manifest requires --manifest FILE."
-[[ -n "$OUTPUT_FILE" ]] || die "convert-manifest requires --output FILE."
-case "$OUTPUT_FORMAT" in
-json | csv) ;;
-*) die "--format must be json or csv." ;;
-esac
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --manifest) need_arg "$@"; MANIFEST="$2"; shift 2 ;;
+            --output) need_arg "$@"; OUTPUT_FILE="$2"; shift 2 ;;
+            --format) need_arg "$@"; OUTPUT_FORMAT="$2"; shift 2 ;;
+            --log-file) need_arg "$@"; LOG_FILE="$2"; shift 2 ;;
+            --quiet) QUIET=true; shift ;;
+            --verbose) VERBOSE=true; shift ;;
+            --no-color) NO_COLOR=true; shift ;;
+            -h|--help)
+                printf 'Usage: %s convert-manifest --manifest FILE --output FILE --format json|csv\n' "$SCRIPT_NAME"
+                exit 0
+                ;;
+            *) die "Unknown convert-manifest argument: $1" ;;
+        esac
+    done
+    [[ -n "$MANIFEST" ]] || die "convert-manifest requires --manifest FILE."
+    [[ -n "$OUTPUT_FILE" ]] || die "convert-manifest requires --output FILE."
+    case "$OUTPUT_FORMAT" in
+        json | csv) ;;
+        *) die "--format must be json or csv." ;;
+    esac
 }
 
 run_convert_manifest() {
-local tmp
-tmp="$(mktemp)"
-manifest_to_json "$MANIFEST" > "$tmp"
-mkdir -p "$(dirname "$OUTPUT_FILE")"
-if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-jq '.' "$tmp" > "$OUTPUT_FILE"
-else
-json_manifest_to_csv "$tmp" "$OUTPUT_FILE"
-fi
-rm -f "$tmp"
-info "Converted manifest written to $OUTPUT_FILE"
+    local tmp
+    tmp="$(mktemp)"
+    manifest_to_json "$MANIFEST" > "$tmp"
+    mkdir -p "$(dirname "$OUTPUT_FILE")"
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        jq '.' "$tmp" > "$OUTPUT_FILE"
+    else
+        json_manifest_to_csv "$tmp" "$OUTPUT_FILE"
+    fi
+    rm -f "$tmp"
+    info "Converted manifest written to $OUTPUT_FILE"
 }
 
 ###############################################################################
 # Main
 ###############################################################################
 main() {
-COMMAND="${1:-}"
-[[ -n "$COMMAND" ]] || {
-print_usage
-exit 1
-}
+    # Keep every mktemp file in one private directory that is removed on exit,
+    # so temp files do not leak when a step dies part-way through.
+    WORK_TMPDIR="$(mktemp -d)"
+    trap 'rm -rf "$WORK_TMPDIR"' EXIT
+    trap 'exit 130' INT TERM
+    export TMPDIR="$WORK_TMPDIR"
 
-case "$COMMAND" in
-discover|backup|validate-manifest|convert-manifest|-h|--help|help) shift || true ;;
---*) COMMAND="discover" ;;
-*) shift || true ;;
-esac
+    COMMAND="${1:-}"
+    [[ -n "$COMMAND" ]] || {
+        print_usage >&2
+        exit 1
+    }
 
-case "$COMMAND" in
-discover)
-    maybe_load_config "$COMMAND" "$@"
-    parse_discover_args "$@"
-    check_common_dependencies
-    discover_repositories
-    ;;
-backup)
-    maybe_load_config "$COMMAND" "$@"
-    parse_backup_args "$@"
-    check_backup_dependencies
-    acquire_lock
-    run_backup
-    ;;
-validate-manifest)
-    parse_validate_args "$@"
-    require_command jq
-    validate_manifest_file "$MANIFEST"
-    ;;
-convert-manifest)
-    parse_convert_args "$@"
-    require_command jq
-    run_convert_manifest
-    ;;
--h|--help|help)
-    print_usage
-    ;;
-*)
-    die "Unknown command: $COMMAND"
-    ;;
-esac
+    case "$COMMAND" in
+        discover|backup|validate-manifest|convert-manifest|-h|--help|help) shift || true ;;
+        --*) COMMAND="discover" ;;
+        *) shift || true ;;
+    esac
+
+    case "$COMMAND" in
+        discover)
+            maybe_load_config "$COMMAND" "$@"
+            parse_discover_args "$@"
+            check_common_dependencies
+            discover_repositories
+            ;;
+        backup)
+            maybe_load_config "$COMMAND" "$@"
+            parse_backup_args "$@"
+            check_backup_dependencies
+            acquire_lock
+            run_backup
+            ;;
+        validate-manifest)
+            parse_validate_args "$@"
+            require_command jq
+            validate_manifest_file "$MANIFEST"
+            ;;
+        convert-manifest)
+            parse_convert_args "$@"
+            require_command jq
+            run_convert_manifest
+            ;;
+        -h|--help|help)
+            print_usage
+            ;;
+        *)
+            die "Unknown command: $COMMAND"
+            ;;
+    esac
 }
 
 main "$@"

@@ -13,6 +13,7 @@
 #       --stdin              Read strings from standard input.
 #   -v, --verbose            Enable verbose output.
 #   -h, --help               Display this help message.
+# Exit status: 0 if the strings are anagrams, 1 if they are not, 2 on usage errors.
 # Examples:
 #   ./are_anagrams.sh -i "Listen" "Silent"
 #   ./are_anagrams.sh -i -s -f strings.txt
@@ -43,7 +44,7 @@ Options:
   -f, --file FILE          Read strings from a file (one per line).
       --stdin              Read strings from standard input.
   -v, --verbose            Enable verbose output.
-    -h, --help               Display this help message."
+  -h, --help               Display this help message."
 }
 
 # Function for verbose logging
@@ -74,6 +75,10 @@ while [[ "$#" -gt 0 ]]; do
             shift
             ;;
         -f|--file)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: $1 requires a file argument." >&2
+                exit 2
+            fi
             READ_FROM_FILE=true
             INPUT_FILE="$2"
             shift 2
@@ -90,10 +95,15 @@ while [[ "$#" -gt 0 ]]; do
             usage
             exit 0
             ;;
+        --)
+            shift
+            ARGS+=("$@")
+            break
+            ;;
         -*)
-            echo "Unknown option: $1"
-            usage
-            exit 1
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
             ;;
         *)
             ARGS+=("$1")
@@ -105,25 +115,21 @@ done
 # Collect input strings
 if [[ "$READ_FROM_FILE" = true ]]; then
     if [[ ! -f "$INPUT_FILE" ]]; then
-        echo "Error: File '$INPUT_FILE' not found."
-        exit 1
+        echo "Error: File '$INPUT_FILE' not found." >&2
+        exit 2
     fi
-    while IFS= read -r line; do
-        INPUT_STRINGS+=("$line")
-    done < "$INPUT_FILE"
+    mapfile -t INPUT_STRINGS < "$INPUT_FILE"
 elif [[ "$READ_FROM_STDIN" = true ]]; then
-    while IFS= read -r line; do
-        INPUT_STRINGS+=("$line")
-    done
+    mapfile -t INPUT_STRINGS
 else
     INPUT_STRINGS+=("${ARGS[@]}")
 fi
 
 # Check if at least two strings are provided
 if [[ ${#INPUT_STRINGS[@]} -lt 2 ]]; then
-    echo "Error: At least two strings must be provided."
-    usage
-    exit 1
+    echo "Error: At least two strings must be provided." >&2
+    usage >&2
+    exit 2
 fi
 
 # Function to clean and sort a string
@@ -132,34 +138,26 @@ sort_string() {
 
     # Remove spaces if needed
     if [[ "$IGNORE_SPACES" = true ]]; then
-        string=$(echo "$string" | tr -d '[:space:]')
+        string=$(printf '%s' "$string" | tr -d '[:space:]')
     fi
 
     # Remove punctuation if needed
     if [[ "$IGNORE_PUNCTUATION" = true ]]; then
-        string=$(echo "$string" | tr -d '[:punct:]')
+        string=$(printf '%s' "$string" | tr -d '[:punct:]')
     fi
 
     # Convert to lower case if needed
     if [[ "$IGNORE_CASE" = true ]]; then
         if [[ "$HANDLE_UNICODE" = true ]]; then
-            string=$(echo "$string" | awk '{print tolower($0)}')
+            # Bash's own lowercasing is multibyte-aware (awk/tr may not be)
+            string="${string,,}"
         else
-            string=$(echo "$string" | tr '[:upper:]' '[:lower:]')
+            string=$(printf '%s' "$string" | tr '[:upper:]' '[:lower:]')
         fi
     fi
 
-    # Split into characters, sort, and reassemble
-    if [[ "$HANDLE_UNICODE" = true ]]; then
-        # For Unicode, use sed and sort with appropriate locale
-        # Assume locale is set properly
-        sorted_string=$(echo "$string" | sed 's/./&\n/g' | LC_ALL=C sort | tr -d '\n')
-    else
-        # For ASCII, use grep -o .
-        sorted_string=$(echo "$string" | grep -o . | LC_ALL=C sort | tr -d '\n')
-    fi
-
-    echo "$sorted_string"
+    # Split into characters (multibyte-aware in a UTF-8 locale), sort bytewise, and reassemble
+    printf '%s\n' "$string" | grep -o . | LC_ALL=C sort | tr -d '\n'
 }
 
 # Main comparison logic
@@ -173,7 +171,7 @@ for ((i=1; i<${#INPUT_STRINGS[@]}; i++)); do
     log "Current string sorted: $current_string_sorted"
     if [[ "$first_string_sorted" != "$current_string_sorted" ]]; then
         echo "The strings are not anagrams."
-        exit 0
+        exit 1
     fi
 done
 

@@ -2,39 +2,27 @@
 
 # Script Name: reset_to_origin.sh
 # Description: Resets the local repository to match the remote repository.
-# Usage: reset_to_origin.sh branch_name repo_path
+#              WARNING: discards all local changes and commits on the branch and
+#              runs `git clean -fdx`, which also deletes untracked AND ignored
+#              files (build output, .env files, node_modules, ...).
+# Usage: reset_to_origin.sh branch_name [repo_path]
 #        branch_name - the name of the branch to reset.
-#        repo_path - the path to the repository.
+#        repo_path - the path to the repository (default: current directory).
 # Example: ./reset_to_origin.sh master .
 
 validate_arguments() {
     if [ $# -eq 0 ]; then
-        echo "You have to specify the branch name!"
+        echo "You have to specify the branch name!" >&2
         exit 1
     fi
 
-    if [ $# -eq 1 ] || [ $# -eq 2 ]; then
-        local branch_name="$1"
-        local is_remote_branch
-        local is_local_branch
+    if [ $# -gt 2 ]; then
+        echo "You can't specify more than 2 parameters!" >&2
+        exit 1
+    fi
 
-        is_remote_branch=$(git branch -r | grep -Fw "$branch_name" > /dev/null)
-        is_local_branch=$(git branch -l | grep -Fw "$branch_name" > /dev/null)
-
-        if [ "$is_remote_branch" -ne 0 ] && [ "$is_local_branch" -ne 0 ]; then
-            echo "The specified branch doesn't exist."
-            exit 1
-        fi
-
-        if [ $# -eq 2 ]; then
-            local working_dir="$2"
-            if [ ! -d "$working_dir" ]; then
-                echo "$working_dir is not a directory."
-                exit 1
-            fi
-        fi
-    else
-        echo "You can't specify more than 2 parameters!"
+    if [ $# -eq 2 ] && [ ! -d "$2" ]; then
+        echo "$2 is not a directory." >&2
         exit 1
     fi
 }
@@ -43,11 +31,22 @@ reset_to_origin() {
     local branch_name="$1"
     local working_dir="${2:-.}"
 
-    cd "$working_dir" || exit
+    cd "$working_dir" || exit 1
 
-    git fetch origin
-    git checkout "$branch_name"
-    git reset --hard origin/"$branch_name"
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+        echo "$working_dir is not a git repository." >&2
+        exit 1
+    fi
+
+    git fetch origin || exit 1
+
+    if ! git show-ref --verify --quiet "refs/remotes/origin/$branch_name"; then
+        echo "The branch '$branch_name' doesn't exist on origin." >&2
+        exit 1
+    fi
+
+    git checkout "$branch_name" || exit 1
+    git reset --hard "origin/$branch_name" || exit 1
     git clean -fdx
 }
 

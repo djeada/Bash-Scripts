@@ -8,8 +8,8 @@
 # Output: HELLO WORLD
 
 convert_to_uppercase() {
-    # Converts a string to uppercase using tr
-    echo "$1" | tr '[:lower:]' '[:upper:]'
+    # Converts a string to uppercase using tr (printf, unlike echo, prints "-n" or "-e" literally)
+    printf '%s\n' "$1" | tr '[:lower:]' '[:upper:]'
 }
 
 main() {

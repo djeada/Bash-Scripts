@@ -7,13 +7,13 @@
 
 check_apt_availability() {
     if ! command -v apt >/dev/null 2>&1; then
-        echo "The apt command is not accessible on this system."
+        echo "The apt command is not accessible on this system." >&2
         exit 1
     fi
 }
 
 print_usage() {
-    echo "Usage: check_apt_avail.sh"
+    echo "Usage: check_apt_avail.sh" >&2
 }
 
 main() {
@@ -23,6 +23,7 @@ main() {
     fi
 
     check_apt_availability
+    echo "The apt command is available."
 }
 
 main "$@"

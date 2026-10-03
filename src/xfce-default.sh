@@ -19,9 +19,11 @@ XFCE_SESSION_FILE="/usr/share/xsessions/xfce.desktop"
 XFCE_PACKAGE="mint-meta-xfce"
 
 ###############################################################################
-# display_help: Print usage information and exit
+# display_help: Print usage information and exit with status $1 (default 0)
 ###############################################################################
 display_help() {
+    local status="${1:-0}"
+
     cat <<EOF
 Usage: sudo bash $0 [OPTIONS]
 
@@ -35,7 +37,7 @@ Options:
 Example:
   sudo bash $0 --user alice
 EOF
-    exit 0
+    exit "${status}"
 }
 
 ###############################################################################
@@ -149,13 +151,12 @@ set_user_session() {
         exit 1
     fi
 
-    cat > "${user_home}/.dmrc" <<'EODMRC'
-[Desktop]
-Session=xfce
-EODMRC
-
-    chown "${target_user}:${target_user}" "${user_home}/.dmrc"
-    chmod 644 "${user_home}/.dmrc"
+    # Write the file as the target user rather than as root, so a symlink
+    # planted at ~/.dmrc cannot make root overwrite an arbitrary file.
+    # shellcheck disable=SC2016 # $1 is expanded by the inner sh, not here
+    runuser -u "${target_user}" -- sh -c \
+        'printf "[Desktop]\nSession=xfce\n" > "$1" && chmod 644 "$1"' \
+        sh "${user_home}/.dmrc"
     echo "Per-user session written to ${user_home}/.dmrc"
 }
 
@@ -180,7 +181,7 @@ main() {
                 ;;
             *)
                 echo "Unknown option: $1" >&2
-                display_help
+                display_help 1 >&2
                 ;;
         esac
         shift
@@ -190,6 +191,7 @@ main() {
     need_cmd sed
     need_cmd grep
     need_cmd getent
+    need_cmd runuser
     need_cmd cp
 
     check_root

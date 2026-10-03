@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: remove_branch.sh
-# Description: Removes a branch from a git repository, both locally and remotely.
+# Description: Removes a branch from a git repository, both locally and remotely (origin).
 # Usage: remove_branch.sh branch_name
 #        branch_name - the name of the branch to remove.
 # Example: ./remove_branch.sh test
@@ -26,21 +26,28 @@ remove_branch() {
     # Removes a branch, both locally and remotely
     # $1: branch name
     local branch_name="$1"
+    local is_remote_branch=false
+    local is_local_branch=false
 
-    is_remote_branch=$(git branch -r | grep -Fw "$branch_name" > /dev/null)
-    is_local_branch=$(git branch -l | grep -Fw "$branch_name" > /dev/null)
+    if git show-ref --verify --quiet "refs/remotes/origin/$branch_name"; then
+        is_remote_branch=true
+    fi
 
-    if [ -z "$is_remote_branch" ] && [ -z "$is_local_branch" ]; then
-        echo "Provided branch doesn't exist."
+    if git show-ref --verify --quiet "refs/heads/$branch_name"; then
+        is_local_branch=true
+    fi
+
+    if ! $is_remote_branch && ! $is_local_branch; then
+        echo "Provided branch doesn't exist." >&2
         exit 1
     fi
 
-    if [ -n "$is_remote_branch" ]; then
-        remove_remote_branch "$branch_name"
+    if $is_remote_branch; then
+        remove_remote_branch "$branch_name" || { echo "Failed to remove remote branch '$branch_name'." >&2; exit 1; }
     fi
 
-    if [ -n "$is_local_branch" ]; then
-        remove_local_branch "$branch_name"
+    if $is_local_branch; then
+        remove_local_branch "$branch_name" || { echo "Failed to remove local branch '$branch_name'." >&2; exit 1; }
     fi
 
     echo "Branch '$branch_name' removed successfully."
@@ -49,16 +56,17 @@ remove_branch() {
 main() {
     # Main function to orchestrate the script
 
-    if [ $# -eq 0 ]; then
-        echo "You have to provide the branch name!"
-        exit 1
-    elif [ $# -eq 1 ]; then
-        branch_name="$1"
-        remove_branch "$branch_name"
-    else
-        echo "Currently not supported!"
+    if [ $# -ne 1 ]; then
+        echo "Usage: remove_branch.sh branch_name" >&2
         exit 1
     fi
+
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+        echo "Not inside a git repository." >&2
+        exit 1
+    fi
+
+    remove_branch "$1"
 }
 
 main "$@"

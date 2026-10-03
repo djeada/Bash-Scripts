@@ -1,7 +1,23 @@
-
-
 #!/usr/bin/env bash
+
+# Script Name: run_videogen.sh
+# Description: Sets up a self-contained local video generation environment in
+#              ~/videogen-local (uv, private Python 3.10 venv, CUDA PyTorch,
+#              Diffusers) and generates a video with an LTX-Video model using
+#              low-VRAM settings (~8GB GPU). May install apt packages via sudo.
+# Usage: run_videogen.sh [prompt] [duration_seconds] [model] [reference_image]
+#        reference_image - optional; switches to image-to-video mode.
+#        Tunables via environment: WIDTH, HEIGHT, FPS, STEPS, GUIDANCE, SEED,
+#        MAX_SEQUENCE_LENGTH, STYLE_LOCK, NEGATIVE_PROMPT, LORA_PATH,
+#        LORA_WEIGHT_NAME, LORA_SCALE, DECODE_TIMESTEP, DECODE_NOISE_SCALE.
+# Example: SEED=42 ./run_videogen.sh "a knight walking in the rain" 3
+
 set -Eeuo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+fi
 
 PROJECT_DIR="$HOME/videogen-local"
 VENV_DIR="$PROJECT_DIR/.venv"
@@ -15,6 +31,21 @@ PROMPT="${1:-dark fantasy commander, tactical briefing, cel shaded game cinemati
 DURATION="${2:-2}"
 MODEL="${3:-Lightricks/LTX-Video}"
 REFERENCE_IMAGE="${4:-}"
+
+if ! [[ "$DURATION" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    echo "Error: duration must be a positive number of seconds, got '$DURATION'." >&2
+    exit 1
+fi
+
+# Resolve the reference image now, before changing into the project directory,
+# so relative paths keep working.
+if [ -n "$REFERENCE_IMAGE" ]; then
+    if [ ! -f "$REFERENCE_IMAGE" ]; then
+        echo "Error: reference image not found: $REFERENCE_IMAGE" >&2
+        exit 1
+    fi
+    REFERENCE_IMAGE="$(cd "$(dirname "$REFERENCE_IMAGE")" && pwd)/$(basename "$REFERENCE_IMAGE")"
+fi
 
 # Low-VRAM defaults for an ~8GB GPU.
 WIDTH="${WIDTH:-512}"
@@ -33,6 +64,11 @@ NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-worst quality, low quality, blurry, jittery,
 LORA_PATH="${LORA_PATH:-}"
 LORA_WEIGHT_NAME="${LORA_WEIGHT_NAME:-}"
 LORA_SCALE="${LORA_SCALE:-0.8}"
+
+# The generator below is a Python program that reads these settings from the
+# environment, so the shell defaults above must be exported to take effect.
+export WIDTH HEIGHT FPS STEPS GUIDANCE SEED MAX_SEQUENCE_LENGTH \
+    STYLE_LOCK NEGATIVE_PROMPT LORA_PATH LORA_WEIGHT_NAME LORA_SCALE
 
 mkdir -p "$PROJECT_DIR" "$TOOLS_DIR" "$OUTPUT_DIR" "$INPUT_DIR"
 cd "$PROJECT_DIR"
@@ -62,20 +98,20 @@ EOF
 echo ""
 
 if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
-  echo "Installing required system tools..."
-  sudo apt update
-  sudo apt install -y \
-    curl \
-    git \
-    ffmpeg \
-    pkg-config \
-    build-essential
+    echo "Installing required system tools..."
+    sudo apt update
+    sudo apt install -y \
+        curl \
+        git \
+        ffmpeg \
+        pkg-config \
+        build-essential
 fi
 
 if [ ! -x "$UV_BIN" ]; then
-  echo "Installing uv locally inside project..."
-  mkdir -p "$UV_DIR"
-  curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="$UV_DIR" sh
+    echo "Installing uv locally inside project..."
+    mkdir -p "$UV_DIR"
+    curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="$UV_DIR" sh
 fi
 
 echo "Installing private Python 3.10 with uv..."
@@ -84,30 +120,30 @@ echo "Installing private Python 3.10 with uv..."
 RECREATE_VENV=0
 
 if [ ! -x "$VENV_DIR/bin/python" ]; then
-  RECREATE_VENV=1
+    RECREATE_VENV=1
 else
-  CURRENT_VERSION="$("$VENV_DIR/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+    CURRENT_VERSION="$("$VENV_DIR/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 
-  if [ "$CURRENT_VERSION" != "3.10" ]; then
-    echo "Existing venv uses Python $CURRENT_VERSION. Recreating with Python 3.10..."
-    RECREATE_VENV=1
-  elif ! "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1; then
-    echo "Existing venv has no pip. Recreating with pip seeded..."
-    RECREATE_VENV=1
-  fi
+    if [ "$CURRENT_VERSION" != "3.10" ]; then
+        echo "Existing venv uses Python $CURRENT_VERSION. Recreating with Python 3.10..."
+        RECREATE_VENV=1
+    elif ! "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1; then
+        echo "Existing venv has no pip. Recreating with pip seeded..."
+        RECREATE_VENV=1
+    fi
 fi
 
 if [ "$RECREATE_VENV" = "1" ]; then
-  rm -rf "$VENV_DIR"
-  echo "Creating private Python 3.10 venv with pip..."
-  "$UV_BIN" venv --seed --python 3.10 "$VENV_DIR"
+    rm -rf "$VENV_DIR"
+    echo "Creating private Python 3.10 venv with pip..."
+    "$UV_BIN" venv --seed --python 3.10 "$VENV_DIR"
 fi
 
 source "$VENV_DIR/bin/activate"
 
 echo "Using Python:"
 python --version
-which python
+command -v python
 echo ""
 
 echo "Installing package tools..."
@@ -116,24 +152,24 @@ python -m pip install --upgrade "pip<25" setuptools wheel packaging
 echo ""
 echo "Installing PyTorch CUDA 12.8 for RTX 50-series..."
 python -m pip install --upgrade \
-  torch torchvision torchaudio \
-  --index-url https://download.pytorch.org/whl/cu128
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu128
 
 echo ""
 echo "Installing video generation dependencies..."
 python -m pip install --upgrade \
-  accelerate \
-  transformers \
-  sentencepiece \
-  protobuf \
-  safetensors \
-  "huggingface_hub[hf_transfer]" \
-  hf_transfer \
-  imageio \
-  imageio-ffmpeg \
-  pillow \
-  numpy \
-  ftfy
+    accelerate \
+    transformers \
+    sentencepiece \
+    protobuf \
+    safetensors \
+    "huggingface_hub[hf_transfer]" \
+    hf_transfer \
+    imageio \
+    imageio-ffmpeg \
+    pillow \
+    numpy \
+    ftfy
 
 echo ""
 echo "Installing latest Diffusers from GitHub for LTX offloading support..."
@@ -142,8 +178,8 @@ python -m pip install --upgrade git+https://github.com/huggingface/diffusers.git
 echo ""
 echo "Forcing PyTorch CUDA 12.8 again in case another package touched it..."
 python -m pip install --upgrade \
-  torch torchvision torchaudio \
-  --index-url https://download.pytorch.org/whl/cu128
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu128
 
 echo ""
 echo "Checking GPU support..."
@@ -281,8 +317,8 @@ pipe.transformer.enable_group_offload(
     use_stream=True,
 )
 
-# This is the key fix for your crash:
-# avoid moving the entire T5 text encoder onto the GPU at once.
+# Offload the T5 text encoder block by block instead of moving it onto the
+# GPU at once, which runs out of memory on ~8GB cards.
 apply_group_offloading(
     pipe.text_encoder,
     onload_device=onload_device,
@@ -359,3 +395,4 @@ echo ""
 echo "Done."
 echo "Output folder:"
 echo "$OUTPUT_DIR"
+

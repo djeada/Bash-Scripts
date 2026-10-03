@@ -4,7 +4,7 @@
 # Description: Displays the current CPU usage with options for per-core details and process filtering.
 # Usage: ./cpu_usage.sh [ -p PROCESS_NAME ] [ -u USERNAME ] [ -n NUMBER ] [ -f FORMAT ] [ -i INTERVAL ] [ -c ] [ -h ]
 # Options:
-#   -p PROCESS_NAME   Display CPU usage for processes matching PROCESS_NAME.
+#   -p PROCESS_NAME   Display CPU usage for processes whose name matches PROCESS_NAME (case-insensitive regex).
 #   -u USERNAME       Display top CPU consuming processes for USERNAME.
 #   -n NUMBER         Number of processes to display (default is 10).
 #   -f FORMAT         Output format: text (default) or json.
@@ -12,12 +12,12 @@
 #   -c                Display per-core CPU usage.
 #   -h                Show help message.
 
-# Display usage information
+# Display usage information and exit with the given status (default 0)
 usage() {
     cat <<EOF
 Usage: $0 [ -p PROCESS_NAME ] [ -u USERNAME ] [ -n NUMBER ] [ -f FORMAT ] [ -i INTERVAL ] [ -c ] [ -h ]
 Options:
-  -p PROCESS_NAME   Display CPU usage for processes matching PROCESS_NAME.
+  -p PROCESS_NAME   Display CPU usage for processes whose name matches PROCESS_NAME (case-insensitive regex).
   -u USERNAME       Display top CPU consuming processes for USERNAME.
   -n NUMBER         Number of processes to display (default is 10).
   -f FORMAT         Output format: text (default) or json.
@@ -25,7 +25,7 @@ Options:
   -c                Display per-core CPU usage.
   -h                Show this help message.
 EOF
-    exit 1
+    exit "${1:-0}"
 }
 
 # Check for required commands
@@ -53,9 +53,9 @@ detect_os() {
 # Retrieve overall CPU usage
 get_total_cpu_usage() {
     if [[ "$OS_TYPE" == "Linux" ]]; then
-        # Use top in batch mode and extract the idle percentage
+        # Use top in batch mode and extract the value in front of "id" (idle percentage).
         local idle
-        idle=$(top -bn1 | grep -i "Cpu(s)" | awk '{print $8}' 2>/dev/null)
+        idle=$(top -bn1 | grep -i "Cpu(s)" | sed -n 's/.*[ ,:]\([0-9.][0-9.]*\)[[:space:]]*id,.*/\1/p')
         if [[ -n "$idle" ]]; then
             TOTAL_CPU_USAGE=$(awk -v idle="$idle" 'BEGIN {printf "%.2f%%", 100 - idle}')
         else
@@ -105,22 +105,23 @@ get_top_processes() {
 get_top_processes_for_user() {
     local user="$1"
     local number="$2"
+    # Let ps do the filtering: its USER column truncates long names, so matching on it is unreliable.
     if [[ "$OS_TYPE" == "Linux" ]]; then
-        ps -eo user,pid,%cpu,comm --sort=-%cpu | awk -v usr="$user" '$1==usr' | head -n $((number))
+        ps -u "$user" -o user,pid,%cpu,comm --sort=-%cpu | head -n $((number + 1))
     elif [[ "$OS_TYPE" == "macOS" ]]; then
-        ps -Ao user,pid,%cpu,comm -r | awk -v usr="$user" '$1==usr' | head -n $((number))
+        ps -U "$user" -o user,pid,%cpu,comm -r | head -n $((number + 1))
     else
         echo "Unsupported OS type."
     fi
 }
 
-# Get CPU usage for processes matching a specific name
+# Get CPU usage for processes matching a specific name (including header)
 get_process_cpu_usage() {
     local proc="$1"
     if [[ "$OS_TYPE" == "Linux" ]]; then
-        ps -eo user,pid,%cpu,comm | awk -v proc="$proc" 'tolower($4) ~ tolower(proc)'
+        ps -eo user,pid,%cpu,comm | awk -v proc="$proc" 'NR == 1 || tolower($4) ~ tolower(proc)'
     elif [[ "$OS_TYPE" == "macOS" ]]; then
-        ps -Ao user,pid,%cpu,comm | awk -v proc="$proc" 'tolower($4) ~ tolower(proc)'
+        ps -Ao user,pid,%cpu,comm | awk -v proc="$proc" 'NR == 1 || tolower($4) ~ tolower(proc)'
     else
         echo "Unsupported OS type."
     fi
@@ -128,19 +129,19 @@ get_process_cpu_usage() {
 
 # Output process list in JSON format; skips the header line and handles multi-word commands.
 output_json() {
-    local data
-    data=$(cat)  # Read from STDIN
-    echo "$data" | sed '1d' | awk '
+    awk '
     BEGIN {
         print "["
         sep = ""
     }
-    {
-        # Reconstruct command field (from 4th field onward)
+    NR > 1 && NF >= 4 {
+        # Reconstruct command field (from 4th field onward) and escape it for JSON
         cmd = $4
         for(i = 5; i <= NF; i++) {
             cmd = cmd " " $i
         }
+        gsub(/\\/, "\\\\", cmd)
+        gsub(/"/, "\\\"", cmd)
         printf "%s  {\"user\": \"%s\", \"pid\": %s, \"cpu\": %s, \"command\": \"%s\"}", sep, $1, $2, $3, cmd
         sep = ",\n"
     }
@@ -153,6 +154,10 @@ output_json() {
 main() {
     check_required_commands
     detect_os
+
+    # Use '.' as decimal separator and untranslated headers (e.g. mpstat's "Average")
+    # so the output of top/ps/mpstat can be parsed and emitted as valid JSON.
+    export LC_ALL=C
 
     # Default parameter values
     local process=""
@@ -172,7 +177,8 @@ main() {
             i) interval="${OPTARG}" ;;
             c) per_core=1 ;;
             h) usage ;;
-            *) echo "Invalid option: -${OPTARG}" >&2; usage ;;
+            :) echo "Option -${OPTARG} requires an argument." >&2; usage 1 >&2 ;;
+            *) echo "Invalid option: -${OPTARG}" >&2; usage 1 >&2 ;;
         esac
     done
     shift $((OPTIND - 1))
@@ -184,6 +190,14 @@ main() {
     fi
     if ! [[ "$interval" =~ ^[0-9]+$ ]]; then
         echo "Error: -i INTERVAL must be an integer." >&2
+        exit 1
+    fi
+    if [[ -n "$user" ]] && ! id "$user" &>/dev/null; then
+        echo "Error: user '$user' does not exist." >&2
+        exit 1
+    fi
+    if [[ "$format" != "text" && "$format" != "json" ]]; then
+        echo "Error: -f FORMAT must be 'text' or 'json'." >&2
         exit 1
     fi
 

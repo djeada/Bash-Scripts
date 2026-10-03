@@ -2,8 +2,13 @@
 
 # Script Name: web_block.sh
 # Description: Block or unblock websites by modifying the hosts file, with advanced options and features.
+#              Blocked domains are mapped to 127.0.0.1 inside a section delimited by
+#              "# WEB_BLOCK_START" / "# WEB_BLOCK_END" marker lines; entries outside that
+#              section (e.g. "127.0.0.1 localhost") are never listed, changed or removed.
+#              A copy of the hosts file is saved to the backup file before every change.
 #
 # Usage: sudo ./web_block.sh [options] domain1 [domain2 ... domainN]
+#        Root is only needed if the hosts file is not writable by the current user.
 #
 # Options:
 #   -h, --help            Display this help message and exit.
@@ -12,12 +17,15 @@
 #   -l, --list            List all currently blocked domains.
 #   -b, --backup FILE     Specify a backup file for the hosts file (default: '/etc/hosts.bak').
 #   -d, --dry-run         Show what would be done without making changes.
-#   -L, --log FILE        Enable logging to the specified file (default: '/var/log/web_block.log').
+#   -L, --log FILE        Enable logging to the specified file.
 #   -f, --force           Force the operation without prompting for confirmation.
 #   -V, --verbose         Enable verbose output.
-#   -c, --config FILE     Specify a configuration file.
+#   -c, --config FILE     Specify a configuration file (key = value lines; keys: hosts_file,
+#                         backup_file, log_file, log_enabled, dry_run, force, verbose,
+#                         with_www; values for flags are true/false). Command-line
+#                         options take precedence over the configuration file.
 #   -H, --hosts FILE      Specify a custom hosts file (default: '/etc/hosts').
-#   -w, --with-www        Also block www subdomain when adding domains.
+#   -w, --with-www        Also process the www subdomain of each domain.
 #   -s, --status          Show status of specified domain(s).
 #   -R, --restore         Restore hosts file from backup.
 #   -C, --clear           Remove all blocked domains.
@@ -59,14 +67,17 @@ readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
 readonly NC='\033[0m' # No Color
 
-# Block marker comments
-readonly BLOCK_START="# WEB_BLOCK_START - Managed by $SCRIPT_NAME"
-readonly BLOCK_END="# WEB_BLOCK_END - Managed by $SCRIPT_NAME"
+# Block marker comments (matched by prefix, so sections written under another script name still work)
+readonly BLOCK_START_PREFIX="# WEB_BLOCK_START"
+readonly BLOCK_END_PREFIX="# WEB_BLOCK_END"
+readonly BLOCK_START="$BLOCK_START_PREFIX - Managed by web_block.sh"
+readonly BLOCK_END="$BLOCK_END_PREFIX - Managed by web_block.sh"
 
+# Show the header comment block; exits with the given status (default 0)
 function show_help() {
-    grep '^#' "$0" | cut -c 4-
+    sed -n '3,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"
     echo -e "\n${BLUE}Version:${NC} $SCRIPT_VERSION"
-    exit 0
+    exit "${1:-0}"
 }
 
 function print_error() {
@@ -94,20 +105,16 @@ function log_action() {
         # Ensure log directory exists
         local log_dir
         log_dir=$(dirname "$LOG_FILE")
-        if [[ ! -d "$log_dir" ]]; then
-            mkdir -p "$log_dir" 2>/dev/null || {
-                print_warning "Could not create log directory: $log_dir"
-                return 1
-            }
-        fi
-
-        echo "$timestamp [$SCRIPT_NAME]: $message" >> "$LOG_FILE" || {
+        if [[ ! -d "$log_dir" ]] && ! mkdir -p "$log_dir" 2>/dev/null; then
+            print_warning "Could not create log directory: $log_dir"
+        elif ! { echo "$timestamp [$SCRIPT_NAME]: $message" >> "$LOG_FILE"; } 2>/dev/null; then
             print_warning "Could not write to log file: $LOG_FILE"
-            return 1
-        }
+        fi
     fi
 
-    [[ "$VERBOSE" == true ]] && print_info "$message"
+    if [[ "$VERBOSE" == true ]]; then
+        print_info "$message"
+    fi
 }
 
 function validate_domain() {
@@ -135,7 +142,7 @@ function validate_domain() {
 }
 
 function check_dependencies() {
-    local deps=("sed" "grep" "awk" "cp" "cat")
+    local deps=("getopt" "grep" "awk" "cp" "cat" "mktemp" "sort" "wc")
     local missing_deps=()
 
     for dep in "${deps[@]}"; do
@@ -199,21 +206,61 @@ function get_domains_to_process() {
     printf '%s\n' "${domains_list[@]}"
 }
 
+# Print the domains blocked inside the managed section, one per line
+function managed_domains() {
+    awk -v start="$BLOCK_START_PREFIX" -v end="$BLOCK_END_PREFIX" '
+        index($0, start) == 1 { inside = 1; next }
+        index($0, end) == 1   { inside = 0; next }
+        inside && $1 == "127.0.0.1" && NF >= 2 { print $2 }
+    ' "$HOSTS_FILE" 2>/dev/null
+}
+
 function is_domain_blocked() {
-    local domain="$1"
-    grep -qF "127.0.0.1 $domain" "$HOSTS_FILE" 2>/dev/null
+    managed_domains | grep -qxF -- "$1"
+}
+
+# Rewrite the hosts file with the output of: awk <program> <hosts file>.
+# The result is written back through the existing file (cat >), which keeps its
+# permissions, ownership and inode (also works for bind-mounted /etc/hosts).
+function rewrite_hosts() {
+    local tmp
+    tmp=$(mktemp) || { print_error "Cannot create temporary file"; exit 1; }
+    if ! awk "$@" "$HOSTS_FILE" > "$tmp" || ! cat "$tmp" > "$HOSTS_FILE"; then
+        rm -f "$tmp"
+        print_error "Failed to update $HOSTS_FILE (backup: $BACKUP_FILE)"
+        exit 1
+    fi
+    rm -f "$tmp"
 }
 
 function add_managed_section() {
-    if [[ "$DRY_RUN" == false ]]; then
-        if ! grep -qF "$BLOCK_START" "$HOSTS_FILE" 2>/dev/null; then
-            {
-                echo ""
-                echo "$BLOCK_START"
-                echo "$BLOCK_END"
-            } >> "$HOSTS_FILE"
-        fi
+    if ! grep -q "^$BLOCK_START_PREFIX" "$HOSTS_FILE" 2>/dev/null; then
+        {
+            echo ""
+            echo "$BLOCK_START"
+            echo "$BLOCK_END"
+        } >> "$HOSTS_FILE"
     fi
+}
+
+function add_entry() {
+    add_managed_section
+    # Insert just before the end marker of the managed section
+    # shellcheck disable=SC2016  # $0 is awk's, not the shell's
+    rewrite_hosts -v end="$BLOCK_END_PREFIX" -v entry="127.0.0.1 $1" '
+        index($0, end) == 1 && !done { print entry; done = 1 }
+        { print }
+    '
+}
+
+function remove_entry() {
+    # shellcheck disable=SC2016  # $0, $1, $2 are awk's, not the shell's
+    rewrite_hosts -v start="$BLOCK_START_PREFIX" -v end="$BLOCK_END_PREFIX" -v domain="$1" '
+        index($0, start) == 1 { inside = 1 }
+        index($0, end) == 1   { inside = 0 }
+        inside && $1 == "127.0.0.1" && $2 == domain { next }
+        { print }
+    '
 }
 
 function modify_hosts() {
@@ -222,48 +269,43 @@ function modify_hosts() {
     local input_domains=("$@")
     local processed_count=0
     local skipped_count=0
+    local invalid_count=0
+    local domain target_domain action_msg
+    local -a domains_to_process
 
     for domain in "${input_domains[@]}"; do
-        validate_domain "$domain" || continue
+        if ! validate_domain "$domain"; then
+            invalid_count=$((invalid_count + 1))
+            continue
+        fi
 
         # Get all domains to process (including www if requested)
         mapfile -t domains_to_process < <(get_domains_to_process "$domain")
 
         for target_domain in "${domains_to_process[@]}"; do
-            local entry="127.0.0.1 $target_domain"
-            local action_msg=""
-
             case "$action" in
                 add)
                     if is_domain_blocked "$target_domain"; then
                         action_msg="Domain '$target_domain' is already blocked"
-                        ((skipped_count++))
+                        skipped_count=$((skipped_count + 1))
+                    elif [[ "$DRY_RUN" == false ]]; then
+                        add_entry "$target_domain"
+                        action_msg="Blocked domain '$target_domain'"
+                        processed_count=$((processed_count + 1))
                     else
-                        if [[ "$DRY_RUN" == false ]]; then
-                            add_managed_section
-                            # Insert before the end marker
-                            sed -i.tmp "/^${BLOCK_END//\//\\/}$/i\\
-$entry" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
-                            action_msg="Blocked domain '$target_domain'"
-                            ((processed_count++))
-                        else
-                            action_msg="[Dry Run] Would block domain '$target_domain'"
-                        fi
+                        action_msg="[Dry Run] Would block domain '$target_domain'"
                     fi
                     ;;
                 remove)
-                    if is_domain_blocked "$target_domain"; then
-                        if [[ "$DRY_RUN" == false ]]; then
-                            # shellcheck disable=SC2016
-                            sed -i.tmp "/^127\.0\.0\.1[[:space:]]\+$(printf '%s\n' "$target_domain" | sed 's/[[\.*^$()+?{|]/\\&/g')$/d" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
-                            action_msg="Unblocked domain '$target_domain'"
-                            ((processed_count++))
-                        else
-                            action_msg="[Dry Run] Would unblock domain '$target_domain'"
-                        fi
-                    else
+                    if ! is_domain_blocked "$target_domain"; then
                         action_msg="Domain '$target_domain' is not currently blocked"
-                        ((skipped_count++))
+                        skipped_count=$((skipped_count + 1))
+                    elif [[ "$DRY_RUN" == false ]]; then
+                        remove_entry "$target_domain"
+                        action_msg="Unblocked domain '$target_domain'"
+                        processed_count=$((processed_count + 1))
+                    else
+                        action_msg="[Dry Run] Would unblock domain '$target_domain'"
                     fi
                     ;;
                 *)
@@ -284,32 +326,41 @@ $entry" "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
     if [[ $skipped_count -gt 0 ]]; then
         print_info "Skipped $skipped_count domain(s)"
     fi
+    if [[ $invalid_count -gt 0 ]]; then
+        return 1
+    fi
 }
 
 function list_blocked_domains() {
     print_info "Currently blocked domains:"
 
     local blocked_domains
-    blocked_domains=$(grep "^127\.0\.0\.1[[:space:]]" "$HOSTS_FILE" 2>/dev/null | awk '{print $2}' | sort -u)
+    blocked_domains=$(managed_domains | sort -u)
 
     if [[ -z "$blocked_domains" ]]; then
         echo "  No domains are currently blocked."
     else
-        echo "$blocked_domains" | while read -r domain; do
+        local domain
+        while read -r domain; do
             echo "  - $domain"
-        done
+        done <<< "$blocked_domains"
         echo ""
-        echo "Total: $(echo "$blocked_domains" | wc -l) blocked domain(s)"
+        echo "Total: $(wc -l <<< "$blocked_domains") blocked domain(s)"
     fi
 }
 
 function show_domain_status() {
     local domains=("$@")
+    local domain target_domain status=0
+    local -a domains_to_check
 
     print_info "Domain status:"
 
     for domain in "${domains[@]}"; do
-        validate_domain "$domain" || continue
+        if ! validate_domain "$domain"; then
+            status=1
+            continue
+        fi
 
         mapfile -t domains_to_check < <(get_domains_to_process "$domain")
 
@@ -321,13 +372,14 @@ function show_domain_status() {
             fi
         done
     done
+    return "$status"
 }
 
 function clear_all_blocked() {
     local blocked_count
-    blocked_count=$(grep -c "^127\.0\.0\.1[[:space:]]" "$HOSTS_FILE" 2>/dev/null || echo "0")
+    blocked_count=$(managed_domains | wc -l)
 
-    if [[ $blocked_count -eq 0 ]]; then
+    if ! grep -q "^$BLOCK_START_PREFIX" "$HOSTS_FILE" 2>/dev/null; then
         print_info "No blocked domains found"
         return 0
     fi
@@ -335,8 +387,16 @@ function clear_all_blocked() {
     print_warning "This will remove all $blocked_count blocked domain(s)"
 
     if [[ "$DRY_RUN" == false ]]; then
-        # Remove all 127.0.0.1 entries and managed section
-        sed -i.tmp '/^127\.0\.0\.1[[:space:]]/d; /^# WEB_BLOCK_START/,/^# WEB_BLOCK_END/d' "$HOSTS_FILE" && rm -f "$HOSTS_FILE.tmp"
+        # Drop the whole managed section (and the blank line added before it)
+        # shellcheck disable=SC2016  # $0 is awk's, not the shell's
+        rewrite_hosts -v start="$BLOCK_START_PREFIX" -v end="$BLOCK_END_PREFIX" '
+            index($0, start) == 1 { inside = 1; blank = 0; next }
+            inside { if (index($0, end) == 1) inside = 0; next }
+            blank { print ""; blank = 0 }
+            $0 == "" { blank = 1; next }
+            { print }
+            END { if (blank) print "" }
+        '
         print_success "Cleared all blocked domains"
         log_action "Cleared all blocked domains ($blocked_count total)"
     else
@@ -346,8 +406,8 @@ function clear_all_blocked() {
 
 function confirm_operation() {
     if [[ "$FORCE" == false ]]; then
-        local response
-        read -r -p "Are you sure you want to proceed? (y/N): " response
+        local response=""
+        read -r -p "Are you sure you want to proceed? (y/N): " response || true
         case "$response" in
             [yY]|[yY][eE][sS])
                 return 0
@@ -360,44 +420,53 @@ function confirm_operation() {
     fi
 }
 
+function trim() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+}
+
+function parse_bool() {
+    local key="$1" value="$2"
+    case "${value,,}" in
+        true|yes|1) echo true ;;
+        false|no|0) echo false ;;
+        *)
+            print_error "Invalid value for '$key' in $CONFIG_FILE: '$value' (use true or false)"
+            exit 1
+            ;;
+    esac
+}
+
 function parse_config_file() {
     if [[ ! -f "$CONFIG_FILE" ]]; then
         print_error "Configuration file not found: '$CONFIG_FILE'"
         exit 1
     fi
 
-    log_action "Loading configuration from: $CONFIG_FILE"
-
+    local key value
     while IFS='=' read -r key value || [[ -n "$key" ]]; do
-        # Skip comments and empty lines
-        [[ "$key" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "$key" ]] && continue
+        key=$(trim "$key")
+        value=$(trim "$value")
 
-        # Trim whitespace
-        key=$(echo "$key" | xargs)
-        value=$(echo "$value" | xargs)
+        # Skip comments and empty lines
+        [[ -z "$key" || "$key" == \#* ]] && continue
 
         case "$key" in
             hosts_file) HOSTS_FILE="$value" ;;
             backup_file) BACKUP_FILE="$value" ;;
             log_file) LOG_FILE="$value" ;;
-            log_enabled) LOG_ENABLED="$value" ;;
-            dry_run) DRY_RUN="$value" ;;
-            force) FORCE="$value" ;;
-            verbose) VERBOSE="$value" ;;
-            with_www) WITH_WWW="$value" ;;
-            *)
-                [[ "$VERBOSE" == true ]] && print_warning "Unknown configuration option: '$key'"
-                ;;
+            log_enabled) LOG_ENABLED=$(parse_bool "$key" "$value") ;;
+            dry_run) DRY_RUN=$(parse_bool "$key" "$value") ;;
+            force) FORCE=$(parse_bool "$key" "$value") ;;
+            verbose) VERBOSE=$(parse_bool "$key" "$value") ;;
+            with_www) WITH_WWW=$(parse_bool "$key" "$value") ;;
+            *) print_warning "Unknown configuration option: '$key'" ;;
         esac
     done < "$CONFIG_FILE"
-}
 
-function check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_error "This script must be run with sudo or as root"
-        exit 1
-    fi
+    log_action "Loaded configuration from: $CONFIG_FILE"
 }
 
 function validate_files() {
@@ -408,7 +477,7 @@ function validate_files() {
     fi
 
     if [[ ! -w "$HOSTS_FILE" ]]; then
-        print_error "Hosts file is not writable: $HOSTS_FILE"
+        print_error "Hosts file is not writable: $HOSTS_FILE (run with sudo or as root)"
         exit 1
     fi
 
@@ -423,6 +492,8 @@ function validate_files() {
     fi
 }
 
+check_dependencies
+
 # Parse command line options
 if ! TEMP=$(getopt -o harlb:dL:fVc:H:wsRC --long help,add,remove,list,backup:,dry-run,log:,force,verbose,config:,hosts:,with-www,status,restore,clear -n "$SCRIPT_NAME" -- "$@"); then
     print_error "Failed to parse command line options"
@@ -431,43 +502,60 @@ fi
 
 eval set -- "$TEMP"
 
+# Load the configuration file first, so command-line options override it
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+    case "${args[i]}" in
+        -c|--config) CONFIG_FILE="${args[i + 1]}"; i=$((i + 1)) ;;
+        -b|--backup|-L|--log|-H|--hosts) i=$((i + 1)) ;;
+        --) break ;;
+    esac
+done
+if [[ -n "$CONFIG_FILE" ]]; then
+    parse_config_file
+fi
+
+set_operation() {
+    if [[ -n "$OPERATION" && "$OPERATION" != "$1" ]]; then
+        print_error "Only one operation can be given (got --$OPERATION and --$1)"
+        exit 1
+    fi
+    OPERATION="$1"
+}
+
 while true; do
     case "$1" in
         -h|--help) show_help ;;
-        -a|--add) OPERATION="add"; shift ;;
-        -r|--remove) OPERATION="remove"; shift ;;
-        -l|--list) OPERATION="list"; shift ;;
-        -s|--status) OPERATION="status"; shift ;;
-        -R|--restore) OPERATION="restore"; shift ;;
-        -C|--clear) OPERATION="clear"; shift ;;
+        -a|--add) set_operation add; shift ;;
+        -r|--remove) set_operation remove; shift ;;
+        -l|--list) set_operation list; shift ;;
+        -s|--status) set_operation status; shift ;;
+        -R|--restore) set_operation restore; shift ;;
+        -C|--clear) set_operation clear; shift ;;
         -b|--backup) BACKUP_FILE="$2"; shift 2 ;;
         -d|--dry-run) DRY_RUN=true; shift ;;
-        -L|--log) LOG_ENABLED=true; LOG_FILE="${2:-$LOG_FILE}"; shift 2 ;;
+        -L|--log) LOG_ENABLED=true; LOG_FILE="$2"; shift 2 ;;
         -f|--force) FORCE=true; shift ;;
         -V|--verbose) VERBOSE=true; shift ;;
         -w|--with-www) WITH_WWW=true; shift ;;
-        -c|--config) CONFIG_FILE="$2"; shift 2 ;;
+        -c|--config) shift 2 ;;  # already loaded above
         -H|--hosts) HOSTS_FILE="$2"; shift 2 ;;
         --) shift; break ;;
-        *) print_error "Unknown option: '$1'"; show_help ;;
+        *) print_error "Unknown option: '$1'"; show_help 1 ;;
     esac
 done
 
 # Main execution starts here
 main() {
-    # Check dependencies first
-    check_dependencies
-
-    # Load configuration file if specified
-    if [[ -n "$CONFIG_FILE" ]]; then
-        parse_config_file
-    fi
-
-    # Ensure the script is run as root (except for help and some read-only operations)
-    if [[ "$OPERATION" != "list" && "$OPERATION" != "status" && "$OPERATION" != "help" ]]; then
-        check_root
-        validate_files
-    fi
+    # Operations that change the hosts file need write access to it
+    # (read-only operations and dry runs don't)
+    case "$OPERATION" in
+        add|remove|restore|clear)
+            if [[ "$DRY_RUN" == false ]]; then
+                validate_files
+            fi
+            ;;
+    esac
 
     # Handle operations that don't require domains
     case "$OPERATION" in
@@ -482,44 +570,37 @@ main() {
             ;;
         clear)
             confirm_operation
-            if [[ "$DRY_RUN" == false ]]; then
-                backup_hosts
-            fi
+            backup_hosts
             clear_all_blocked
             exit 0
             ;;
         "")
             print_error "No operation specified"
-            show_help
+            show_help 1
             ;;
     esac
 
     # Collect domains from arguments
     if [[ $# -lt 1 ]]; then
         print_error "No domain(s) specified"
-        show_help
+        show_help 1
     fi
 
-    # Remove www prefix and add to domains array
+    # Domains are case-insensitive: store them in lowercase
+    local arg
     for arg in "$@"; do
-        DOMAINS+=("${arg#www.}")
+        DOMAINS+=("${arg,,}")
     done
 
     # Handle operations that require domains
     case "$OPERATION" in
         add|remove)
             confirm_operation
-            if [[ "$DRY_RUN" == false ]]; then
-                backup_hosts
-            fi
+            backup_hosts
             modify_hosts "$OPERATION" "${DOMAINS[@]}"
             ;;
         status)
             show_domain_status "${DOMAINS[@]}"
-            ;;
-        *)
-            print_error "Invalid operation: $OPERATION"
-            show_help
             ;;
     esac
 }

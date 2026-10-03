@@ -166,7 +166,7 @@ remove_root_path() {
     local path="$1"
 
     case "$path" in
-        ""|"/"|"/usr"|"/usr/local"|"/opt"|"/home"|"$HOME")
+        ""|"/"|"/bin"|"/etc"|"/usr"|"/usr/bin"|"/usr/lib"|"/usr/local"|"/usr/local/bin"|"/usr/local/lib"|"/opt"|"/home"|"/root"|"$HOME")
             die "Refusing to remove unsafe path: $path"
             ;;
     esac
@@ -461,14 +461,20 @@ purge_unmanaged_system_install() {
     local binary path
     local binaries=(node npm npx corepack)
     local dirs_to_remove=(
-        "$INSTALL_PREFIX"
+        "/opt/nodejs"
         "/usr/local/lib/node_modules"
         "/usr/local/include/node"
         "/usr/local/share/doc/node"
     )
 
+    # A custom --install-prefix may be a shared directory, so only remove the
+    # node-v* installations this script creates inside it, not the prefix itself.
     if [[ "$INSTALL_PREFIX" != "/opt/nodejs" ]]; then
-        dirs_to_remove+=("/opt/nodejs")
+        for path in "$INSTALL_PREFIX"/node-v*; do
+            if [[ -e "$path" ]]; then
+                dirs_to_remove+=("$path")
+            fi
+        done
     fi
 
     echo "Purging unmanaged system Node.js/npm files..."
@@ -510,10 +516,6 @@ user_home_dirs() {
     if [[ "$ALL_USERS" == false ]]; then
         printf '%s\n' "$HOME"
         return
-    fi
-
-    if [[ $EUID -ne 0 && "$DRY_RUN" == false ]]; then
-        die "--all-users requires root"
     fi
 
     if command -v getent >/dev/null 2>&1; then
@@ -858,6 +860,9 @@ install_from_nodejs_org() {
         echo "[DRY-RUN] Would move extracted Node.js files to: $target_dir"
     else
         run_as_root mv "$extract_dir" "$target_dir"
+        # The archive was extracted as the invoking user; hand it to root so the
+        # binaries linked into $SYMLINK_DIR cannot be modified by that user.
+        run_as_root chown -R 0:0 "$target_dir"
     fi
 
     for binary in node npm npx corepack; do
@@ -881,7 +886,8 @@ install_from_nodejs_org() {
     if [[ "$DRY_RUN" == false ]]; then
         echo "Verifying installation..."
         "$target_dir/bin/node" --version
-        "$target_dir/bin/npm" --version
+        # npm is a "#!/usr/bin/env node" script, so the new node must be in PATH
+        PATH="$target_dir/bin:$PATH" "$target_dir/bin/npm" --version
 
         case ":$PATH:" in
             *":$SYMLINK_DIR:"*)
@@ -956,8 +962,7 @@ planned_actions() {
             ;;
     esac
 
-    if [[ "$PURGE_SYSTEM" == false && "$PURGE_USER_CACHE" == false && "$REMOVE_ALL_VERSION_MANAGERS" == false \
-        && ${#VERSION_MANAGERS_TO_REMOVE[@]} -eq 0 && -z "$INSTALL_METHOD" ]]; then
+    if ! needs_confirmation; then
         echo "  - Detect only"
     fi
 }
@@ -996,13 +1001,8 @@ confirm_if_needed() {
 }
 
 validate_args() {
-    local install_count=0
     local channel_count=0
     local manager
-
-    if [[ -n "$INSTALL_METHOD" ]]; then
-        install_count=1
-    fi
 
     case "$INSTALL_PREFIX" in
         /*)
@@ -1040,12 +1040,22 @@ validate_args() {
         channel_count=$((channel_count + 1))
     fi
 
-    if [[ $install_count -gt 1 ]]; then
-        die "Only one install method can be specified."
-    fi
-
     if [[ $channel_count -gt 1 ]]; then
         die "Only one of --current, --latest, --lts, or --version can be specified."
+    fi
+
+    if [[ "$INSTALL_METHOD" == "distro" && $channel_count -gt 0 ]]; then
+        die "--lts, --current, --latest and --version only apply to official nodejs.org installs, not --distro."
+    fi
+
+    # Checked here because user_home_dirs runs in a process substitution,
+    # where die would only end the subshell.
+    local touches_user_data=false
+    if [[ "$PURGE_USER_CACHE" == true || "$REMOVE_ALL_VERSION_MANAGERS" == true || ${#VERSION_MANAGERS_TO_REMOVE[@]} -gt 0 ]]; then
+        touches_user_data=true
+    fi
+    if [[ "$ALL_USERS" == true && "$touches_user_data" == true && $EUID -ne 0 && "$DRY_RUN" == false ]]; then
+        die "--all-users requires root"
     fi
 
     if [[ -n "$INSTALL_VERSION" ]]; then
@@ -1123,11 +1133,6 @@ main() {
     echo "Done."
 }
 
-if [[ $# -eq 0 ]]; then
-    main
-    exit 0
-fi
-
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --detect)
@@ -1170,10 +1175,12 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --lts)
+            [[ -z "$INSTALL_CHANNEL" || "$INSTALL_CHANNEL" == "lts" ]] || die "Only one of --current, --latest, --lts, or --version can be specified."
             INSTALL_CHANNEL="lts"
             shift
             ;;
         --current|--latest)
+            [[ -z "$INSTALL_CHANNEL" || "$INSTALL_CHANNEL" == "current" ]] || die "Only one of --current, --latest, --lts, or --version can be specified."
             INSTALL_CHANNEL="current"
             shift
             ;;
@@ -1230,12 +1237,12 @@ while [[ $# -gt 0 ]]; do
             ;;
         -*)
             log_error "Unknown option: $1"
-            print_usage
+            print_usage >&2
             exit 1
             ;;
         *)
             log_error "Unexpected argument: $1"
-            print_usage
+            print_usage >&2
             exit 1
             ;;
     esac

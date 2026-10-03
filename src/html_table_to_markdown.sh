@@ -1,66 +1,63 @@
 #!/usr/bin/env bash
 
 # Script Name: html_table_to_markdown.sh
-# Description: Converts an HTML table to a Markdown table.
-# Usage: ./html_table_to_markdown.sh [html_file]
+# Description: Converts the HTML table rows in a file to a Markdown table.
+#              Rows containing <th> cells become the header row. Requires GNU grep (-P).
+# Usage: ./html_table_to_markdown.sh html_file
 
 print_usage() {
-    echo "Usage: $0 [html_file]"
+    echo "Usage: $0 html_file"
     echo "Converts an HTML table in the specified file to a Markdown table."
 }
 
 convert_row_to_markdown() {
     local row=$1
-    local row_type=$2 # 'header' or 'data'
+    local cells cell line=""
 
-    # Detect if the row is a header or data
-    if [[ $row =~ "<th" ]]; then
-        row_type="header"
-    else
-        row_type="data"
-    fi
-
-    # Extract cells and convert to Markdown
-    row=$(echo "$row" | sed -e 's/<\/\?\(th\|td\)[^>]*>//g' -e 's/^\s*//g' -e 's/\s*$//g')
-    local IFS=$'\n'
-    local cells
-    mapfile -t cells < <(grep -o '<td>.*</td>\|<th>.*</th>' <<< "$row")
-    local markdown_cells=()
+    # Extract the cells (non-greedy so adjacent cells are not merged)
+    mapfile -t cells < <(grep -oiP '<t[hd][^>]*>.*?</t[hd]>' <<< "$row")
+    [[ ${#cells[@]} -gt 0 ]] || return 0
 
     for cell in "${cells[@]}"; do
-        # Strip HTML tags and escape pipes
-        cell=$(echo "$cell" | sed -e 's/<[^>]*>//g' -e 's/|/\\|/g')
-        markdown_cells+=("$cell")
+        # Strip HTML tags, trim whitespace and escape pipes
+        cell=$(sed -e 's/<[^>]*>//g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/|/\\|/g' <<< "$cell")
+        line+="| $cell "
     done
+    echo "${line}|"
 
-    if [ "$row_type" == "header" ]; then
-        echo "| ${markdown_cells[*]} |"
-        printf '|%s' "$(yes ' --- |' | head -n ${#markdown_cells[@]})"
-        echo '|'
-    else
-        echo "| ${markdown_cells[*]} |"
+    # Header rows are followed by the Markdown separator line
+    if grep -qi '<th' <<< "$row"; then
+        printf '|'
+        printf ' --- |%.0s' "${cells[@]}"
+        echo
     fi
 }
 
 # Check the number of arguments
 if [[ $# -ne 1 ]]; then
-    echo "Error: Incorrect number of arguments."
-    print_usage
+    echo "Error: Incorrect number of arguments." >&2
+    print_usage >&2
     exit 1
 fi
 
 html_file="$1"
 
 if [[ ! -f $html_file ]]; then
-    echo "Error: File $html_file not found."
+    echo "Error: File $html_file not found." >&2
     exit 1
 fi
 
-# Extract the table rows from the HTML file
-rows=$(grep -oP '<tr>.+?</tr>' "$html_file")
+# Join the file into one line (so rows spanning several lines work), then
+# extract the table rows
+mapfile -t rows < <(tr '\n\r' '  ' < "$html_file" | grep -oiP '<tr[^>]*>.*?</tr>')
+
+if [[ ${#rows[@]} -eq 0 ]]; then
+    echo "Error: No table rows found in $html_file." >&2
+    exit 1
+fi
 
 # Convert each table row to Markdown
-while IFS= read -r row; do
+for row in "${rows[@]}"; do
     convert_row_to_markdown "$row"
-done <<< "$rows"
+done
 

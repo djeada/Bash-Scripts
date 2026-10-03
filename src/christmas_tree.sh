@@ -10,9 +10,10 @@
 draw_level() {
     local level_size=$1
     local character=$2
+    local offset=$3 # extra indentation so every level is centred on the trunk
 
     for ((i = 0; i < level_size; i++)); do
-        printf "%*s" $((level_size - i)) "" # print spaces
+        printf "%*s" $((offset + level_size - i)) "" # print spaces
         printf '%*s\n' $((2 * i + 1)) "" | tr ' ' "$character" # print characters
     done
 }
@@ -29,20 +30,25 @@ draw_christmas_tree() {
     local character=$2
 
     for ((i = 1; i <= tree_height; i++)); do
-        draw_level "$i" "$character"
+        draw_level "$i" "$character" $((tree_height - i))
     done
     draw_trunk "$tree_height" "$character" # print the trunk
 }
 
 main() {
     if [ $# -ne 2 ]; then
-        echo "Must provide exactly two arguments: tree height and character to draw the tree!"
+        echo "Must provide exactly two arguments: tree height and character to draw the tree!" >&2
         exit 1
     fi
 
-    re='^[0-9]+$'
+    re='^[1-9][0-9]*$'
     if ! [[ $1 =~ $re ]]; then
-        echo "$1 is not a positive integer!"
+        echo "$1 is not a positive integer!" >&2
+        exit 1
+    fi
+
+    if [ ${#2} -ne 1 ]; then
+        echo "The tree must be drawn with exactly one character!" >&2
         exit 1
     fi
 

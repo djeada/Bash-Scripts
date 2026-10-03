@@ -1,50 +1,37 @@
 #!/usr/bin/env bash
 
 # Script Name: remove_trailing_whitespaces.sh
-# Description: This script removes trailing whitespaces from all files in the provided directory.
-# Usage: remove_trailing_whitespaces.sh [--check] directory_path
+# Description: This script removes trailing whitespaces from all text files in the provided path.
+#              Binary files and .git directories are skipped. Files are edited in place,
+#              so their permissions are preserved.
+# Usage: remove_trailing_whitespaces.sh [--check] path
 #        --check: Check for trailing whitespaces without actually modifying the files.
-#        directory_path: The path to the directory to be processed. If not provided, an error will be raised.
-# Usage: ./remove_trailing_whitespaces.sh [--check] path/to/directory
+#                 Exits with 1 if any file contains trailing whitespaces.
+#        path: The file or directory to be processed. If not provided, an error will be raised.
+# Example: ./remove_trailing_whitespaces.sh --check path/to/directory
 
-# Global variables
 checkonly=0
 status=0
-scriptname=$(basename "$0")
 
-remove_trailing_whitespaces() {
+# Prints (NUL-separated) every text file under $1 that has a line ending in whitespace.
+# -I skips binary files, -r doesn't follow symlinks found while recursing.
+find_offending_files() {
+    grep -rIlZE --exclude-dir=.git -- '[[:space:]]$' "$1"
+}
+
+process_file() {
     local file="$1"
+    local lines
 
-    echo "Checking each line of ${file} for trailing whitespaces..."
-
-    if [[ $checkonly -eq 0 ]]; then
-        touch "${file}".tmp
-    fi
-
-    while IFS= read -r line; do
-        if [[ $line == *[[:space:]] ]]; then
-            echo "Found trailing whitespaces in line: ${line}"
-            if [[ $checkonly -eq 0 ]]; then
-                # Remove all trailing whitespace using parameter expansion:
-                # ${line##*[![:space:]]} finds trailing whitespace (everything after last non-space char)
-                # ${line%...} removes that trailing portion from line
-                echo "${line%"${line##*[![:space:]]}"}" >> "${file}".tmp
-            else
-                status=1
-            fi
-        else
-            if [[ $checkonly -eq 0 ]]; then
-                echo "${line}" >> "${file}".tmp
-            fi
-        fi
-    done < <(grep '' "${file}")
-
-    if [[ $checkonly -eq 0 ]]; then
-        mv "${file}".tmp "${file}"
-        echo "Done!"
+    if [[ $checkonly -eq 1 ]]; then
+        lines=$(grep -nE '[[:space:]]$' "$file" | cut -d: -f1 | paste -sd, -)
+        echo "Trailing whitespaces found in ${file} (line(s): ${lines})"
+        status=1
+    elif sed -i --follow-symlinks 's/[[:space:]]*$//' "$file"; then
+        echo "Removed trailing whitespaces from ${file}"
     else
-        # Clean up any .tmp file that may have been created accidentally
-        [[ -f "${file}".tmp ]] && rm -f "${file}".tmp
+        echo "Failed to process ${file}" >&2
+        status=1
     fi
 }
 
@@ -55,31 +42,29 @@ main() {
     fi
 
     if [ $# -eq 0 ]; then
-        echo "Must provide a path!"
+        echo "Must provide a path!" >&2
         exit 1
     elif [ $# -gt 1 ]; then
-        echo "Only one path is supported!"
+        echo "Only one path is supported!" >&2
         exit 1
     fi
 
     local path="$1"
+    local file
 
-    if [ "$path" == '.' ] || [ -d "$path" ]; then
-        while IFS= read -r -d '' file; do
-            remove_trailing_whitespaces "$file"
-        done < <(find "$path" -maxdepth 10 -type f ! -name "*.tmp" ! -regex ".*/$(basename "$0")" -print0)
-    elif [ -f "$path" ]; then
-        if [ "$(basename "$path")" != "$scriptname" ]; then
-            remove_trailing_whitespaces "$path"
-        fi
-    else
-        echo "$path is not a valid path!"
+    if [ ! -d "$path" ] && [ ! -f "$path" ]; then
+        echo "$path is not a valid path!" >&2
         exit 1
     fi
 
-    if [[ $status -eq 1 ]]; then
-        exit 1
+    while IFS= read -r -d '' file; do
+        process_file "$file"
+    done < <(find_offending_files "$path")
+
+    if [[ $status -eq 0 ]]; then
+        echo "Trailing whitespaces checked successfully."
     fi
+    exit "$status"
 }
 
 main "$@"

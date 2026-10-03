@@ -3,7 +3,8 @@
 # Script Name: last_line_empty.sh
 # Description: Ensures each file ends with exactly one empty trailing line.
 #              Adds a line if missing, removes extras if more than one.
-#              Skips binary files. Supports in-place and check-only modes.
+#              Skips binary files and .git directories. Supports in-place
+#              (permission-preserving) and check-only modes.
 # Usage: ./last_line_empty.sh [--check] <path>
 # Options:
 #   --check  Only detect if changes are needed, do not modify files.
@@ -12,13 +13,13 @@
 #   ./last_line_empty.sh --check myfolder
 
 checkonly=0    # 1 => only check, 0 => fix in place
-status=0       # For --check mode: 1 if any file needs fixing
+status=0       # 1 if any file needs fixing (--check mode) or an error occurred
 
 ###############################################################################
 # process_file: Applies the trailing-empty-line logic to one file.
 #   - Skips if not a regular file or if it's binary.
 #   - If not skipping, performs (or simulates) the transformation in memory.
-#   - Logs everything to stdout.
+#   - Logs progress to stdout, errors to stderr.
 ###############################################################################
 process_file() {
     local file="$1"
@@ -26,7 +27,7 @@ process_file() {
 
     # Skip non-regular files:
     if [[ ! -f "$file" ]]; then
-        echo "  [ERROR] Not a regular file: $file"
+        echo "  [ERROR] Not a regular file: $file" >&2
         return 1
     fi
 
@@ -36,16 +37,16 @@ process_file() {
         return 0
     fi
 
-    # Read the file into an array, one line per element (mapfile strips the ending newline from each line).
-    # This loads everything into memory, which is typically fine for small/medium files.
-    # If you have very large files, you'd need a streaming approach, but you explicitly requested these steps.
+    # Read the file into an array, one line per element (mapfile strips the
+    # newline from each line). Fine for the small/medium text files this targets.
+    local lines=()
     mapfile -t lines < "$file"
 
     local num_lines="${#lines[@]}"
 
     # Count how many trailing lines are truly empty:
     # We go backward until we find a non-empty line, incrementing empty_count for each empty line.
-    local empty_count=0
+    local empty_count=0 i
     for (( i = num_lines - 1; i >= 0; i-- )); do
         if [[ -z "${lines[$i]}" ]]; then
             (( empty_count++ ))
@@ -79,32 +80,14 @@ process_file() {
         return 0
     fi
 
-    # Otherwise, we actually fix the file in place.
-    # Create a temp file to store the modified content:
-    local tmp
-    tmp="$(mktemp -t lastline.XXXXXX)"
-
-    # 1. If empty_count == 0, we just print out all lines, then add one empty line.
-    # 2. If empty_count > 1, we remove the extras so exactly 1 remains.
-    if (( empty_count == 0 )); then
-        # Print all lines as is, then add one empty line:
-        for line in "${lines[@]}"; do
-            echo "$line"
-        done
-        echo ""
-    else
-        # empty_count > 1
-        # We want to remove empty_count-1 lines from the end, leaving exactly one empty line.
-        local keep_until=$(( num_lines - empty_count ))  # index of last non-empty line
-        for (( i=0; i<keep_until; i++ )); do
-            echo "${lines[$i]}"
-        done
-        # Now add exactly one empty line
-        echo ""
-    fi > "$tmp"
-
-    # Replace the original file with the new content:
-    mv "$tmp" "$file"
+    # Otherwise, fix the file in place: keep everything up to the last non-empty
+    # line, then add exactly one empty line. Writing through the existing file
+    # (instead of replacing it) preserves its permissions and ownership.
+    local keep_until=$(( num_lines - empty_count ))  # number of lines to keep
+    if ! printf '%s\n' "${lines[@]:0:keep_until}" "" > "$file"; then
+        echo "  [ERROR] Failed to write $file" >&2
+        return 1
+    fi
     echo "  [FIXED] File updated (was $empty_count trailing empties)."
 }
 
@@ -115,29 +98,30 @@ process_directory() {
     local directory="$1"
 
     if [[ ! -d "$directory" ]]; then
-        echo "Error: $directory is not a directory."
+        echo "Error: $directory is not a directory." >&2
         return 1
     fi
 
     echo "Recursively processing directory: $directory"
-    # Use find to traverse
+    # Use find to traverse, skipping .git directories
+    local f
     while IFS= read -r -d '' f; do
-        process_file "$f"
-    done < <(find "$directory" -type f -print0 2>/dev/null)
+        process_file "$f" || status=1
+    done < <(find "$directory" -name .git -prune -o -type f -print0)
 }
 
 ###############################################################################
 # main
 ###############################################################################
 main() {
-    if [[ $# -eq 0 ]]; then
-        echo "Usage: $0 [--check] <file-or-directory>"
-        exit 1
-    fi
-
-    if [[ "$1" == "--check" ]]; then
+    if [[ "${1:-}" == "--check" ]]; then
         checkonly=1
         shift
+    fi
+
+    if [[ $# -ne 1 ]]; then
+        echo "Usage: $0 [--check] <file-or-directory>" >&2
+        exit 1
     fi
 
     local path="$1"
@@ -145,13 +129,13 @@ main() {
     if [[ -d "$path" ]]; then
         process_directory "$path"
     elif [[ -f "$path" ]]; then
-        process_file "$path"
+        process_file "$path" || status=1
     else
-        echo "Error: '$path' is not a valid file or directory."
+        echo "Error: '$path' is not a valid file or directory." >&2
         exit 1
     fi
 
-    # If in --check mode and any file needed changes => exit 1
+    # Exit 1 if any file needed changes (--check mode) or could not be processed
     exit "$status"
 }
 

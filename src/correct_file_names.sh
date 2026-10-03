@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 
 # Script Name: correct_file_names.sh
-# Description: This script corrects file names in a specified directory by replacing all non-alphanumeric characters
-#              (excluding dots) with underscores, converting repeated underscores to a single underscore, and making the names lowercase.
-#              Additionally, it provides an option to include hidden directories.
-# Usage: correct_file_names.sh [-a] [-e <file1,file2,...>] <directory>
-#        -a: Include hidden directories (default is false).
-#        -e: Comma-separated list of file names to exclude from modification (default is 'README.md').
-#        <directory>: The directory containing the files to be corrected.
-# Example: ./correct_file_names.sh -a -e README.md,path/to/file.txt path/to/directory
+# Description: This script recursively corrects file and directory names in a specified directory by replacing
+#              all non-alphanumeric characters (excluding dots and underscores) with underscores, converting
+#              repeated underscores to a single underscore, trimming leading/trailing underscores and making
+#              the names lowercase. If the new name is taken, a numeric suffix (_1, _2, ...) is added.
+#              Additionally, it provides an option to include hidden files and directories.
+# Usage: correct_file_names.sh [-a] [-e <file1,file2,...>] <directory|file>
+#        -a: Include hidden files and directories (default is false).
+#        -e: Comma-separated list of exact file/directory names (not paths) to exclude
+#            from modification (default is 'README.md').
+#        <directory|file>: The directory containing the files to be corrected, or a single file.
+# Example: ./correct_file_names.sh -a -e README.md,LICENSE path/to/directory
 
 sanitize_basename() {
     # Transform only a basename (no path separators) according to the rules
@@ -16,12 +19,12 @@ sanitize_basename() {
     # - squeeze consecutive underscores
     # - lowercase
     # - trim leading/trailing underscores
-    local name="$1"
-    name=$(echo "$name" | sed -e 's/[^a-zA-Z0-9._]/_/g')
-    name=$(echo "$name" | tr -s '_')
-    name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
-    name=$(echo "$name" | sed -e 's/^_//g' -e 's/_$//g')
-    printf '%s' "$name"
+    # LC_ALL=C: treat every non-ASCII byte as "non-alphanumeric"
+    local name
+    name=$(printf '%s' "$1" | LC_ALL=C sed -e 's/[^a-zA-Z0-9._]/_/g')
+    name=$(printf '%s' "$name" | LC_ALL=C tr -s '_' | LC_ALL=C tr '[:upper:]' '[:lower:]')
+    name=${name#_}
+    printf '%s' "${name%_}"
 }
 
 ensure_unique_target() {
@@ -54,9 +57,9 @@ maybe_rename_path() {
     local base
     base=$(basename -- "$old_path")
 
-    # Exclusion check is against the basename only
+    # Exclusion check is an exact match against the basename only
     for excluded in "${excluded_files[@]}"; do
-        if [[ $base =~ $excluded ]]; then
+        if [[ $base == "$excluded" ]]; then
             printf '%s' "$old_path"
             return 0
         fi
@@ -67,6 +70,13 @@ maybe_rename_path() {
 
     # Nothing to do
     if [ "$sanitized" = "$base" ]; then
+        printf '%s' "$old_path"
+        return 0
+    fi
+
+    # Names made only of special characters would end up empty (or just dots)
+    if [[ -z "${sanitized//./}" ]]; then
+        echo "Skipping '$old_path': no usable characters in its name." >&2
         printf '%s' "$old_path"
         return 0
     fi
@@ -94,8 +104,15 @@ find_files() {
         find_args=("$dir" -mindepth 1 -maxdepth 1 -not -name '.*' -print0)
     fi
 
-    # Iterate immediate children; rename, then recurse into directories using their new path
-    find "${find_args[@]}" | while IFS= read -r -d $'\0' entry; do
+    # Collect the immediate children first (so renaming can't disturb the listing),
+    # then rename each one and recurse into directories using their new path
+    local -a entries=()
+    local entry
+    while IFS= read -r -d '' entry; do
+        entries+=("$entry")
+    done < <(find "${find_args[@]}")
+
+    for entry in "${entries[@]}"; do
         local new_entry
         new_entry=$(maybe_rename_path "$entry")
         if [ -d "$new_entry" ]; then
@@ -117,6 +134,10 @@ main() {
             e)
                 IFS=',' read -r -a excluded_files <<< "$OPTARG"
                 ;;
+            ":")
+                echo "Option -$OPTARG requires an argument." >&2
+                exit 1
+                ;;
             "?")
                 echo "Invalid option: -$OPTARG" >&2
                 exit 1
@@ -126,7 +147,7 @@ main() {
     shift $((OPTIND - 1))
 
     if [ $# -eq 0 ]; then
-        echo "Usage: $0 [-a] [-e <file1,file2,...>] <directory>"
+        echo "Usage: $0 [-a] [-e <file1,file2,...>] <directory|file>" >&2
         exit 1
     fi
 
@@ -139,7 +160,7 @@ main() {
         # Single file rename
         maybe_rename_path "$path" >/dev/null
     else
-        echo "$path is not a valid path!"
+        echo "$path is not a valid path!" >&2
         exit 1
     fi
 }

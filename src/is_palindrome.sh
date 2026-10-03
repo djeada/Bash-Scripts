@@ -24,8 +24,8 @@ is_palindrome() {
 
 main() {
     if (( $# != 1 )); then
-        echo "Usage: is_palindrome.sh string"
-        echo "       string - The string to check"
+        echo "Usage: is_palindrome.sh string" >&2
+        echo "       string - The string to check" >&2
         exit 1
     fi
 

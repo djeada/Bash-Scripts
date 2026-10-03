@@ -7,13 +7,13 @@
 set -euo pipefail
 
 if [[ "${EUID}" -eq 0 ]]; then
-    echo "Run this script as your normal user, not as root."
+    echo "Run this script as your normal user, not as root." >&2
     exit 1
 fi
 
 need_cmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
-        echo "Missing required command: $1"
+        echo "Missing required command: $1" >&2
         exit 1
     fi
 }
@@ -23,21 +23,24 @@ need_cmd curl
 need_cmd grep
 need_cmd sed
 need_cmd mktemp
+need_cmd pgrep
+need_cmd apt-get
+need_cmd dpkg
 
 echo "Checking OBS installation..."
 if ! command -v obs >/dev/null 2>&1; then
-    echo "OBS Studio is not installed."
-    echo "Install it first with: sudo apt-get install obs-studio"
+    echo "OBS Studio is not installed." >&2
+    echo "Install it first with: sudo apt-get install obs-studio" >&2
     exit 1
 fi
 
-OBS_VERSION="$(obs --version 2>/dev/null | sed 's/^OBS Studio - //')"
+OBS_VERSION="$(obs --version 2>/dev/null | sed 's/^OBS Studio - //' || true)"
 echo "Found OBS Studio ${OBS_VERSION}"
 
 if pgrep -x obs >/dev/null 2>&1; then
-    echo
-    echo "OBS is currently running."
-    echo "Close OBS before running this script so the new plugins load cleanly."
+    echo >&2
+    echo "OBS is currently running." >&2
+    echo "Close OBS before running this script so the new plugins load cleanly." >&2
     exit 1
 fi
 
@@ -64,9 +67,9 @@ curl -fsSL "${PAGE_URL}" -o "${PAGE_HTML}"
 grep -Eo 'https://[^"]+x86_64-linux-gnu\.deb' "${PAGE_HTML}" > "${DEB_URL_FILE}" || true
 
 if [[ ! -s "${DEB_URL_FILE}" ]]; then
-    echo "Could not find the Ubuntu .deb download URL on ${PAGE_URL}"
-    echo "Open this page in a browser and download the Ubuntu package manually:"
-    echo "  ${PAGE_URL}"
+    echo "Could not find the Ubuntu .deb download URL on ${PAGE_URL}" >&2
+    echo "Open this page in a browser and download the Ubuntu package manually:" >&2
+    echo "  ${PAGE_URL}" >&2
     exit 1
 fi
 
@@ -89,7 +92,7 @@ find /usr/lib /usr/share -type f 2>/dev/null | grep -E 'ashmanix|backgroundremov
 
 cat <<'EOF'
 
-Setup is installed. Finish the effect in OBS like this:
+Plugins are installed. Finish the effect in OBS like this:
 
 1. Open OBS.
 2. Add your webcam source.
