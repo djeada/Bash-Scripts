@@ -68,7 +68,7 @@ Removes trailing whitespace characters (spaces or tabs) from the end of lines in
 
 ### CI/CD Integration
 
-These hooks are automatically run in the CI pipeline (see `.github/workflows/blank.yml`). The CI will fail if any checks don't pass.
+These hooks are automatically run in the CI pipeline (see `.github/workflows/ci.yml`). The CI will fail if any checks don't pass.
 
 ### Git Pre-commit Hook (Optional)
 

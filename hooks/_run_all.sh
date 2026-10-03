@@ -1,44 +1,63 @@
 #!/usr/bin/env bash
 
 # Script Name: _run_all.sh
-# Description: This script will check all scripts in the specified paths.
-#              It finds all the scripts (not starting with _) in the 'hooks' directory and executes them with '--check' option.
-#              The path for the check is specified in the 'paths' array.
-#              At the end, it will exit with 1 if any check failed.
-# Usage: ./hooks/_run_all.sh
+# Description: Runs every hook in this directory (symlinks not starting with _)
+#              in check mode against the given paths, and exits with 1 if any
+#              check failed. Works from any working directory.
+# Usage: ./hooks/_run_all.sh [path...]
+#        Paths are relative to the repository root (default: src tests).
 
-# Ensure tput has something to work with
-export TERM=${TERM:-dumb}
+set -uo pipefail
 
-# Paths to check
-paths=(src)
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root" || exit 1
 
-# Status variable to track if any check fails
+if [[ $# -gt 0 ]]; then
+    paths=("$@")
+else
+    paths=(src tests)
+fi
+
+if [[ -t 1 ]]; then
+    RED=$'\e[31m'
+    GREEN=$'\e[32m'
+    RESET=$'\e[0m'
+else
+    RED=""
+    GREEN=""
+    RESET=""
+fi
+
 status=0
+failed=()
 
-# Define color codes (now safe because TERM is set)
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-RESET=$(tput sgr0)
-
-# Process each path
-for path in "${paths[@]}"; do
-    # Find all scripts (not starting with _) in 'hooks' directory
-    # Use process substitution to avoid subshell and preserve status variable
-    while read -r script; do
-        echo -e "\nExecuting $script"
-
-        # Execute the script with '--check' option
-        if "$script" --check "$path"; then
-            echo "${GREEN}${script} check on ${path} was successful${RESET}"
-        else
-            echo "${RED}${script} check on ${path} failed${RESET}"
-            status=1
-        fi
-    done < <(find hooks -type l -name "[^_]*.sh")
-done
-
-# Exit with 1 if any check failed
-if [[ $status -eq 1 ]]; then
+mapfile -t hooks < <(find hooks -maxdepth 1 -type l -name '[^_]*.sh' | sort)
+if [[ ${#hooks[@]} -eq 0 ]]; then
+    echo "${RED}No hooks found in $repo_root/hooks${RESET}" >&2
     exit 1
 fi
+
+for path in "${paths[@]}"; do
+    [[ -e $path ]] || continue
+    for hook in "${hooks[@]}"; do
+        echo -e "\nExecuting $hook on $path"
+        if "$hook" --check "$path"; then
+            echo "${GREEN}${hook} check on ${path} was successful${RESET}"
+        else
+            echo "${RED}${hook} check on ${path} failed${RESET}"
+            failed+=("$hook ($path)")
+            status=1
+        fi
+    done
+done
+
+if [[ $status -ne 0 ]]; then
+    echo -e "\n${RED}Failed checks:${RESET}"
+    printf '  %s\n' "${failed[@]}"
+    echo "Run the failing hook without --check to fix the files, e.g. ./hooks/last_line_empty.sh src"
+else
+    echo -e "\n${GREEN}All checks passed.${RESET}"
+fi
+
+exit "$status"
+
