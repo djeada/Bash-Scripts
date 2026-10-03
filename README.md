@@ -723,19 +723,29 @@ See [hooks/README.md](hooks/README.md) for details and for installing the checks
 | 4 | Combines multiple commits into a single commit. This can be useful for simplifying a commit history or for cleaning up a series of small, incremental commits that were made in error.                                                                                                                       | [squash_n_last_commits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh)                                 |
 | 5 | Removes the `n` last commits from the repository. This can be useful for undoing mistakes or for removing sensitive information that was accidentally committed.                                                                                                                                              | [remove_n_last_commits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh)                                  |
 | 6 | Changes the date of the last commit in the repository. This can be useful for altering the commit history for cosmetic purposes.                                                                                                                                                                            | [change_commit_date.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/change_commit_date.sh)                                   |
-| 7 | Discovers GitHub repositories into an editable JSON or CSV manifest, then backs up the enabled repositories using mirror, clone, archive, or sparse modes with resumable state for cron jobs.                                                                                                                  | [download_all_github_repos.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh)                            |
+| 7 | Discovers GitHub repositories into an editable JSON or CSV manifest, then incrementally backs up the enabled repositories (mirror, clone, archive, or sparse), skipping ones whose commits have not changed. Authenticates with a token, the `gh` CLI, or anonymously.                                                                                                                  | [download_all_github_repos.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh)                            |
 | 8 | Squashes all commits on a specified Git branch into a single commit.                                                                                                                                                                              | [squash_branch.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/squash_branch.sh)                            |
 | 9 | Counts the commits made by each author in a Git repository, or by a single author when a name is given. | [contributions_by_git_author.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/contributions_by_git_author.sh)                            |
   
 GitHub repository backups use a two-stage workflow:
-| 10 | Deletes local branches already merged into the base branch, and optionally branches whose upstream is gone, with dry-run and confirmation. | [git_cleanup_branches.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/git_cleanup_branches.sh) |
 
 ```bash
 ./src/download_all_github_repos.sh discover --user alice --output repos.json
-./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --resume
+./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups
 ```
 
 Edit the generated manifest to disable repositories or choose per-repository modes. Use `mode: "mirror"` for full Git backups, `mode: "archive"` for HTTPS snapshots without Git history, and `mode: "sparse"` with `paths` for selected subdirectories.
+
+Choose how to authenticate with `--auth` (both `discover` and `backup`):
+
+| `--auth` | Credentials used |
+|----------|------------------|
+| `public` | None. Only public repositories, lower API rate limit. |
+| `token`  | `--token TOKEN` or the `GITHUB_TOKEN` environment variable. |
+| `gh`     | The GitHub CLI login (`gh auth login`), so no token has to be handled by hand. |
+| `auto`   | Default: a token if one is given, otherwise `gh` if logged in, otherwise public. |
+
+Backups are incremental. The destination holds the repositories in `repos/` and `archives/`, plus a `backup-manifest.json` that records, for every repository, the backed-up HEAD commit, a fingerprint of its remote refs, the output path, size, and timestamps. On the next run the remote refs are checked with `git ls-remote` (cheap, no API quota), and repositories that have not changed are skipped. Archives are named after the commit they contain (`owner__repo@<sha>.tar.gz`); `--keep-archives N` keeps only the newest N per repository. Use `--force` to back up everything regardless, and `--resume` to continue an interrupted run.
 
 ### Utility
 

@@ -6,6 +6,9 @@
 #              JSON/CSV manifests, HTTPS or SSH clones, mirror/clone/archive/
 #              sparse backup modes, resumable runs, retries, rate-limit waits,
 #              cron-friendly logging, and checksums for downloaded archives.
+#              Backups are incremental: DEST/backup-manifest.json records the
+#              last backed-up commit of every repository, and repositories whose
+#              remote refs have not changed since are skipped.
 # Usage:
 #   ./download_all_github_repos.sh discover [OPTIONS]
 #   ./download_all_github_repos.sh backup [OPTIONS]
@@ -16,6 +19,7 @@
 #   ./download_all_github_repos.sh discover --user alice --output repos.json
 #   ./download_all_github_repos.sh discover --org my-org --token "$GITHUB_TOKEN" --output repos.csv --format csv
 #   ./download_all_github_repos.sh discover --authenticated-user --token "$GITHUB_TOKEN" --output repos.json
+#   ./download_all_github_repos.sh discover --authenticated-user --auth gh --output repos.json
 #
 # Backup examples:
 #   ./download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups
@@ -36,6 +40,7 @@ GITHUB_USER=""
 GITHUB_ORG=""
 AUTHENTICATED_USER=false
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+AUTH_MODE="auto"
 VISIBILITY="all"
 
 MANIFEST=""
@@ -45,6 +50,7 @@ OUTPUT_FORMAT="json"
 DEST_DIR=""
 RUN_DIR=""
 STATE_FILE=""
+BACKUP_MANIFEST=""
 LOCK_FILE=""
 CONFIG_FILE=""
 
@@ -60,6 +66,8 @@ NON_INTERACTIVE=false
 CHECKSUM=true
 VERIFY_AFTER_BACKUP=false
 PARALLEL_JOBS=""
+FORCE=false
+KEEP_ARCHIVES=0""
 
 RATE_LIMIT_MODE="wait"
 SLEEP_BETWEEN_REPOS=0
@@ -97,6 +105,7 @@ Discovery examples:
   download_all_github_repos.sh discover --user alice --output repos.json
   download_all_github_repos.sh discover --org my-org --token "$GITHUB_TOKEN" --output repos.csv --format csv
   download_all_github_repos.sh discover --authenticated-user --token "$GITHUB_TOKEN" --output repos.json
+  download_all_github_repos.sh discover --authenticated-user --auth gh --output repos.json
 
 Backup examples:
   download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups
@@ -113,11 +122,18 @@ print_discover_usage() {
 Usage: download_all_github_repos.sh discover [OPTIONS]
 
 Source options:
-  --user USER                 Discover repositories for a GitHub user. With --token,
+  --user USER                 Discover repositories for a GitHub user. When
+                              authenticated (token or gh),
                               include private repositories visible to that token.
   --org ORG                   Discover repositories for a GitHub organization.
   --authenticated-user        Discover repositories visible to the token owner.
   --token TOKEN               GitHub token. Defaults to GITHUB_TOKEN.
+  --auth auto|token|gh|public How to authenticate with GitHub:
+                                token  - use --token / GITHUB_TOKEN (required)
+                                gh     - use the GitHub CLI login (gh auth token)
+                                public - no authentication, public repos only
+                                auto   - token if given, else gh if logged in,
+                                         else public (default)
 
 Manifest options:
   --output FILE               Manifest path to write. Required.
@@ -159,7 +175,19 @@ Backup behavior:
                               Override per-repository manifest mode.
   --protocol https|ssh        Clone protocol for git modes. Default: https.
   --token TOKEN               GitHub token. Defaults to GITHUB_TOKEN.
+  --auth auto|token|gh|public How to authenticate with GitHub:
+                                token  - use --token / GITHUB_TOKEN (required)
+                                gh     - use the GitHub CLI login (gh auth token)
+                                public - no authentication, public repos only
+                                auto   - token if given, else gh if logged in,
+                                         else public (default)
   --resume                    Reuse state and skip completed repositories.
+  --force                     Back up every repository, even if its remote refs
+                              match the last backup recorded in the backup manifest.
+  --backup-manifest FILE      Record of backed-up commits used to skip unchanged
+                              repositories. Default: DEST/backup-manifest.json.
+  --keep-archives N           Archive mode: keep only the newest N archives per
+                              repository. Default: 0 (keep all).
   --checksum                  Write checksums for archive files. Default.
   --no-checksum               Disable archive checksums.
   --verify-after-backup       Run lightweight validation after each backup.
@@ -263,6 +291,41 @@ need_arg() {
     [[ $# -ge 2 && -n "$2" ]] || die "$1 requires a value."
 }
 
+# Picks the GitHub credentials according to --auth and leaves the token (if
+# any) in GITHUB_TOKEN, which both API calls and git operations use.
+resolve_auth() {
+    local gh_token=""
+
+    case "$AUTH_MODE" in
+        public)
+            GITHUB_TOKEN=""
+            ;;
+        token)
+            [[ -n "$GITHUB_TOKEN" ]] || die "--auth token requires --token TOKEN or the GITHUB_TOKEN environment variable."
+            ;;
+        gh)
+            require_command gh
+            gh_token="$(gh auth token 2>/dev/null)" || true
+            [[ -n "$gh_token" ]] || die "GitHub CLI is not logged in. Run 'gh auth login' first."
+            GITHUB_TOKEN="$gh_token"
+            ;;
+        auto)
+            if [[ -n "$GITHUB_TOKEN" ]]; then
+                AUTH_MODE="token"
+            elif command -v gh >/dev/null 2>&1 && gh_token="$(gh auth token 2>/dev/null)" && [[ -n "$gh_token" ]]; then
+                AUTH_MODE="gh"
+                GITHUB_TOKEN="$gh_token"
+            else
+                AUTH_MODE="public"
+            fi
+            ;;
+        *)
+            die "--auth must be auto, token, gh, or public."
+            ;;
+    esac
+    info "GitHub authentication: $AUTH_MODE"
+}
+
 is_positive_integer() {
     [[ "$1" =~ ^[0-9]+$ ]] && (( "$1" > 0 ))
 }
@@ -333,6 +396,7 @@ load_discover_config() {
     set_config_string GITHUB_ORG '.org'
     set_config_bool AUTHENTICATED_USER '.authenticated_user'
     set_config_string GITHUB_TOKEN '.token'
+    set_config_string AUTH_MODE '.auth'
     set_config_string OUTPUT_FILE '.output'
     set_config_string OUTPUT_FORMAT '.format'
     set_config_string INPUT_MANIFEST '.input'
@@ -356,6 +420,7 @@ load_backup_config() {
     set_config_string BACKUP_MODE '.mode'
     set_config_string PROTOCOL '.protocol'
     set_config_string GITHUB_TOKEN '.token'
+    set_config_string AUTH_MODE '.auth'
     set_config_bool RESUME '.resume'
     set_config_bool CHECKSUM '.checksum'
     set_config_bool VERIFY_AFTER_BACKUP '.verify_after_backup'
@@ -932,7 +997,7 @@ write_summary() {
             repo_count: $state.repo_count,
             done: ([.repositories[] | select(.status == "done")] | length),
             failed: ([.repositories[] | select(.status == "failed")] | length),
-            skipped: ([.repositories[] | select(.status == "skipped")] | length),
+            unchanged: ([.repositories[] | select(.status == "unchanged")] | length),
             repositories: $state.repositories
           }
     ' "$STATE_FILE" > "$summary_file"
@@ -949,6 +1014,7 @@ parse_discover_args() {
             --org) need_arg "$@"; GITHUB_ORG="$2"; shift 2 ;;
             --authenticated-user) AUTHENTICATED_USER=true; shift ;;
             --token) need_arg "$@"; GITHUB_TOKEN="$2"; shift 2 ;;
+            --auth) need_arg "$@"; AUTH_MODE="$2"; shift 2 ;;
             --output) need_arg "$@"; OUTPUT_FILE="$2"; shift 2 ;;
             --format) need_arg "$@"; OUTPUT_FORMAT="$2"; shift 2 ;;
             --input) need_arg "$@"; INPUT_MANIFEST="$2"; shift 2 ;;
@@ -995,8 +1061,9 @@ parse_discover_args() {
     [[ "$AUTHENTICATED_USER" == true ]] && ((sources += 1))
     (( sources == 1 )) || die "Specify exactly one of --user, --org, or --authenticated-user."
 
+    resolve_auth
     if [[ "$AUTHENTICATED_USER" == true && -z "$GITHUB_TOKEN" ]]; then
-        die "--authenticated-user requires --token or GITHUB_TOKEN."
+        die "--authenticated-user requires authentication (--auth token or --auth gh)."
     fi
 }
 
@@ -1100,7 +1167,11 @@ parse_backup_args() {
             --mode) need_arg "$@"; BACKUP_MODE="$2"; shift 2 ;;
             --protocol) need_arg "$@"; PROTOCOL="$2"; shift 2 ;;
             --token) need_arg "$@"; GITHUB_TOKEN="$2"; shift 2 ;;
+            --auth) need_arg "$@"; AUTH_MODE="$2"; shift 2 ;;
             --resume) RESUME=true; shift ;;
+            --force) FORCE=true; shift ;;
+            --backup-manifest) need_arg "$@"; BACKUP_MANIFEST="$2"; shift 2 ;;
+            --keep-archives) need_arg "$@"; KEEP_ARCHIVES="$2"; shift 2 ;;
             --checksum) CHECKSUM=true; shift ;;
             --no-checksum) CHECKSUM=false; shift ;;
             --verify-after-backup) VERIFY_AFTER_BACKUP=true; shift ;;
@@ -1134,6 +1205,8 @@ parse_backup_args() {
     is_non_negative_integer "$RETRY_DELAY" || die "--retry-delay expects a non-negative integer."
     is_positive_integer "$RETRY_BACKOFF" || die "--retry-backoff expects a positive integer."
     is_non_negative_integer "$SLEEP_BETWEEN_REPOS" || die "--sleep expects a non-negative integer."
+    is_non_negative_integer "$KEEP_ARCHIVES" || die "--keep-archives expects a non-negative integer."
+    resolve_auth
     PARALLEL_JOBS="${PARALLEL_JOBS:-$(cpu_count)}"
     is_positive_integer "$PARALLEL_JOBS" || die "--parallel expects a positive integer."
 
@@ -1146,6 +1219,7 @@ parse_backup_args() {
 
     mkdir -p "$DEST_DIR"
     STATE_FILE="${STATE_FILE:-${DEST_DIR}/.github-backup-state.json}"
+    BACKUP_MANIFEST="${BACKUP_MANIFEST:-${DEST_DIR}/backup-manifest.json}"
     LOCK_FILE="${LOCK_FILE:-${DEST_DIR}/.github-backup.lock}"
 }
 
@@ -1179,15 +1253,26 @@ repo_clone_url() {
     fi
 }
 
+# Runs git with only the credentials chosen by --auth. Credential helpers from
+# the user's git config (e.g. "gh auth git-credential") are disabled for HTTPS,
+# so "public" really is anonymous and token/gh use exactly that token.
 git_with_optional_auth() {
-    if [[ -n "$GITHUB_TOKEN" && "$PROTOCOL" == "https" ]]; then
+    if [[ "$PROTOCOL" != "https" ]]; then
+        GIT_TERMINAL_PROMPT=0 git "$@"
+    elif [[ -n "$GITHUB_TOKEN" ]]; then
         GIT_TERMINAL_PROMPT=0 \
-            GIT_CONFIG_COUNT=1 \
-            GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
-            GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer $GITHUB_TOKEN" \
+            GIT_CONFIG_COUNT=2 \
+            GIT_CONFIG_KEY_0='credential.helper' \
+            GIT_CONFIG_VALUE_0='' \
+            GIT_CONFIG_KEY_1='http.https://github.com/.extraheader' \
+            GIT_CONFIG_VALUE_1="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)" \
             git "$@"
     else
-        GIT_TERMINAL_PROMPT=0 git "$@"
+        GIT_TERMINAL_PROMPT=0 \
+            GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0='credential.helper' \
+            GIT_CONFIG_VALUE_0='' \
+            git "$@"
     fi
 }
 
@@ -1272,16 +1357,18 @@ backup_archive_repo() {
     local repo_json="$1"
     local full_name="$2"
     local output_path="$3"
+    local ref="${4:-}"
     local default_branch url tmp_archive tmp_dir extract_dir root_dir excluded
     local paths=()
     local exclude_paths=()
     local tar_excludes=()
 
     default_branch="$(jq -r '.default_branch // "main"' <<< "$repo_json")"
-    url="$(archive_url_for_repo "$full_name" "$default_branch")"
+    ref="${ref:-$default_branch}"
+    url="$(archive_url_for_repo "$full_name" "$ref")"
     tmp_archive="$(mktemp)"
 
-    info "Downloading archive: $full_name@$default_branch"
+    info "Downloading archive: $full_name@$ref"
     download_with_retries "$url" "$tmp_archive" || {
         rm -f "$tmp_archive"
         return 1
@@ -1377,41 +1464,184 @@ log_mirror_progress() {
     ) 8>"$lock_file"
 }
 
+# Prints where a repository is stored. Git modes update one copy in place;
+# archives are named after the commit they contain, so older snapshots are kept.
+repo_output_path() {
+    local mode="$1"
+    local safe="$2"
+    local head_commit="${3:-}"
+
+    case "$mode" in
+        mirror) printf '%s' "$DEST_DIR/repos/${safe}.git" ;;
+        clone|sparse) printf '%s' "$DEST_DIR/repos/${safe}" ;;
+        archive)
+            if [[ -n "$head_commit" ]]; then
+                printf '%s' "$DEST_DIR/archives/${safe}@${head_commit:0:12}.tar.gz"
+            else
+                printf '%s' "$DEST_DIR/archives/${safe}@$(now_utc_compact).tar.gz"
+            fi
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+prune_old_archives() {
+    local safe="$1"
+    local archive
+    local archives=()
+
+    (( KEEP_ARCHIVES > 0 )) || return 0
+    mapfile -t archives < <(ls -1t -- "$DEST_DIR/archives/${safe}@"*.tar.gz 2>/dev/null)
+    for archive in "${archives[@]:KEEP_ARCHIVES}"; do
+        info "Removing old archive: $archive"
+        rm -f -- "$archive"
+    done
+}
+
 backup_repo_once() {
     local repo_json="$1"
+    local head_commit="${2:-}"
     local full_name mode safe output_path
 
     full_name="$(jq -r '.full_name' <<< "$repo_json")"
     safe="$(safe_repo_name "$full_name")"
     mode="${BACKUP_MODE:-$(jq -r '.mode // "mirror"' <<< "$repo_json")}"
+    output_path="$(repo_output_path "$mode" "$safe" "$head_commit")" || die "Invalid backup mode for $full_name: $mode"
 
-    case "$mode" in
-        mirror) output_path="$RUN_DIR/repos/${safe}.git" ;;
-        clone|sparse) output_path="$RUN_DIR/repos/${safe}" ;;
-        archive) output_path="$RUN_DIR/archives/${safe}.tar.gz" ;;
-        *) die "Invalid backup mode for $full_name: $mode" ;;
-    esac
-
-    mkdir -p "$RUN_DIR/repos" "$RUN_DIR/archives"
+    mkdir -p "$DEST_DIR/repos" "$DEST_DIR/archives"
 
     case "$mode" in
         mirror) backup_mirror_repo "$repo_json" "$full_name" "$output_path" >&2 || return 1 ;;
         clone) backup_clone_repo "$repo_json" "$full_name" "$output_path" >&2 || return 1 ;;
         sparse) backup_sparse_repo "$repo_json" "$full_name" "$output_path" >&2 || return 1 ;;
-        archive) backup_archive_repo "$repo_json" "$full_name" "$output_path" >&2 || return 1 ;;
+        archive) backup_archive_repo "$repo_json" "$full_name" "$output_path" "$head_commit" >&2 || return 1 ;;
     esac
 
     verify_backup_output "$mode" "$output_path" >&2 || return 1
     if [[ "$mode" == "archive" ]]; then
         write_archive_checksum "$output_path" || return 1
+        prune_old_archives "$safe" >&2
     fi
 
     printf '%s' "$output_path"
 }
 
+###############################################################################
+# Backup manifest (change detection)
+###############################################################################
+init_backup_manifest() {
+    local tmp
+
+    mkdir -p "$(dirname "$BACKUP_MANIFEST")"
+    if [[ ! -f "$BACKUP_MANIFEST" ]]; then
+        jq -n --arg now "$(now_utc_iso)" --arg source "$MANIFEST" '
+            {version: 1, created_at: $now, updated_at: $now, source_manifest: $source, repositories: {}}
+        ' > "$BACKUP_MANIFEST"
+        info "Created backup manifest: $BACKUP_MANIFEST"
+        return 0
+    fi
+
+    jq -e '.repositories | type == "object"' "$BACKUP_MANIFEST" >/dev/null 2>&1 ||
+    die "Backup manifest is not valid: $BACKUP_MANIFEST (move it away to start fresh)"
+    tmp="$(mktemp "${BACKUP_MANIFEST}.XXXXXX")"
+    jq --arg source "$MANIFEST" '.source_manifest = $source' "$BACKUP_MANIFEST" > "$tmp"
+    mv "$tmp" "$BACKUP_MANIFEST"
+}
+
+backup_manifest_entry() {
+    local full_name="$1"
+    jq -c --arg name "$full_name" '.repositories[$name] // {}' "$BACKUP_MANIFEST"
+}
+
+# Merges the JSON object $2 into the entry for repository $1.
+backup_manifest_update() {
+    local full_name="$1"
+    local fields="$2"
+
+    (
+        local tmp
+
+        flock 8
+        tmp="$(mktemp "${BACKUP_MANIFEST}.XXXXXX")"
+        jq --arg name "$full_name" --arg now "$(now_utc_iso)" --argjson fields "$fields" '
+            .updated_at = $now
+            | .repositories[$name] = ((.repositories[$name] // {}) + $fields)
+        ' "$BACKUP_MANIFEST" > "$tmp"
+        mv "$tmp" "$BACKUP_MANIFEST"
+    ) 8>"${BACKUP_MANIFEST}.lock"
+}
+
+# Lists the remote refs that matter for a mode, sorted, as "<sha>\t<ref>" lines.
+# Mirrors track every ref, clones track branches and tags, and archive/sparse
+# backups only track the default branch (HEAD).
+remote_refs_for_mode() {
+    local repo_json="$1"
+    local mode="$2"
+    local url refs
+
+    url="$(repo_clone_url "$repo_json")"
+    refs="$(git_with_optional_auth ls-remote "$url" 2>/dev/null)" || return 1
+
+    case "$mode" in
+        mirror) printf '%s\n' "$refs" ;;
+        clone) printf '%s\n' "$refs" | grep -E $'\t(HEAD|refs/heads/.*|refs/tags/.*)$' || true ;;
+        archive|sparse) printf '%s\n' "$refs" | grep -E $'\tHEAD$' || true ;;
+    esac | LC_ALL=C sort
+}
+
+# Fingerprint of the backup settings, so changing mode or paths forces a new backup.
+backup_config_fingerprint() {
+    local repo_json="$1"
+    local mode="$2"
+    jq -cS --arg mode "$mode" '{mode: $mode, paths: (.paths // []), exclude_paths: (.exclude_paths // [])}' <<< "$repo_json" |
+    sha256sum | awk '{print $1}'
+}
+
+record_backup() {
+    local repo_json="$1"
+    local mode="$2"
+    local output_path="$3"
+    local head_commit="$4"
+    local refs_fingerprint="$5"
+    local config_fingerprint="$6"
+    local full_name size archive_sha=""
+
+    full_name="$(jq -r '.full_name' <<< "$repo_json")"
+    size="$(du -sb -- "$output_path" 2>/dev/null | awk '{print $1}')"
+    if [[ "$mode" == "archive" ]]; then
+        archive_sha="$(sha256sum -- "$output_path" | awk '{print $1}')"
+    fi
+
+    backup_manifest_update "$full_name" "$(jq -cn \
+            --arg now "$(now_utc_iso)" \
+            --arg mode "$mode" \
+            --arg output_path "${output_path#"$DEST_DIR"/}" \
+            --arg head_commit "$head_commit" \
+            --arg default_branch "$(jq -r '.default_branch // empty' <<< "$repo_json")" \
+            --arg refs_fingerprint "$refs_fingerprint" \
+            --arg config_fingerprint "$config_fingerprint" \
+            --arg size "${size:-0}" \
+    --arg archive_sha "$archive_sha" '
+        {
+          mode: $mode,
+          output_path: $output_path,
+          default_branch: $default_branch,
+          head_commit: $head_commit,
+          refs_fingerprint: $refs_fingerprint,
+          config_fingerprint: $config_fingerprint,
+          size_bytes: ($size | tonumber),
+          last_backup_at: $now,
+          last_checked_at: $now,
+          last_result: "updated"
+        }
+        + (if $archive_sha != "" then {archive_sha256: $archive_sha} else {} end)
+    ')"
+}
+
 backup_repo_with_retries() {
     local repo_json="$1"
     local full_name mode key status output_path
+    local refs refs_fingerprint="" head_commit="" config_fingerprint previous previous_output
     local attempt=1
     local delay="$RETRY_DELAY"
 
@@ -1428,10 +1658,34 @@ backup_repo_with_retries() {
         return 0
     fi
 
+    config_fingerprint="$(backup_config_fingerprint "$repo_json" "$mode")"
+    if refs="$(remote_refs_for_mode "$repo_json" "$mode")"; then
+        refs_fingerprint="$(printf '%s' "$refs" | sha256sum | awk '{print $1}')"
+        head_commit="$(awk -F '\t' '$2 == "HEAD" {print $1; exit}' <<< "$refs")"
+    else
+        warn "Could not list remote refs for $full_name; backing it up without change detection."
+    fi
+
+    previous="$(backup_manifest_entry "$full_name")"
+    previous_output="$(jq -r '.output_path // empty' <<< "$previous")"
+    [[ -z "$previous_output" ]] || previous_output="$DEST_DIR/$previous_output"
+    if [[ "$FORCE" != true && -n "$refs_fingerprint" && -n "$previous_output" && -e "$previous_output" ]] &&
+    jq -e --arg refs "$refs_fingerprint" --arg config "$config_fingerprint" \
+        '.refs_fingerprint == $refs and .config_fingerprint == $config' <<< "$previous" >/dev/null; then
+        info "Unchanged since last backup, skipping: $full_name (${head_commit:0:12})"
+        backup_manifest_update "$full_name" "$(jq -cn --arg now "$(now_utc_iso)" '{last_checked_at: $now, last_result: "unchanged"}')"
+        update_state_repo "$key" "unchanged" "$full_name" "$mode" "$previous_output" ""
+        if [[ "$mode" == "mirror" ]]; then
+            log_mirror_progress "$full_name"
+        fi
+        return 0
+    fi
+
     while true; do
         update_state_repo "$key" "running" "$full_name" "$mode" "" ""
-        if output_path="$(backup_repo_once "$repo_json")"; then
+        if output_path="$(backup_repo_once "$repo_json" "$head_commit")"; then
             update_state_repo "$key" "done" "$full_name" "$mode" "$output_path" ""
+            record_backup "$repo_json" "$mode" "$output_path" "$head_commit" "$refs_fingerprint" "$config_fingerprint"
             info "Completed $full_name -> $output_path"
             if [[ "$mode" == "mirror" ]]; then
                 log_mirror_progress "$full_name"
@@ -1496,10 +1750,12 @@ run_backup() {
     checksum="$(manifest_checksum "$manifest_json")"
     mkdir -p "$DEST_DIR"
     init_state_file "$manifest_json" "$checksum"
-    mkdir -p "$RUN_DIR/repos" "$RUN_DIR/archives"
+    init_backup_manifest
+    mkdir -p "$RUN_DIR" "$DEST_DIR/repos" "$DEST_DIR/archives"
 
     info "Backup run directory: $RUN_DIR"
     info "State file: $STATE_FILE"
+    info "Backup manifest: $BACKUP_MANIFEST"
 
     repos_file="$(mktemp)"
     jq -c '.repositories[] | select(.enabled == true)' "$manifest_json" > "$repos_file"
@@ -1528,7 +1784,7 @@ run_backup() {
         die "$BACKUP_FAILURES repository backup(s) failed. Re-run with --resume after fixing the issue."
     fi
 
-    info "Backup completed successfully."
+    info "Backup completed successfully: $(jq -r '[.repositories[] | select(.status == "done")] | length' "$STATE_FILE") updated, $(jq -r '[.repositories[] | select(.status == "unchanged")] | length' "$STATE_FILE") unchanged."
 }
 
 ###############################################################################
