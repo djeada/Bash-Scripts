@@ -14,7 +14,7 @@
 #   -a, --all                 Include all filesystems (including tmpfs, udev, etc.).
 #   -s, --sort FIELD          Sort output by field (filesystem, size, used, avail, use%, mount).
 #   -r, --reverse             Reverse the sort order.
-#   -o, --output FILE         Save output to specified file.
+#   -o, --output FILE         Save output to specified file (overwritten) and print it.
 #       --json                Output in JSON format.
 #       --csv                 Output in CSV format.
 #       --no-header           Do not display header row.
@@ -60,7 +60,7 @@ Options:
   -a, --all                 Include all filesystems (including tmpfs, udev, etc.).
   -s, --sort FIELD          Sort output by field (filesystem, size, used, avail, use%, mount).
   -r, --reverse             Reverse the sort order.
-  -o, --output FILE         Save output to specified file.
+  -o, --output FILE         Save output to specified file (overwritten) and print it.
       --json                Output in JSON format.
       --csv                 Output in CSV format.
       --no-header           Do not display header row.
@@ -90,85 +90,82 @@ log_action() {
     fi
 }
 
+# Sort tab-separated rows according to SORT_FIELD / REVERSE_SORT
+sort_rows() {
+    local key=""
+    case "$SORT_FIELD" in
+        filesystem) key="1,1" ;;
+        size)       key="2,2h" ;;
+        used)       key="3,3h" ;;
+        avail)      key="4,4h" ;;
+        use%)       key="5,5n" ;;
+        mount)      key="6,6" ;;
+    esac
+
+    # A key with its own modifiers ignores a global -r, so attach r to the key
+    if [[ -n "$key" && "$REVERSE_SORT" == true ]]; then
+        LC_ALL=C sort -t $'\t' -k "${key}r"
+    elif [[ -n "$key" ]]; then
+        LC_ALL=C sort -t $'\t' -k "$key"
+    elif [[ "$REVERSE_SORT" == true ]]; then
+        LC_ALL=C sort -r
+    else
+        cat
+    fi
+}
+
 # Function to list disk partitions and usage
 list_disks() {
-    local df_options="-h"
+    # -P: one line per filesystem, -T: include the filesystem type column
+    local df_args=(-P -T -h)
     if [[ "$INCLUDE_ALL" == true ]]; then
-        df_options="$df_options -a"
+        df_args+=(-a)
     fi
 
-    local df_output
-    df_output=$(df "$df_options")
-
-    # Exclude unwanted filesystems
-    local awk_script='NR>1'
-    if [[ "$INCLUDE_ALL" == false ]]; then
-        awk_script="$awk_script && \$1 !~ /^tmpfs/ && \$1 !~ /^udev/ && \$1 !~ /^devtmpfs/"
-    fi
-    if [[ -n "$FILESYSTEM_TYPE" ]]; then
-        awk_script="$awk_script && \$1 ~ /$FILESYSTEM_TYPE/"
-    fi
-    if [[ -n "$DISK_PATTERN" ]]; then
-        awk_script="$awk_script && \$1 ~ /$DISK_PATTERN/"
-    fi
-    if [[ -n "$EXCLUDE_PATTERN" ]]; then
-        awk_script="$awk_script && \$1 !~ /$EXCLUDE_PATTERN/"
-    fi
-
-    # Prepare sort options
-    local sort_options=""
-    if [[ -n "$SORT_FIELD" ]]; then
-        local field_number
-        case "$SORT_FIELD" in
-            filesystem) field_number=1 ;;
-            size)       field_number=2 ;;
-            used)       field_number=3 ;;
-            avail)      field_number=4 ;;
-            use%)       field_number=5 ;;
-            mount)      field_number=6 ;;
-            *)
-                echo "Invalid sort field: $SORT_FIELD"
-                exit 1
-                ;;
-        esac
-        sort_options="-k${field_number}"
-    fi
-    if [[ "$REVERSE_SORT" == true ]]; then
-        sort_options="$sort_options -r"
-    fi
-
-    # Output formatting
-    local output_format
-    if [[ "$OUTPUT_JSON" == true ]]; then
-        output_format="json"
-    elif [[ "$OUTPUT_CSV" == true ]]; then
-        output_format="csv"
-    else
-        output_format="plain"
-    fi
-
-    # Process and output the data
-    echo "$df_output" | awk "$awk_script" | \
+    # Filter the rows (patterns are passed as awk variables, not spliced into
+    # the program) and emit tab-separated fields:
+    # filesystem, size, used, avail, use%, mount point (which may contain spaces)
+    # LC_ALL=C keeps "." as the decimal separator (sizes like 6.2M stay CSV-safe).
+    # df exits non-zero when a single mount cannot be read (common with -a);
+    # report it on stderr but still show the rest
+    local awk_vars=(-v all="$INCLUDE_ALL" -v type="$FILESYSTEM_TYPE" -v pat="$DISK_PATTERN" -v excl="$EXCLUDE_PATTERN")
+    { LC_ALL=C df "${df_args[@]}" || true; } | awk "${awk_vars[@]}" '
+        NR == 1 { next }
+        all != "true" && ($2 == "tmpfs" || $2 == "devtmpfs" || $1 ~ /^udev/) { next }
+        type != "" && $2 != type { next }
+        pat != "" && $1 !~ pat { next }
+        excl != "" && $1 ~ excl { next }
         {
-        if [[ "$output_format" == "json" ]]; then
-            awk 'BEGIN { ORS=""; print "[" }
-                 {
-                     if (NR > 1) print ","
-                     printf "{ \"filesystem\": \"%s\", \"size\": \"%s\", \"used\": \"%s\", \"avail\": \"%s\", \"use%%\": \"%s\", \"mount\": \"%s\" }", $1, $2, $3, $4, $5, $6
-                 }
-            END { print "]" }'
-        elif [[ "$output_format" == "csv" ]]; then
-            if [[ "$NO_HEADER" == false ]]; then
-                echo "Filesystem,Size,Used,Avail,Use%,Mounted on"
-            fi
-            awk '{ printf "%s,%s,%s,%s,%s,%s\n", $1, $2, $3, $4, $5, $6 }'
-        else
-            if [[ "$NO_HEADER" == false ]]; then
-                echo "Filesystem      Size  Used Avail Use% Mounted on"
-            fi
-            column -t
+            mount = $7
+            for (i = 8; i <= NF; i++) mount = mount " " $i
+            printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $3, $4, $5, $6, mount
+        }' | sort_rows | format_rows
+}
+
+# Format tab-separated rows as JSON, CSV or an aligned table
+format_rows() {
+    if [[ "$OUTPUT_JSON" == true ]]; then
+        awk -F'\t' '
+            function esc(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return s }
+            BEGIN { ORS=""; print "[" }
+            {
+                if (NR > 1) print ","
+                printf "{ \"filesystem\": \"%s\", \"size\": \"%s\", \"used\": \"%s\", \"avail\": \"%s\", \"use%%\": \"%s\", \"mount\": \"%s\" }", esc($1), $2, $3, $4, $5, esc($6)
+            }
+            END { print "]\n" }'
+    elif [[ "$OUTPUT_CSV" == true ]]; then
+        if [[ "$NO_HEADER" == false ]]; then
+            echo "Filesystem,Size,Used,Avail,Use%,Mounted on"
         fi
-    } | sort "$sort_options"
+        awk -F'\t' -v OFS=',' '{ print $1, $2, $3, $4, $5, $6 }'
+    else
+        {
+            if [[ "$NO_HEADER" == false ]]; then
+                printf 'Filesystem\tSize\tUsed\tAvail\tUse%%\tMounted on\n'
+            fi
+            cat
+        } | column -t -s $'\t'
+    fi
 }
 
 # Parse command-line arguments
@@ -192,7 +189,7 @@ while [[ $# -gt 0 ]]; do
                 DISK_PATTERN="$2"
                 shift 2
             else
-                echo "Error: --pattern requires a value."
+                echo "Error: --pattern requires a value." >&2
                 exit 1
             fi
             ;;
@@ -201,7 +198,7 @@ while [[ $# -gt 0 ]]; do
                 EXCLUDE_PATTERN="$2"
                 shift 2
             else
-                echo "Error: --exclude requires a value."
+                echo "Error: --exclude requires a value." >&2
                 exit 1
             fi
             ;;
@@ -210,7 +207,7 @@ while [[ $# -gt 0 ]]; do
                 FILESYSTEM_TYPE="$2"
                 shift 2
             else
-                echo "Error: --type requires a value."
+                echo "Error: --type requires a value." >&2
                 exit 1
             fi
             ;;
@@ -223,7 +220,7 @@ while [[ $# -gt 0 ]]; do
                 SORT_FIELD="$2"
                 shift 2
             else
-                echo "Error: --sort requires a field."
+                echo "Error: --sort requires a field." >&2
                 exit 1
             fi
             ;;
@@ -236,7 +233,7 @@ while [[ $# -gt 0 ]]; do
                 OUTPUT_FILE="$2"
                 shift 2
             else
-                echo "Error: --output requires a file path."
+                echo "Error: --output requires a file path." >&2
                 exit 1
             fi
             ;;
@@ -258,25 +255,37 @@ while [[ $# -gt 0 ]]; do
                 LOG_ENABLED=true
                 shift 2
             else
-                echo "Error: --log-file requires a file path."
+                echo "Error: --log-file requires a file path." >&2
                 exit 1
             fi
             ;;
         *)
-            echo "Unknown option: $1"
-            print_usage
+            echo "Unknown option: $1" >&2
+            print_usage >&2
             exit 1
             ;;
     esac
 done
 
-# Redirect output to file if specified
-if [[ -n "$OUTPUT_FILE" ]]; then
-    exec > >(tee -a "$OUTPUT_FILE")
+case "$SORT_FIELD" in
+    ""|filesystem|size|used|avail|use%|mount) ;;
+    *)
+        echo "Invalid sort field: $SORT_FIELD" >&2
+        exit 1
+        ;;
+esac
+
+if [[ "$OUTPUT_JSON" != true && "$OUTPUT_CSV" != true ]] && ! command -v column >/dev/null 2>&1; then
+    echo "Error: 'column' is required for table output (or use --csv / --json)." >&2
+    exit 1
 fi
 
-# Execute the main function
-list_disks
+# Execute the main function, saving the output to a file if specified
+if [[ -n "$OUTPUT_FILE" ]]; then
+    list_disks | tee "$OUTPUT_FILE"
+else
+    list_disks
+fi
 
 # Log the action
 log_action "Disk usage information displayed."

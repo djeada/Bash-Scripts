@@ -3,13 +3,19 @@
 # Script Name: check_os.sh
 # Description: Identifies the operating system of the current host and outputs the result.
 # Usage: ./check_os.sh [--json] [--log]
+#        --json  Print the result as a JSON object.
+#        --log   Also append the result to /var/log/check_os.log (if writable).
 
 LOG_FILE="/var/log/check_os.log"
 JSON_OUTPUT=0
 LOG_ENABLED=0
 
 log_action() {
-    [ $LOG_ENABLED -eq 1 ] && echo "$(date +"%Y-%m-%d %T"): $1" >> $LOG_FILE
+    if [ "$LOG_ENABLED" -eq 1 ]; then
+        if ! { echo "$(date +"%Y-%m-%d %T"): $1" >> "$LOG_FILE"; } 2>/dev/null; then
+            echo "Warning: cannot write to $LOG_FILE" >&2
+        fi
+    fi
 }
 
 output() {
@@ -44,7 +50,8 @@ check_os() {
             fi
             output "GNU/Linux" "$distro" "$version"
             ;;
-        MINGW32_NT* | MINGW64_NT*)
+        MINGW32_NT* | MINGW64_NT* | MSYS_NT* | CYGWIN_NT*)
+            local arch
             arch=$(uname -m)
             if [ "$arch" == "x86_64" ]; then
                 output "Windows NT" "" "64-bit"
@@ -67,7 +74,8 @@ while [ $# -gt 0 ]; do
             LOG_ENABLED=1
             ;;
         *)
-            echo "Invalid option: $1"
+            echo "Invalid option: $1" >&2
+            echo "Usage: $0 [--json] [--log]" >&2
             exit 1
             ;;
     esac

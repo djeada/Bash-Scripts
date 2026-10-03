@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+# Script Name: install_signal.sh
+# Description: Installs, upgrades or purges Signal Desktop on Debian/Ubuntu using
+#              Signal's official apt repository. Requires sudo, curl, gpg and apt-get.
+# Usage: ./install_signal.sh [install|upgrade|purge|help]
+# Examples:
+#   ./install_signal.sh
+#   ./install_signal.sh upgrade
+#   ./install_signal.sh purge
+
 set -Eeuo pipefail
 
 readonly KEY_URL="https://updates.signal.org/desktop/apt/keys.asc"

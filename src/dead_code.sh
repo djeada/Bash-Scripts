@@ -4,17 +4,22 @@
 # Description: Searches Python files for function and class definitions with low usage counts.
 #              Supports exclusions, multiple output formats, and verbose logging.
 # Usage: ./dead_code.sh [-n threshold] [-d directory] [-e path1,path2] [-v] [-f format] [-o output]
+#                       [-p] [-l length] [--include-dunder] [-h]
 # Example: ./dead_code.sh -n 3 -d /path/to/project -e tests,venv,.git -v -f json -o report.json
 
 set -euo pipefail
 IFS=$'\n\t'
 
-# Color codes for output
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly NC='\033[0m' # No Color
+# Color codes for log messages (stderr), only when it is a terminal
+if [ -t 2 ]; then
+    readonly RED='\033[0;31m'
+    readonly GREEN='\033[0;32m'
+    readonly YELLOW='\033[1;33m'
+    readonly BLUE='\033[0;34m'
+    readonly NC='\033[0m' # No Color
+else
+    readonly RED='' GREEN='' YELLOW='' BLUE='' NC=''
+fi
 
 # Default values
 THRESHOLD=2
@@ -41,16 +46,16 @@ Usage: $0 [OPTIONS]
 Find potentially dead code in Python projects by analyzing function and class usage.
 
 OPTIONS:
-    -n threshold        Minimum occurrences threshold (default: 2)
-    -d directory        Directory to search in (default: current directory)
-    -e paths           Comma-separated list of paths to exclude (supports wildcards)
-    -v                 Enable verbose mode
-    -f format          Output format: text, json, csv (default: text)
-    -o file            Output file (default: stdout)
-    -p                 Include private methods/functions (names starting with _)
-    -l length          Minimum name length to consider (default: 2)
-    --include-dunder   Include dunder methods (__init__, __str__, etc.)
-    -h                 Display this help message
+    -n, --threshold N       Report names with fewer than N occurrences (default: 2)
+    -d, --directory DIR     Directory to search in (default: current directory)
+    -e, --exclude PATHS     Comma-separated list of paths to exclude (supports wildcards)
+    -v, --verbose           Enable verbose mode
+    -f, --format FORMAT     Output format: text, json, csv (default: text)
+    -o, --output FILE       Output file (default: stdout)
+    -p, --include-private   Include private methods/functions (names starting with _)
+    -l, --min-length N      Minimum name length to consider (default: 2)
+    --include-dunder        Include dunder methods (__init__, __str__, etc.)
+    -h, --help              Display this help message
 
 EXAMPLES:
     $0 -n 3 -d /path/to/project -e tests,venv,.git -v
@@ -59,7 +64,8 @@ EXAMPLES:
 
 NOTES:
     - Functions/classes used in decorators, metaclasses, or string references may be flagged
-    - Test files and their contents are excluded by default
+    - Occurrences are counted per line and include the definition itself
+    - Test-like names (test_*, *_test, *Test*) are always ignored; use -e to skip test files
     - Private methods are excluded unless -p flag is used
     - Results should be manually verified before removing code
 EOF
@@ -84,7 +90,7 @@ log_info() {
 }
 
 validate_inputs() {
-    if [[ ! "$THRESHOLD" =~ ^[0-9]+$ ]] || [ "$THRESHOLD" -lt 0 ]; then
+    if [[ ! "$THRESHOLD" =~ ^[0-9]+$ ]]; then
         log_error "Threshold must be a non-negative integer"
         exit 1
     fi
@@ -116,6 +122,15 @@ validate_inputs() {
 
 parse_arguments() {
     while [[ $# -gt 0 ]]; do
+        # Options that take a value must have one
+        case $1 in
+            -n|--threshold|-d|--directory|-e|--exclude|-f|--format|-o|--output|-l|--min-length)
+                if [[ $# -lt 2 ]]; then
+                    log_error "Option $1 requires an argument"
+                    exit 1
+                fi
+                ;;
+        esac
         case $1 in
             -n|--threshold)
                 THRESHOLD="$2"
@@ -159,16 +174,17 @@ parse_arguments() {
                 ;;
             *)
                 log_error "Unknown option: $1"
-                usage
+                usage >&2
                 exit 1
                 ;;
         esac
     done
 }
 
-# Function to build find command with exclusions
-build_find_command() {
+# Function to find all Python files (NUL-separated)
+find_python_files() {
     local find_cmd=("find" "$DIRECTORY")
+    local excluded_path
 
     # Add exclusions
     if [ "${#EXCLUDED_PATHS[@]}" -gt 0 ]; then
@@ -192,20 +208,6 @@ build_find_command() {
     find_cmd+=(")" "-prune" "-o")
 
     find_cmd+=("-type" "f" "-name" "*.py" "-print0")
-
-    printf '%s\0' "${find_cmd[@]}"
-}
-
-# Function to find all Python files
-find_python_files() {
-    local find_cmd_str
-    find_cmd_str=$(build_find_command)
-
-    # Convert null-separated string back to array and execute
-    local find_cmd=()
-    while IFS= read -r -d '' element; do
-        find_cmd+=("$element")
-    done <<< "$find_cmd_str"
 
     "${find_cmd[@]}"
 }
@@ -237,54 +239,45 @@ should_ignore_name() {
     return 1  # don't ignore
 }
 
-# Enhanced function to extract function and class names with better regex
+# Extracts function and class names from all Python files into the global
+# DEFINITIONS array ("name:type", unique, sorted) and updates STATS.
+# Runs in the current shell (not a subshell) so the STATS counters are kept.
 extract_definitions() {
-    local file
-    declare -A definitions
+    local file name
+    declare -A definitions=()
 
     for file in "${PYTHON_FILES[@]}"; do
         log_verbose "Processing file: $file"
         STATS[total_files]=$((STATS[total_files] + 1))
 
         # Extract function definitions (including async functions)
-        while IFS= read -r line; do
-            if [[ -n "$line" ]]; then
-                definitions["$line"]="function"
-                STATS[total_functions]=$((STATS[total_functions] + 1))
-            fi
-            done < <(grep -Eho '^\s*(async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
-            sed -E 's/^\s*(async\s+)?def\s+//' || true)
+        while IFS= read -r name; do
+            definitions["$name"]="function"
+            STATS[total_functions]=$((STATS[total_functions] + 1))
+        done < <(grep -Eho '^\s*(async\s+)?def\s+[a-zA-Z_][a-zA-Z0-9_]*' "$file" | sed -E 's/^\s*(async\s+)?def\s+//' || true)
 
         # Extract class definitions
-        while IFS= read -r line; do
-            if [[ -n "$line" ]]; then
-                definitions["$line"]="class"
-                STATS[total_classes]=$((STATS[total_classes] + 1))
-            fi
-            done < <(grep -Eho '^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "$file" | \
-            sed -E 's/^\s*class\s+//' | cut -d'(' -f1 || true)
+        while IFS= read -r name; do
+            definitions["$name"]="class"
+            STATS[total_classes]=$((STATS[total_classes] + 1))
+        done < <(grep -Eho '^\s*class\s+[a-zA-Z_][a-zA-Z0-9_]*' "$file" | sed -E 's/^\s*class\s+//' || true)
     done
 
-    # Output unique definitions with their types
+    local unsorted=()
     for name in "${!definitions[@]}"; do
-        echo "$name:${definitions[$name]}"
-    done | sort
+        unsorted+=("$name:${definitions[$name]}")
+    done
+
+    DEFINITIONS=()
+    if [ "${#unsorted[@]}" -gt 0 ]; then
+        mapfile -t DEFINITIONS < <(printf '%s\n' "${unsorted[@]}" | sort)
+    fi
 }
 
-# Function to count occurrences with improved accuracy
+# Counts the lines (across all Python files) on which the name appears as a whole word
 count_occurrences() {
     local name="$1"
-    local count=0
-    local file
-
-    for file in "${PYTHON_FILES[@]}"; do
-        # More sophisticated counting that considers context
-        local file_count
-        file_count=$(grep -Ec "(^|[^a-zA-Z0-9_])${name}([^a-zA-Z0-9_]|$)" "$file" || echo 0)
-        count=$((count + file_count))
-    done
-
-    echo "$count"
+    { grep -Eh "(^|[^a-zA-Z0-9_])${name}([^a-zA-Z0-9_]|$)" "${PYTHON_FILES[@]}" || true; } | wc -l
 }
 
 # Output functions for different formats
@@ -296,7 +289,7 @@ output_text() {
         return
     fi
 
-    echo -e "${YELLOW}Potentially Dead Code Report${NC}"
+    echo "Potentially Dead Code Report"
     echo "=================================="
     echo
 
@@ -319,7 +312,8 @@ output_json() {
     echo "{"
     echo "  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\","
     echo "  \"threshold\": $THRESHOLD,"
-    echo "  \"directory\": \"$DIRECTORY\","
+    local dir_json="${DIRECTORY//\\/\\\\}"
+    echo "  \"directory\": \"${dir_json//\"/\\\"}\","
     echo "  \"statistics\": {"
     echo "    \"files_processed\": ${STATS[total_files]},"
     echo "    \"functions_found\": ${STATS[total_functions]},"
@@ -381,12 +375,11 @@ main() {
     # Extract definitions and analyze
     log_verbose "Extracting function and class definitions..."
     local results=()
+    local definition name type
 
-    while IFS= read -r definition; do
-        if [[ -z "$definition" ]]; then
-            continue
-        fi
+    extract_definitions
 
+    for definition in "${DEFINITIONS[@]}"; do
         IFS=':' read -r name type <<< "$definition"
 
         if should_ignore_name "$name"; then
@@ -402,8 +395,7 @@ main() {
             results+=("$name:$type:$count")
             STATS[dead_code_items]=$((STATS[dead_code_items] + 1))
         fi
-
-    done < <(extract_definitions)
+    done
 
     # Output results
     local output_func

@@ -46,8 +46,10 @@ VERBOSE=false
 NO_COLOR=false
 
 CURRENT_ARTIFACT=""
+PARTIAL_PATHS=()   # files/dirs of the in-progress backup, removed if it fails
 LOCK_DIR=""
 BACKUP_SUCCEEDED=false
+FAILED_SOURCES=0
 
 ###############################################################################
 # Logging
@@ -96,29 +98,45 @@ die() {
 ###############################################################################
 # Cleanup
 ###############################################################################
-cleanup() {
-    local exit_code=$?
-
-    trap - EXIT INT TERM
-
-    if [[ $exit_code -ne 0 && "$BACKUP_SUCCEEDED" != true && -n "$CURRENT_ARTIFACT" && -e "$CURRENT_ARTIFACT" ]]; then
-        log_msg WARN "Removing incomplete backup artifact: $CURRENT_ARTIFACT"
-        rm -rf -- "$CURRENT_ARTIFACT"
-    fi
-
+release_lock() {
     if [[ -n "$LOCK_DIR" && -d "$LOCK_DIR" ]]; then
         rmdir -- "$LOCK_DIR" 2>/dev/null || true
     fi
+    LOCK_DIR=""
+}
+
+cleanup() {
+    local exit_code=$?
+    local path=""
+
+    trap - EXIT
+
+    # Remove every piece of an unfinished backup (snapshot dir, plain archive
+    # that was about to be encrypted, partial output), not just the last one.
+    if [[ $exit_code -ne 0 && "$BACKUP_SUCCEEDED" != true ]]; then
+        for path in "${PARTIAL_PATHS[@]}"; do
+            if [[ -e "$path" ]]; then
+                log_msg WARN "Removing incomplete backup artifact: $path"
+                rm -rf -- "$path"
+            fi
+        done
+    fi
+
+    release_lock
 
     exit "$exit_code"
 }
 
-trap cleanup EXIT INT TERM
+# Signals exit with a non-zero status so the EXIT trap treats them as failures
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 ###############################################################################
 # Usage
 ###############################################################################
 print_usage() {
+    local IFS=' '
     cat <<EOF
 Usage:
   $SCRIPT_NAME
@@ -182,13 +200,8 @@ require_command() {
 canonical_path() {
     local path="$1"
 
-    if [[ -d "$path" ]]; then
-        (cd "$path" >/dev/null 2>&1 && pwd -P)
-        return
-    fi
-
-    if [[ -e "$path" ]]; then
-        (cd "$(dirname "$path")" >/dev/null 2>&1 && printf '%s/%s\n' "$(pwd -P)" "$(basename "$path")")
+    # A directory we cannot enter (no x permission) falls through to its parent
+    if [[ -d "$path" ]] && (cd "$path" >/dev/null 2>&1 && pwd -P); then
         return
     fi
 
@@ -497,8 +510,9 @@ write_metadata() {
     } >"$manifest_path"
 }
 
+# Returns 0 on success, 1 if the source is missing/unsupported, 2 if rsync failed.
 sync_source() {
-    local source="$1"
+    local source
     local snapshot_dir="$2"
     local relative_path destination_dir parent_dir
     local rsync_args=(--archive --human-readable)
@@ -508,13 +522,16 @@ sync_source() {
         rsync_args+=("--exclude=$pattern")
     done
 
+    # Absolute path, so relative sources (e.g. ../x) cannot escape the snapshot
+    source="$(canonical_path "$1")"
+
     if [[ -d "$source" ]]; then
         relative_path="${source#/}"
         destination_dir="$snapshot_dir/files/$relative_path"
         mkdir -p -- "$destination_dir"
         log_msg INFO "Backing up directory: $source"
-        rsync "${rsync_args[@]}" -- "$source/" "$destination_dir/"
-        return 0
+        run_rsync "$source" "${rsync_args[@]}" -- "$source/" "$destination_dir/"
+        return
     fi
 
     if [[ -f "$source" ]]; then
@@ -522,12 +539,31 @@ sync_source() {
         parent_dir="$snapshot_dir/files/$(dirname "$relative_path")"
         mkdir -p -- "$parent_dir"
         log_msg INFO "Backing up file: $source"
-        rsync "${rsync_args[@]}" -- "$source" "$parent_dir/"
-        return 0
+        run_rsync "$source" "${rsync_args[@]}" -- "$source" "$parent_dir/"
+        return
     fi
 
     log_msg WARN "Skipping unsupported or missing source: $source"
     return 1
+}
+
+# run_rsync SOURCE RSYNC_ARGS...: exit code 24 (files vanished during transfer)
+# is harmless for live data; any other failure is reported and returns 2.
+run_rsync() {
+    local source="$1" rc=0
+    shift
+    rsync "$@" || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        24)
+            log_msg WARN "Some files vanished while backing up: $source"
+            return 0
+            ;;
+        *)
+            log_msg ERROR "rsync failed (exit $rc) while backing up: $source"
+            return 2
+            ;;
+    esac
 }
 
 package_backup() {
@@ -540,11 +576,13 @@ package_backup() {
         if [[ "$COMPRESS" == true ]]; then
             archive_path="${TARGET_DIR%/}/${backup_name}.tar.gz"
             CURRENT_ARTIFACT="$archive_path"
+            PARTIAL_PATHS+=("$archive_path")
             log_msg INFO "Compressing backup to: $archive_path"
             tar -czf "$archive_path" -C "$(dirname "$snapshot_dir")" "$(basename "$snapshot_dir")"
         else
             archive_path="${TARGET_DIR%/}/${backup_name}.tar"
             CURRENT_ARTIFACT="$archive_path"
+            PARTIAL_PATHS+=("$archive_path")
             log_msg INFO "Packing backup to: $archive_path"
             tar -cf "$archive_path" -C "$(dirname "$snapshot_dir")" "$(basename "$snapshot_dir")"
         fi
@@ -556,6 +594,7 @@ package_backup() {
     if [[ "$ENCRYPT" == true ]]; then
         encrypted_path="${artifact}.gpg"
         CURRENT_ARTIFACT="$encrypted_path"
+        PARTIAL_PATHS+=("$encrypted_path")
         log_msg INFO "Encrypting backup to: $encrypted_path"
 
         if [[ -n "$GPG_PASSPHRASE_FILE" ]]; then
@@ -565,11 +604,12 @@ package_backup() {
                 --output "$encrypted_path" \
                 "$artifact"
         else
+            # Pass the passphrase on a file descriptor so it never shows up in ps
             gpg --batch --yes --pinentry-mode loopback \
-                --passphrase "$GPG_PASSPHRASE" \
+                --passphrase-fd 3 \
                 --symmetric \
                 --output "$encrypted_path" \
-                "$artifact"
+                "$artifact" 3<<<"$GPG_PASSPHRASE"
         fi
 
         rm -f -- "$artifact"
@@ -597,9 +637,11 @@ apply_retention_policy() {
     weekly_cutoff=$(( now_epoch - (RETENTION_WEEKLY * 7 * 86400) ))
     monthly_cutoff=$(( now_epoch - (RETENTION_MONTHLY * 31 * 86400) ))
 
+    # Only this host's backups: several machines may share one destination and
+    # must not prune each other's backups.
     while IFS= read -r item; do
         [[ -n "$item" ]] && candidates+=("$item")
-    done < <(find "$target_dir" -mindepth 1 -maxdepth 1 \( -type f -o -type d \) -name 'backup_*' -printf '%f\n')
+    done < <(find "$target_dir" -mindepth 1 -maxdepth 1 \( -type f -o -type d \) -name "backup_*_${HOST_TAG}*" -printf '%f\n')
 
     [[ ${#candidates[@]} -gt 0 ]] || return 0
 
@@ -608,6 +650,7 @@ apply_retention_policy() {
         stamp="${base_name#backup_}"
         stamp="${stamp%%_*}"
         [[ "$stamp" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || continue
+        [[ "$base_name" == "backup_${stamp}_${HOST_TAG}" ]] || continue
         epoch="$(timestamp_to_epoch "$stamp")"
         entries+=("${epoch}"$'\t'"${name}")
     done
@@ -647,7 +690,12 @@ apply_retention_policy() {
 }
 
 create_backup() {
-    local timestamp backup_name snapshot_dir source copied_count=0
+    local timestamp backup_name snapshot_dir source copied_count=0 rc=0
+
+    # Reset per-run state (the interactive menu can run several backups)
+    BACKUP_SUCCEEDED=false
+    FAILED_SOURCES=0
+    PARTIAL_PATHS=()
 
     validate_configuration
     create_lock
@@ -656,13 +704,18 @@ create_backup() {
     backup_name="backup_${timestamp}_${HOST_TAG}"
     snapshot_dir="${TARGET_DIR%/}/${backup_name}"
     CURRENT_ARTIFACT="$snapshot_dir"
+    PARTIAL_PATHS+=("$snapshot_dir")
 
     mkdir -p -- "$snapshot_dir/files"
     write_metadata "$snapshot_dir"
 
     for source in "${SOURCE_DIRS[@]}"; do
-        if sync_source "$source" "$snapshot_dir"; then
+        rc=0
+        sync_source "$source" "$snapshot_dir" || rc=$?
+        if [[ $rc -eq 0 ]]; then
             copied_count=$((copied_count + 1))
+        elif [[ $rc -eq 2 ]]; then
+            FAILED_SOURCES=$((FAILED_SOURCES + 1))
         fi
     done
 
@@ -670,9 +723,15 @@ create_backup() {
 
     package_backup "$snapshot_dir" "$backup_name"
     BACKUP_SUCCEEDED=true
+    PARTIAL_PATHS=()
 
-    log_msg INFO "Backup created successfully: $CURRENT_ARTIFACT"
+    if [[ $FAILED_SOURCES -gt 0 ]]; then
+        log_msg WARN "Backup created with $FAILED_SOURCES failed source(s): $CURRENT_ARTIFACT"
+    else
+        log_msg INFO "Backup created successfully: $CURRENT_ARTIFACT"
+    fi
     apply_retention_policy "$TARGET_DIR"
+    release_lock
 }
 
 ###############################################################################
@@ -758,7 +817,9 @@ configure_cron_job() {
         command+=("--exclude" "$value")
     done
 
-    cron_line="${minute} ${hour} * * * $(build_shell_command "${command[@]}")"
+    # '%' is special in crontab entries (it means newline) and must be escaped
+    cron_line="$(build_shell_command "${command[@]}")"
+    cron_line="${minute} ${hour} * * * ${cron_line//%/\\%}"
     (crontab -l 2>/dev/null || true; printf '%s\n' "$cron_line") | crontab -
     log_msg INFO "Cron job added: $cron_line"
 }
@@ -922,6 +983,8 @@ parse_args "$@"
 if [[ "$AUTO_MODE" == true || "$BACKUP_REQUESTED" == true ]]; then
     load_defaults_if_needed
     create_backup
+    # Non-zero exit (e.g. for cron mail) when some sources could not be copied
+    [[ $FAILED_SOURCES -eq 0 ]] || exit 1
     exit 0
 fi
 

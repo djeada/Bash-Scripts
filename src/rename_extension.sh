@@ -1,70 +1,54 @@
 #!/usr/bin/env bash
 
 # Script Name: rename_extension.sh
-# Description: Renames the file extension of files in a given directory.
-# Usage: ./rename_extension.sh
-# Example: rename_extension "file.txt" ".md"
+# Description: Renames the file extension of all files (recursively) in a given directory.
+#              Extensions may be given with or without the leading dot. Existing files are never overwritten.
+# Usage: ./rename_extension.sh <search directory> <extension> <new extension>
+# Example: ./rename_extension.sh path/to/dir .txt .md
 
 rename_extension() {
     # $1: file name
-    # $3: new extension
-
-    # the number of arguments must be 2
-    if [ $# -ne 2 ]; then
-        echo "Usage: rename_extension <file name> <new extension>"
-        return 1
-    fi
+    # $2: old extension (with leading dot)
+    # $3: new extension (with leading dot)
 
     local file_name="$1"
-    local new_extension="$2"
-    local old_extension
-    local new_file_name
+    local new_file_name="${file_name%"$2"}$3"
 
-    old_extension=$([[ "$file_name" = *.* ]] && echo ".${file_name##*.}" || echo '')
-    new_file_name="${file_name%"$old_extension"}$new_extension"
-
-    mv "$file_name" "$new_file_name"
-    echo "Renamed $file_name to $new_file_name"
-}
-
-
-find_files_with_extension() {
-    # $1: search directory
-    # $2: extension
-
-    # the number of arguments must be 1
-    if [ $# -ne 2 ]; then
-        echo "Usage: find_files_with_extension <search directory> <extension>"
+    if [ -e "$new_file_name" ]; then
+        echo "Skipping $file_name: $new_file_name already exists" >&2
         return 1
     fi
 
-    local search_directory="$1"
-    local extension="$2"
-
-    find "$search_directory" -type f -name "*$extension"
+    mv -- "$file_name" "$new_file_name" && echo "Renamed $file_name to $new_file_name"
 }
-
 
 rename_files_with_extension() {
     # $1: search directory
     # $2: extension
     # $3: new extension
 
-    # the number of arguments must be 2
     if [ $# -ne 3 ]; then
-        echo "Usage: rename_files_with_extension <search directory> <extension> <new extension>"
+        echo "Usage: rename_extension.sh <search directory> <extension> <new extension>" >&2
         return 1
     fi
 
     local search_directory="$1"
-    local extension="$2"
-    local new_extension="$3"
+    local extension=".${2#.}"
+    local new_extension=".${3#.}"
+    local status=0
+    local file_name
 
-    find_files_with_extension "$search_directory" "$extension" | while read -r file_name; do
-        rename_extension "$file_name" "$new_extension"
-    done
+    if [ ! -d "$search_directory" ]; then
+        echo "Error: $search_directory is not a directory" >&2
+        return 1
+    fi
+
+    while IFS= read -r -d '' file_name; do
+        rename_extension "$file_name" "$extension" "$new_extension" || status=1
+    done < <(find "$search_directory" -type f -name "*$extension" -print0)
+
+    return "$status"
 }
-
 
 rename_files_with_extension "$@"
 

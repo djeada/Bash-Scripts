@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Script Name: pdf_page_extractor.sh
-# Description: Extracts a range of pages from a PDF file using ghostscript.
+# Description: Extracts a range of pages from a PDF file using pdftk.
+#              If end-page is omitted, extraction runs to the last page.
 # Usage: ./pdf_page_extractor.sh [-h] [-v] [-o output_file] <pdf-file> <start-page> [end-page]
 # Options:
 #   -h, --help        Display the help message.
@@ -14,12 +15,26 @@ usage() {
     echo "  -h, --help        Display this help message."
     echo "  -v, --verbose     Enable verbose mode."
     echo "  -o, --output      Specify output file name."
+    echo "  If end-page is omitted, pages are extracted up to the last page."
 }
+
+# Translate long options into their short equivalents for getopts
+args=()
+for arg in "$@"; do
+    case $arg in
+        --help) args+=("-h") ;;
+        --verbose) args+=("-v") ;;
+        --output) args+=("-o") ;;
+        --output=*) args+=("-o" "${arg#--output=}") ;;
+        *) args+=("$arg") ;;
+    esac
+done
+set -- "${args[@]}"
 
 # Parse command-line options
 VERBOSE=0
 OUTPUT_FILE=""
-while getopts "hvo:" opt; do
+while getopts ":hvo:" opt; do
     case $opt in
         h)
             usage
@@ -31,8 +46,14 @@ while getopts "hvo:" opt; do
         o)
             OUTPUT_FILE=$OPTARG
             ;;
+        :)
+            echo "Error: Option -$OPTARG requires an argument." >&2
+            usage >&2
+            exit 1
+            ;;
         "?")
-            echo "Invalid option: -$OPTARG" >&2
+            echo "Error: Invalid option: -$OPTARG" >&2
+            usage >&2
             exit 1
             ;;
     esac
@@ -40,46 +61,56 @@ done
 
 shift $((OPTIND-1))
 
-# Check minimum number of arguments
-if [[ $# -lt 2 ]]; then
-    echo "Error: Too few arguments"
-    usage
+# Check number of arguments
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    echo "Error: Wrong number of arguments" >&2
+    usage >&2
     exit 1
 fi
 
 PDF_FILE="$1"
 START_PAGE="$2"
-END_PAGE="${3:--1}"
+END_PAGE="${3:-}"
 
 # Check for pdftk
 if ! command -v pdftk &> /dev/null; then
-    echo "Error: pdftk is not installed."
+    echo "Error: pdftk is not installed." >&2
     exit 1
 fi
 
 # Check if the PDF file exists
 if [[ ! -f "$PDF_FILE" ]]; then
-    echo "Error: File not found - $PDF_FILE"
+    echo "Error: File not found - $PDF_FILE" >&2
     exit 1
 fi
 
 # Find total number of pages
-TOTAL_PAGES=$(pdftk "$PDF_FILE" dump_data | grep NumberOfPages | awk '{print $2}')
-
-# Validate page numbers
-if ! [[ "$START_PAGE" =~ ^[0-9]+$ ]] || ! [[ "$END_PAGE" =~ ^[0-9]+$ ]] || (( START_PAGE > END_PAGE )); then
-    echo "Error: Invalid page range specified."
+TOTAL_PAGES=$(pdftk "$PDF_FILE" dump_data 2>/dev/null | awk '/^NumberOfPages:/ {print $2}')
+if ! [[ "$TOTAL_PAGES" =~ ^[0-9]+$ ]]; then
+    echo "Error: Could not read the page count of $PDF_FILE." >&2
     exit 1
 fi
 
-# Replace -1 with the total number of pages
-if [[ "$END_PAGE" -eq -1 ]]; then
+# Default the end page to the last page
+if [[ -z "$END_PAGE" ]]; then
     END_PAGE="$TOTAL_PAGES"
 fi
 
+# Validate page numbers (base 10, so values like 08 are not read as octal)
+if ! [[ "$START_PAGE" =~ ^[0-9]+$ ]] || ! [[ "$END_PAGE" =~ ^[0-9]+$ ]]; then
+    echo "Error: Invalid page range specified." >&2
+    exit 1
+fi
+if (( 10#$START_PAGE < 1 || 10#$START_PAGE > 10#$END_PAGE )); then
+    echo "Error: Invalid page range specified." >&2
+    exit 1
+fi
+START_PAGE=$((10#$START_PAGE))
+END_PAGE=$((10#$END_PAGE))
+
 # Check if end page is greater than total pages
 if (( END_PAGE > TOTAL_PAGES )); then
-    echo "Error: End page ($END_PAGE) is greater than total pages ($TOTAL_PAGES)."
+    echo "Error: End page ($END_PAGE) is greater than total pages ($TOTAL_PAGES)." >&2
     exit 1
 fi
 
@@ -92,7 +123,10 @@ fi
 if [[ $VERBOSE -eq 1 ]]; then
     echo "Extracting pages $START_PAGE to $END_PAGE from $PDF_FILE..."
 fi
-pdftk "$PDF_FILE" cat "${START_PAGE}"-"${END_PAGE}" output "$OUTPUT_FILE"
+if ! pdftk "$PDF_FILE" cat "${START_PAGE}-${END_PAGE}" output "$OUTPUT_FILE"; then
+    echo "Error: pdftk failed to extract the pages." >&2
+    exit 1
+fi
 
 echo "New PDF saved as $OUTPUT_FILE"
 

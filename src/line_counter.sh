@@ -11,7 +11,7 @@ validate_file() {
     # $1: file path
 
     if [ ! -f "$1" ]; then
-        echo "Error: $1 does not exist."
+        echo "Error: $1 does not exist." >&2
         exit 1
     fi
 }
@@ -22,7 +22,9 @@ count_lines() {
 
     local counter=0
 
-    while read -r _; do
+    # "|| [ -n "$line" ]" also counts a final line that lacks a trailing newline.
+    local line
+    while IFS= read -r line || [ -n "$line" ]; do
         ((counter++))
     done < "$1"
 
@@ -33,8 +35,8 @@ main() {
     # Main function to execute the script
 
     if [ $# -eq 0 ]; then
-        echo "Error: No file name provided."
-        echo "Usage: line_counter.sh file_name"
+        echo "Error: No file name provided." >&2
+        echo "Usage: line_counter.sh file_name" >&2
         exit 1
     fi
 

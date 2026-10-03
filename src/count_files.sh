@@ -3,10 +3,11 @@
 # Script Name: count_files.sh
 # Description: Counts the number of directories, files, and total count in a specified directory,
 #              with options to filter by extension and set traversal depth.
-# Usage: count_files.sh [--directory <dir>] [--depth <depth>] [--extension <ext>] [--help]
+#              The starting directory itself is not counted.
+# Usage: count_files.sh [-d|--directory <dir>] [-p|--depth <depth>] [-e|--extension <ext>] [-h|--help]
 #        --directory <dir>   (optional) - the directory to count files in (default: current directory)
 #        --depth <depth>     (optional) - the maximum depth of directory traversal (default: unlimited)
-#        --extension <ext>   (optional) - only count files with the specified extension
+#        --extension <ext>   (optional) - only count files with the specified extension (e.g. txt)
 #        --help              (optional) - display this help message
 # Example:
 #   ./count_files.sh
@@ -28,7 +29,6 @@ Examples:
   $0
   $0 --directory /path/to/dir --depth 2 --extension txt
 EOF
-    exit 0
 }
 
 count_files() {
@@ -37,7 +37,7 @@ count_files() {
     local extension="$3"
 
     if [[ ! -d "$dir" ]]; then
-        echo "Error: Directory '$dir' does not exist."
+        echo "Error: Directory '$dir' does not exist." >&2
         exit 1
     fi
 
@@ -45,16 +45,18 @@ count_files() {
     [[ -n "$depth" ]] && echo "Depth: $depth"
     [[ -n "$extension" ]] && echo "Filtering by extension: .$extension"
 
-    local find_cmd=(find "$dir")
-    [[ -n "$depth" ]] && find_cmd+=(-maxdepth "$depth")
-    [[ -n "$extension" ]] && find_cmd+=(-name "*.$extension")
-    find_cmd+=(-type f)
+    local find_opts=(-mindepth 1)
+    [[ -n "$depth" ]] && find_opts+=(-maxdepth "$depth")
 
+    local name_filter=()
+    [[ -n "$extension" ]] && name_filter=(-name "*.$extension")
+
+    # Print one character per match so file names containing newlines count once.
     local num_files
-    num_files=$( "${find_cmd[@]}" | wc -l )
+    num_files=$(find "$dir" "${find_opts[@]}" -type f "${name_filter[@]}" -printf '.' | wc -c)
 
     local num_dirs
-    num_dirs=$( find "$dir" ${depth:+-maxdepth "$depth"} -type d | wc -l )
+    num_dirs=$(find "$dir" "${find_opts[@]}" -type d -printf '.' | wc -c)
 
     local total_count
     total_count=$((num_dirs + num_files))
@@ -71,7 +73,11 @@ main() {
     local extension=""
 
     # Parse options
-    options=$(getopt -o d:p:e:h --long directory:,depth:,extension:,help -n "$0" -- "$@")
+    local options
+    if ! options=$(getopt -o d:p:e:h --long directory:,depth:,extension:,help -n "$0" -- "$@"); then
+        show_help >&2
+        exit 1
+    fi
     eval set -- "$options"
 
     while true; do
@@ -90,17 +96,31 @@ main() {
                 ;;
             -h|--help)
                 show_help
+                exit 0
                 ;;
             --)
                 shift
                 break
                 ;;
             *)
-                echo "Invalid option: $1"
-                show_help
+                echo "Invalid option: $1" >&2
+                show_help >&2
+                exit 1
                 ;;
         esac
     done
+
+    if [[ $# -gt 0 ]]; then
+        echo "Unexpected argument: $1" >&2
+        show_help >&2
+        exit 1
+    fi
+
+    if [[ -n "$depth" && ! "$depth" =~ ^[0-9]+$ ]]; then
+        echo "Error: Depth must be a non-negative integer." >&2
+        exit 1
+    fi
+    extension="${extension#.}"
 
     count_files "$dir" "$depth" "$extension"
 }

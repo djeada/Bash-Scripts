@@ -1,5 +1,50 @@
 #!/usr/bin/env bash
+
+# Script Name: run_audiocraft.sh
+# Description: Sets up a private Meta AudioCraft environment in ~/audiocraft-local
+#              (uv, Python 3.10 venv, PyTorch for CUDA 12.8) and generates music
+#              (MusicGen) or sound effects (AudioGen) from a text prompt on an NVIDIA GPU.
+#              Installs missing system tools with sudo apt and downloads packages/models
+#              from the network. Output .wav files go to ~/audiocraft-local/outputs.
+# Usage: ./run_audiocraft.sh ["prompt"] [duration] [model] [kind]
+#        Run with --help for details and examples.
+# Example: ./run_audiocraft.sh "horse cavalry charge, galloping" 5 sfx
+
 set -Eeuo pipefail
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    cat <<'EOF'
+Usage:
+  ./run_audiocraft.sh ["prompt"] [duration] [model] [kind]
+
+Examples:
+
+  Music:
+    ./run_audiocraft.sh "ancient roman battle music, war drums and horns" 30 facebook/musicgen-medium music
+
+  Sound effects:
+    ./run_audiocraft.sh "arrows whistling overhead, impacts into wooden shields, dry foley recording" 5 facebook/audiogen-medium sfx
+
+  Shortcut for AudioGen:
+    ./run_audiocraft.sh "horse cavalry charge, galloping, dust, shouting soldiers" 5 sfx
+
+Arguments:
+  prompt    Text prompt (default: "dark fantasy dungeon ambience with distant choir")
+  duration  Seconds (default: 10)
+  model     Hugging Face model name, or shortcut: sfx/audiogen (facebook/audiogen-medium),
+            music/musicgen (facebook/musicgen-medium) (default: facebook/musicgen-small)
+  kind      auto/music/sfx (default: auto, detected from the model name)
+
+Recommended models:
+  facebook/musicgen-small
+  facebook/musicgen-medium
+  facebook/musicgen-large
+  facebook/audiogen-medium
+
+Output is written to ~/audiocraft-local/outputs.
+EOF
+    exit 0
+fi
 
 PROJECT_DIR="$HOME/audiocraft-local"
 VENV_DIR="$PROJECT_DIR/.venv"
@@ -17,6 +62,11 @@ KIND="${4:-auto}"
 #   auto  = detect from model name
 #   music = force MusicGen
 #   sfx   = force AudioGen
+
+if ! [[ "$DURATION" =~ ^[0-9]+$ ]] || (( 10#$DURATION == 0 )); then
+    echo "Error: duration must be a positive whole number of seconds, got '$DURATION'." >&2
+    exit 1
+fi
 
 if [[ "$MODEL" == "sfx" || "$MODEL" == "audiogen" ]]; then
     MODEL="facebook/audiogen-medium"
@@ -37,37 +87,6 @@ echo "Duration: $DURATION seconds"
 echo "Model: $MODEL"
 echo "Kind: $KIND"
 echo ""
-
-if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    cat <<'EOF'
-Usage:
-  ./run_audiocraft.sh "prompt" duration model kind
-
-Examples:
-
-  Music:
-    ./run_audiocraft.sh "ancient roman battle music, war drums and horns" 30 facebook/musicgen-medium music
-
-  Sound effects:
-    ./run_audiocraft.sh "arrows whistling overhead, impacts into wooden shields, dry foley recording" 5 facebook/audiogen-medium sfx
-
-  Shortcut for AudioGen:
-    ./run_audiocraft.sh "horse cavalry charge, galloping, dust, shouting soldiers" 5 sfx
-
-Arguments:
-  prompt    Text prompt
-  duration  Seconds
-  model     Hugging Face model name, or shortcut: sfx/music
-  kind      auto/music/sfx
-
-Recommended models:
-  facebook/musicgen-small
-  facebook/musicgen-medium
-  facebook/musicgen-large
-  facebook/audiogen-medium
-EOF
-    exit 0
-fi
 
 echo "Checking required system tools..."
 
@@ -126,7 +145,7 @@ source "$VENV_DIR/bin/activate"
 
 echo "Using Python:"
 python --version
-which python
+command -v python
 echo ""
 
 echo "Installing package tools..."

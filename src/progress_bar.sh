@@ -5,40 +5,39 @@
 # Usage: ./progress_bar.sh
 # Example: ./progress_bar.sh
 
-# Define colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'  # No Color
+# Define colors ($'...' so they hold real escape characters, usable with printf %s)
+GREEN=$'\033[0;32m'
+BLUE=$'\033[0;34m'
+NC=$'\033[0m'  # No Color
 
-
-clear  # Clear the terminal for a neat start
+clear 2>/dev/null  # Clear the terminal for a neat start
 
 # Print fancy hacker-like messages
-echo -e "${BLUE}Initializing covert protocol...${NC}"
+echo "${BLUE}Initializing covert protocol...${NC}"
 sleep 0.3
-echo -e "${BLUE}Accessing mainframe database...${NC}"
+echo "${BLUE}Accessing mainframe database...${NC}"
 sleep 0.3
-echo -e "${BLUE}Bypassing firewall...${NC}"
+echo "${BLUE}Bypassing firewall...${NC}"
 sleep 0.3
-echo -e "${GREEN}Firewall bypassed successfully!${NC}"
+echo "${GREEN}Firewall bypassed successfully!${NC}"
 sleep 0.3
+
+# Get the width of the terminal (fall back to 80 columns), keeping room for the percentage
+total_width=$(tput cols 2>/dev/null || echo 80)
+(( total_width < 20 )) && total_width=20
+max_bar=$((total_width - 10))
 
 # Define function to draw the progress bar
 draw_progress_bar() {
-    local progress total_width bar_length
+    local progress=$1  # integer from 0 to 100
+    local bar_length=$((max_bar * progress / 100))
+    local filled empty
 
-    # Progress will be an integer (0 to 100)
-    progress=$1
-    total_width=$(tput cols)  # Get the width of the terminal
+    # Build strings of the right lengths ('%*s' pads with spaces)
+    printf -v filled '%*s' "$bar_length" ''
+    printf -v empty '%*s' "$((max_bar - bar_length))" ''
 
-    # Deducting 10 to leave space for percentage
-    bar_length=$(( (total_width - 10) * progress / 100 ))
-
-    # Draw the progress bar
-    printf "\r%s[" "$GREEN"
-    printf "%0.s=" $(seq 1 "$bar_length")
-    printf "%0.s " $(seq 1 "$((total_width - bar_length - 10))")
-    printf "] %3d%%%s" "$progress" "$NC"
+    printf "\r%s[%s%s] %3d%%%s" "$GREEN" "${filled// /=}" "$empty" "$progress" "$NC"
 }
 
 # This loop will mock data processing and draw the progress bar
@@ -48,5 +47,5 @@ for i in $(seq 1 100); do
 done
 
 echo ""  # Newline for cleaner output
-echo -e "${GREEN}Boss Level unlocked!${NC}"
+echo "${GREEN}Boss Level unlocked!${NC}"
 

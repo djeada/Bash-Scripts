@@ -8,7 +8,7 @@
 #   -l, --log-file FILE        Enable logging to a specified log file.
 #   -v, --verbose              Enable verbose mode.
 #   -f, --force                Force deletion without confirmation.
-#   -s, --simulate             Simulate deletion (dry-run).
+#   -s, --simulate             Simulate deletion (dry-run, no confirmation needed).
 #   -u, --user USER            Empty trash for specified user(s). Requires root privileges.
 #   -a, --all-users            Empty trash for all users. Requires root privileges.
 #       --no-preserve-root     Allow deleting root directory (dangerous).
@@ -40,7 +40,7 @@ print_usage() {
     echo "  -l, --log-file FILE        Enable logging to a specified log file."
     echo "  -v, --verbose              Enable verbose mode."
     echo "  -f, --force                Force deletion without confirmation."
-    echo "  -s, --simulate             Simulate deletion (dry-run)."
+    echo "  -s, --simulate             Simulate deletion (dry-run, no confirmation needed)."
     echo "  -u, --user USER            Empty trash for specified user(s). Requires root privileges."
     echo "  -a, --all-users            Empty trash for all users. Requires root privileges."
     echo "      --no-preserve-root     Allow deleting root directory (dangerous)."
@@ -62,38 +62,51 @@ log_action() {
     fi
 }
 
+# Print an error message and exit
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
 # Function to confirm deletion
 confirm_deletion() {
-    if [[ "$FORCE" == true ]]; then
+    if [[ "$FORCE" == true || "$SIMULATE" == true ]]; then
         return 0
     fi
-    read -p "Are you sure you want to empty the trash? [y/N] " -n 1 -r
+    printf 'Trash directories to empty:\n' >&2
+    printf '  %s\n' "${TRASH_PATHS[@]}" >&2
+    read -p "Are you sure you want to empty the trash? [y/N] " -n 1 -r || return 1
     echo
-    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-        return 0
-    else
-        return 1
-    fi
+    [[ "$REPLY" =~ ^[Yy]$ ]]
 }
 
 # Function to get trash directories for a user
 get_trash_paths_for_user() {
     local user="$1"
-    local home_dir
-    home_dir=$(eval echo "~$user")
-    local trash_paths=()
+    local home_dir=""
 
-    # Detect OS and set trash path accordingly
-    if [[ "$(uname)" == "Darwin" ]]; then
-        trash_paths+=("$home_dir/.Trash")
-    elif [[ "$(uname)" == "Linux" ]]; then
-        trash_paths+=("$home_dir/.local/share/Trash/files")
-    else
-        echo "Unsupported system. Please specify the trash path."
-        exit 1
+    # Look up the home directory without eval (user names are untrusted input)
+    if command -v getent >/dev/null 2>&1; then
+        home_dir=$(getent passwd "$user" | cut -d: -f6)
+    elif [[ "$(uname)" == "Darwin" ]]; then
+        home_dir=$(dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+    fi
+    if [[ -z "$home_dir" ]]; then
+        echo "Warning: cannot determine home directory of user '$user'; skipping." >&2
+        return 0
     fi
 
-    echo "${trash_paths[@]}"
+    # Print one path per line (the caller reads them with mapfile)
+    case "$(uname)" in
+        Darwin)
+            echo "$home_dir/.Trash"
+            ;;
+        Linux)
+            # FreeDesktop trash: deleted files plus their .trashinfo metadata
+            echo "$home_dir/.local/share/Trash/files"
+            echo "$home_dir/.local/share/Trash/info"
+            ;;
+    esac
 }
 
 # Function to empty trash directories
@@ -111,18 +124,23 @@ empty_trash() {
             continue
         fi
 
-        if [[ "$path" == "/" ]] && [[ "$NO_PRESERVE_ROOT" != true ]]; then
+        # Resolve symlinks and things like '//' or '/.' before the root check
+        local resolved
+        resolved=$(cd "$path" && pwd -P) || continue
+        if [[ "$resolved" == "/" ]] && [[ "$NO_PRESERVE_ROOT" != true ]]; then
             log_action "Refusing to delete '/' without --no-preserve-root option."
             continue
         fi
 
         if [[ "$SIMULATE" == true ]]; then
             log_action "Simulating emptying trash at '$path'."
-            find "$path" -mindepth 1 -print
+            find "$path" -mindepth 1 -print || true
         else
             log_action "Emptying trash at '$path'."
             local deleted_files
-            deleted_files=$(find "$path" -mindepth 1 -print -delete | wc -l)
+            # find -delete exits non-zero if some items could not be removed;
+            # report that, but keep going with the other trash directories.
+            deleted_files=$( { find "$path" -mindepth 1 -print -delete || echo "Warning: some items in '$path' could not be deleted." >&2; } | wc -l)
             total_deleted=$((total_deleted + deleted_files))
             log_action "Deleted $deleted_files items from '$path'."
         fi
@@ -139,22 +157,20 @@ empty_trash() {
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -p|--path)
-            if [[ -n "$2" ]]; then
+            if [[ -n "${2-}" ]]; then
                 TRASH_PATHS+=("$2")
                 shift 2
             else
-                echo "Error: '--path' requires a non-empty argument."
-                exit 1
+                die "'--path' requires a non-empty argument."
             fi
             ;;
         -l|--log-file)
-            if [[ -n "$2" ]]; then
+            if [[ -n "${2-}" ]]; then
                 LOG_FILE="$2"
                 LOG_ENABLED=true
                 shift 2
             else
-                echo "Error: '--log-file' requires a non-empty argument."
-                exit 1
+                die "'--log-file' requires a non-empty argument."
             fi
             ;;
         -v|--verbose)
@@ -170,12 +186,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -u|--user)
-            if [[ -n "$2" ]]; then
+            if [[ -n "${2-}" ]]; then
                 USERS+=("$2")
                 shift 2
             else
-                echo "Error: '--user' requires a non-empty argument."
-                exit 1
+                die "'--user' requires a non-empty argument."
             fi
             ;;
         -a|--all-users)
@@ -195,22 +210,26 @@ while [[ $# -gt 0 ]]; do
             break
             ;;
         -*)
-            echo "Unknown option: $1"
-            print_usage
+            echo "Unknown option: $1" >&2
+            print_usage >&2
             exit 1
             ;;
         *)
-            # No more options, break
             break
             ;;
     esac
 done
 
+if [[ $# -gt 0 ]]; then
+    echo "Unexpected argument: $1 (use -p to specify a trash path)" >&2
+    print_usage >&2
+    exit 1
+fi
+
 # Verify root privileges if necessary
 if [[ "$ALL_USERS" == true ]] || [[ "${#USERS[@]}" -gt 0 ]]; then
     if [[ "$EUID" -ne 0 ]]; then
-        echo "This option requires root privileges. Please run as root."
-        exit 1
+        die "This option requires root privileges. Please run as root."
     fi
 fi
 
@@ -221,7 +240,7 @@ if [[ "${#TRASH_PATHS[@]}" -eq 0 ]]; then
         mapfile -t USERS < <(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1}' /etc/passwd)
     elif [[ "${#USERS[@]}" -eq 0 ]]; then
         # Default to current user
-        USERS+=("$USER")
+        USERS+=("$(id -un)")
     fi
 
     for user in "${USERS[@]}"; do
@@ -231,8 +250,7 @@ if [[ "${#TRASH_PATHS[@]}" -eq 0 ]]; then
 fi
 
 if [[ "${#TRASH_PATHS[@]}" -eq 0 ]]; then
-    echo "No trash paths specified and none found for users."
-    exit 1
+    die "No trash paths specified and none found for users."
 fi
 
 # Confirm deletion

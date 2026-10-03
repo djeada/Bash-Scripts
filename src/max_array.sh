@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Script Name: max_array.sh
-# Description: Find the maximum value in an array.
+# Description: Find the maximum value in a list of integers.
 # Usage: max_array.sh val1 val2 ...
 #        val1 val2 ... - a list of values separated by spaces
 # Example: max_array.sh 4 5 6 1 2 3
@@ -13,6 +13,7 @@ find_maximum() {
 
     local max=${1}
     shift
+    local i
     for i in "$@"; do
         if [[ ${i} -gt ${max} ]]; then
             max=${i}
@@ -26,14 +27,16 @@ validate_input() {
     # $@: a list of values
 
     if [ $# -eq 0 ]; then
-        echo "Error: No values provided"
+        echo "Error: No values provided" >&2
+        echo "Usage: max_array.sh val1 val2 ..." >&2
         exit 1
     fi
 
-    re='^[0-9]+$'
+    local re='^-?[0-9]+$'
+    local i
     for i in "$@"; do
         if ! [[ $i =~ $re ]]; then
-            echo "Error: $i is not an integer"
+            echo "Error: $i is not an integer" >&2
             exit 1
         fi
     done

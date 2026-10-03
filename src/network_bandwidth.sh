@@ -11,7 +11,9 @@
 #   -I, --interface IFACE     Specify network interface to monitor (default: auto-detect).
 #   -i, --interval SECONDS    Sampling interval in seconds (default: 2).
 #   -t, --threshold KB/S      Alert threshold in KB/s for high bandwidth (default: 1000).
-#   -n, --top N               Number of top processes to display (default: 10).
+#   -n, --top N               Number of processes with open sockets to display (default: 10).
+#                             Processes are ranked by queued bytes (ss Recv-Q/Send-Q),
+#                             which is an indication, not a per-process bandwidth measurement.
 #   -c, --count COUNT         Number of samples to collect (default: unlimited).
 #   -l, --log-file FILE       Log output to specified file.
 #   -o, --output FILE         Save output to specified file.
@@ -50,7 +52,7 @@ Options:
   -I, --interface IFACE     Specify network interface to monitor (default: auto-detect).
   -i, --interval SECONDS    Sampling interval in seconds (default: 2).
   -t, --threshold KB/S      Alert threshold in KB/s for high bandwidth (default: 1000).
-  -n, --top N               Number of top processes to display (default: 10).
+  -n, --top N               Number of processes with open sockets to display (default: 10).
   -c, --count COUNT         Number of samples to collect (default: unlimited).
   -l, --log-file FILE       Log output to specified file.
   -o, --output FILE         Save output to specified file.
@@ -65,14 +67,14 @@ Examples:
 EOF
 }
 
-# Function for logging
+# Function for logging (verbose messages go to stderr so they never mix with JSON output)
 log_action() {
     local message="$1"
     if [[ "$LOG_ENABLED" == true ]]; then
         echo "$(date +"%Y-%m-%d %T"): $message" >> "$LOG_FILE"
     fi
     if [[ "$VERBOSE" == true ]]; then
-        echo "$message"
+        echo "$message" >&2
     fi
 }
 
@@ -135,22 +137,28 @@ read_bytes() {
 format_rate() {
     local bytes_per_sec="$1"
     if (( bytes_per_sec >= 1073741824 )); then
-        awk -v b="$bytes_per_sec" 'BEGIN {printf "%.2f GB/s", b/1073741824}'
+        LC_ALL=C awk -v b="$bytes_per_sec" 'BEGIN {printf "%.2f GB/s", b/1073741824}'
     elif (( bytes_per_sec >= 1048576 )); then
-        awk -v b="$bytes_per_sec" 'BEGIN {printf "%.2f MB/s", b/1048576}'
+        LC_ALL=C awk -v b="$bytes_per_sec" 'BEGIN {printf "%.2f MB/s", b/1048576}'
     elif (( bytes_per_sec >= 1024 )); then
-        awk -v b="$bytes_per_sec" 'BEGIN {printf "%.2f KB/s", b/1024}'
+        LC_ALL=C awk -v b="$bytes_per_sec" 'BEGIN {printf "%.2f KB/s", b/1024}'
     else
         echo "${bytes_per_sec} B/s"
     fi
 }
 
-# Get top network-consuming processes using ss and /proc
+# Summarize sockets per process using ss (queued bytes and connection count).
+# $1: number of processes to show, $2: "text" or "json"
 get_top_processes() {
     local number="$1"
+    local format="$2"
 
     if ! command -v ss &>/dev/null; then
-        echo "  (ss not available — process tracing requires ss)"
+        if [[ "$format" == json ]]; then
+            echo "[]"
+        else
+            echo "  (ss not available — process tracing requires ss)"
+        fi
         return
     fi
 
@@ -159,23 +167,25 @@ get_top_processes() {
     ss_output=$(ss -tunap 2>/dev/null | tail -n +2) || true
 
     if [[ -z "$ss_output" ]]; then
-        echo "  (No active network connections found or insufficient permissions)"
+        if [[ "$format" == json ]]; then
+            echo "[]"
+        else
+            echo "  (No active network connections found or insufficient permissions)"
+        fi
         return
     fi
 
-    # Extract and aggregate by process name, showing recv-q and send-q
-    echo "$ss_output" | awk '
+    # Aggregate by process name (portable awk: no gawk-only match() array)
+    echo "$ss_output" | awk -v limit="$number" -v format="$format" '
     {
-        # The last field contains the process info: users:(("name",pid=N,fd=N))
-        proc = $NF
-        recv_q = $2
-        send_q = $3
-
-        # Extract process name from users:(("name",...))
-        if (match(proc, /\(\("([^"]+)"/, arr)) {
-            name = arr[1]
-        } else {
-            name = "-"
+        # Columns: Netid State Recv-Q Send-Q Local Peer [Process]
+        # The process column looks like users:(("name",pid=N,fd=N)) and is
+        # missing for sockets of other users when not running as root
+        recv_q = $3
+        send_q = $4
+        name = "-"
+        if (match($0, /users:\(\("[^"]+"/)) {
+            name = substr($0, RSTART + 9, RLENGTH - 10)
         }
 
         recv[name] += recv_q
@@ -183,99 +193,41 @@ get_top_processes() {
         count[name]++
     }
     END {
-        # Sort by total (recv+send) descending
+        # Sort by total (recv+send) descending, then by connection count
         n = 0
         for (name in count) {
-            total[n] = recv[name] + send[name]
-            names[n] = name
-            n++
+            names[n++] = name
         }
 
         # Simple selection sort
         for (i = 0; i < n - 1; i++) {
             max_idx = i
             for (j = i + 1; j < n; j++) {
-                if (total[j] > total[max_idx]) {
+                a = names[j]; b = names[max_idx]
+                if (recv[a] + send[a] > recv[b] + send[b] || \
+                    (recv[a] + send[a] == recv[b] + send[b] && count[a] > count[b])) {
                     max_idx = j
                 }
             }
-            if (max_idx != i) {
-                tmp = total[i]; total[i] = total[max_idx]; total[max_idx] = tmp
-                tmp = names[i]; names[i] = names[max_idx]; names[max_idx] = tmp
+            tmp = names[i]; names[i] = names[max_idx]; names[max_idx] = tmp
+        }
+
+        if (n < limit) limit = n
+        if (format == "json") {
+            printf "["
+            for (i = 0; i < limit; i++) {
+                name = names[i]
+                if (i > 0) printf ", "
+                printf "{\"process\": \"%s\", \"recv_q\": %d, \"send_q\": %d, \"connections\": %d}", name, recv[name], send[name], count[name]
             }
-        }
-
-        printf "  %-20s %10s %10s %8s\n", "PROCESS", "RECV-Q", "SEND-Q", "CONNS"
-        limit = (n < '"$number"') ? n : '"$number"'
-        for (i = 0; i < limit; i++) {
-            name = names[i]
-            printf "  %-20s %10d %10d %8d\n", name, recv[name], send[name], count[name]
-        }
-    }'
-}
-
-# Get top processes in JSON format
-get_top_processes_json() {
-    local number="$1"
-
-    if ! command -v ss &>/dev/null; then
-        echo "[]"
-        return
-    fi
-
-    local ss_output
-    ss_output=$(ss -tunap 2>/dev/null | tail -n +2) || true
-
-    if [[ -z "$ss_output" ]]; then
-        echo "[]"
-        return
-    fi
-
-    echo "$ss_output" | awk '
-    {
-        proc = $NF
-        recv_q = $2
-        send_q = $3
-
-        if (match(proc, /\(\("([^"]+)"/, arr)) {
-            name = arr[1]
+            printf "]\n"
         } else {
-            name = "-"
-        }
-
-        recv[name] += recv_q
-        send[name] += send_q
-        count[name]++
-    }
-    END {
-        n = 0
-        for (name in count) {
-            total[n] = recv[name] + send[name]
-            names[n] = name
-            n++
-        }
-
-        for (i = 0; i < n - 1; i++) {
-            max_idx = i
-            for (j = i + 1; j < n; j++) {
-                if (total[j] > total[max_idx]) {
-                    max_idx = j
-                }
-            }
-            if (max_idx != i) {
-                tmp = total[i]; total[i] = total[max_idx]; total[max_idx] = tmp
-                tmp = names[i]; names[i] = names[max_idx]; names[max_idx] = tmp
+            printf "  %-20s %10s %10s %8s\n", "PROCESS", "RECV-Q", "SEND-Q", "CONNS"
+            for (i = 0; i < limit; i++) {
+                name = names[i]
+                printf "  %-20s %10d %10d %8d\n", name, recv[name], send[name], count[name]
             }
         }
-
-        printf "["
-        limit = (n < '"$number"') ? n : '"$number"'
-        for (i = 0; i < limit; i++) {
-            name = names[i]
-            if (i > 0) printf ", "
-            printf "{\"process\": \"%s\", \"recv_q\": %d, \"send_q\": %d, \"connections\": %d}", name, recv[name], send[name], count[name]
-        }
-        printf "]"
     }'
 }
 
@@ -300,7 +252,7 @@ output_text_sample() {
 
     echo ""
     echo "Active Network Processes:"
-    get_top_processes "$TOP_N"
+    get_top_processes "$TOP_N" text
     echo ""
 }
 
@@ -314,7 +266,7 @@ output_json_sample() {
     local high_usage="$6"
 
     local processes_json
-    processes_json=$(get_top_processes_json "$TOP_N")
+    processes_json=$(get_top_processes "$TOP_N" json)
 
     cat << EOF
 {
@@ -462,11 +414,8 @@ main() {
     fi
 
     # Read initial bytes
-    local initial
-    initial=$(read_bytes "$INTERFACE")
     local prev_rx prev_tx
-    prev_rx=$(echo "$initial" | awk '{print $1}')
-    prev_tx=$(echo "$initial" | awk '{print $2}')
+    read -r prev_rx prev_tx < <(read_bytes "$INTERFACE")
 
     sleep "$INTERVAL"
 
@@ -475,16 +424,16 @@ main() {
     while true; do
         sample_num=$((sample_num + 1))
 
-        local current
-        current=$(read_bytes "$INTERFACE")
         local curr_rx curr_tx
-        curr_rx=$(echo "$current" | awk '{print $1}')
-        curr_tx=$(echo "$current" | awk '{print $2}')
+        read -r curr_rx curr_tx < <(read_bytes "$INTERFACE")
 
-        # Calculate rates (bytes per second)
+        # Calculate rates (bytes per second); a counter reset (e.g. interface
+        # restarted) would give a negative difference, so clamp it to 0
         local rx_diff tx_diff rx_rate tx_rate
         rx_diff=$((curr_rx - prev_rx))
         tx_diff=$((curr_tx - prev_tx))
+        (( rx_diff < 0 )) && rx_diff=0
+        (( tx_diff < 0 )) && tx_diff=0
         rx_rate=$((rx_diff / INTERVAL))
         tx_rate=$((tx_diff / INTERVAL))
 

@@ -45,18 +45,26 @@ prepend_text_to_file() {
     # Create a secure temporary file.
     local tmpfile
     tmpfile=$(mktemp) || { echo "Error: Could not create temporary file." >&2; return 1; }
-    # Ensure the temporary file is removed on function exit.
-    trap 'rm -f "$tmpfile"' RETURN
+    # Ensure the temporary file is removed however the script ends
+    # (with set -e a failing command exits without running a RETURN trap).
+    # shellcheck disable=SC2064 # expand $tmpfile now, it is local
+    trap "rm -f '$tmpfile'" EXIT
 
     # Prepend the text: write the new text first, then the existing file content.
-    { echo "$text"; cat "$file"; } > "$tmpfile"
-    mv "$tmpfile" "$file"
-    # Clear the temporary file trap (temporary file has been moved).
-    trap - RETURN
+    { printf '%s\n' "$text"; cat "$file"; } > "$tmpfile"
+    # Copy the content back instead of using mv, so the file keeps its
+    # permissions, ownership and inode (symlinks and hard links stay intact).
+    if ! cat "$tmpfile" > "$file"; then
+        trap - EXIT
+        echo "Error: Failed to write '$file'; the full content was kept in '$tmpfile'." >&2
+        return 1
+    fi
+    rm -f "$tmpfile"
+    trap - EXIT
 
     # Log the action.
     echo "The following text was prepended to the file '$file':"
-    echo "$text"
+    printf '%s\n' "$text"
 }
 
 # Main function to call the prepend_text_to_file function.

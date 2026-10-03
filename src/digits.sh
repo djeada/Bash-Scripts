@@ -20,14 +20,14 @@ print_digits() {
 
 main() {
     if [ "$#" -ne 1 ]; then
-        echo "Usage: $0 number"
-        echo "  number - the number (digits only) to display the digits of"
+        echo "Usage: $0 number" >&2
+        echo "  number - the number (digits only) to display the digits of" >&2
         exit 1
     fi
 
     # Validate input: ensure that it contains only digits.
     if ! [[ "$1" =~ ^[0-9]+$ ]]; then
-        echo "Invalid input. Please provide a positive integer (digits only)."
+        echo "Invalid input. Please provide a positive integer (digits only)." >&2
         exit 1
     fi
 

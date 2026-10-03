@@ -27,6 +27,7 @@ declare -a PROFILE_PATHS_RAW=()
 declare -a PROFILE_IS_REL=()
 declare -a PROFILE_DEFAULTS=()
 declare -a PROFILE_RESOLVED=()
+declare -a RSYNC_PROGRESS=()
 
 on_error() {
     local exit_code=$?
@@ -234,7 +235,7 @@ discover_profiles() {
         BEGIN { in_profile=0; name=""; path=""; rel="1"; def="0" }
         function flush() {
           if (in_profile && path != "")
-            printf "%s\t%s\t%s\t%s\n", name, def, rel, path
+            printf "%s\t%s\t%s\t%s\n", (name == "" ? "unnamed" : name), def, rel, path
         }
         /^\[Profile[0-9]+\]$/ { flush(); in_profile=1; name=""; path=""; rel="1"; def="0"; next }
         /^\[/                 { flush(); in_profile=0; next }
@@ -460,7 +461,7 @@ backup_mode() {
         log "Backing up profile '$name' from $resolved"
         mkdir -p "$dest_profile_dir"
 
-        rsync -aH --delete --info=progress2 \
+        rsync -aH --delete "${RSYNC_PROGRESS[@]}" \
             --exclude='lock' \
             --exclude='.parentlock' \
             --exclude='*.sqlite-wal' \
@@ -600,19 +601,14 @@ restore_mode() {
 
         validate_profile_integrity "$src_profile_dir" "$name"
 
+        # Never overwrites an existing profile: picks a free directory name instead
         dest_basename="$(unique_profile_basename "$backup_dir")"
         dest_profile_dir="$FF_DIR/Profiles/$dest_basename"
-
-        if [[ -e "$dest_profile_dir" ]]; then
-            safety_dir="$dest_profile_dir.pre-restore-$ts"
-            warn "Target profile already exists, moving aside: $dest_profile_dir -> $safety_dir"
-            mv "$dest_profile_dir" "$safety_dir"
-        fi
 
         mkdir -p "$dest_profile_dir"
 
         log "Restoring profile '$name' to $dest_profile_dir"
-        rsync -aH --delete --info=progress2 "$src_profile_dir/" "$dest_profile_dir/"
+        rsync -aH --delete "${RSYNC_PROGRESS[@]}" "$src_profile_dir/" "$dest_profile_dir/"
 
         clean_restored_profile "$dest_profile_dir"
         validate_profile_integrity "$dest_profile_dir" "$name"
@@ -682,12 +678,16 @@ parse_args() {
         esac
     done
 
-    [[ -n "$MODE" ]] || { usage; exit 1; }
+    [[ -n "$MODE" ]] || { usage >&2; exit 1; }
 }
 
 main() {
     parse_args "$@"
     require_tools
+
+    if [[ "$QUIET" -eq 0 ]]; then
+        RSYNC_PROGRESS=(--info=progress2)
+    fi
 
     case "$MODE" in
         backup)  backup_mode ;;

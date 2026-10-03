@@ -1,91 +1,101 @@
 #!/usr/bin/env bash
 
 # Script Name: word_histogram.sh
-# Description: Generates a word frequency histogram from a text file.
-# Usage: ./word_histogram.sh <file> [min_word_length] [top_n]
-# Example: ./word_histogram.sh document.txt 3 20
+# Description: Generates a word frequency histogram from text files (or standard input).
+#              Words are lowercased, common diacritics are removed (ą -> a, ...) and
+#              non-letter characters are dropped. Counts from all files are combined
+#              and printed as "word:count", most frequent first.
+# Usage: ./word_histogram.sh [-l min_word_length] [-n top_n] [-j] [file ...]
+#        -l N  Only count words with at least N letters (default: 1).
+#        -n N  Only print the N most frequent words (default: all).
+#        -j    Output a JSON object instead (requires jq).
+# Example: ./word_histogram.sh -l 3 -n 20 document.txt
 
-# Function to remove diacritics from a line of text
-remove_diacritics()
-{
-    echo "$1" | sed 'y/ąāáǎàćēéěèęīíǐìłńōóǒòóśūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŁŃŌÓǑÒÓŚŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiilnooooosuuuuuuuuzzAAAAACEEEEEIIIILNOOOOOSUUUUUUUUZZ/'
+usage() {
+    echo "Usage: $0 [-l min_word_length] [-n top_n] [-j] [file ...]" >&2
 }
 
-# Process text to calculate word frequencies
-process_text() {
-    local file=$1
-    local min_word_length=$2
-    declare -A wordcounts
-
-    while IFS= read -r line; do
-        line=$(remove_diacritics "$line")
-        line=$(echo "$line" | tr -dc '[:alpha:][:space:]')
-
-        for word in $line; do
-            word=${word,,}  # Convert to lowercase
-            if [ ${#word} -ge "$min_word_length" ]; then
-                ((wordcounts[$word]++))
-            fi
-        done
-    done < "$file"
-
-    # Output word frequencies
-    for word in "${!wordcounts[@]}"; do
-        echo "$word:${wordcounts[$word]}"
-    done
+# Remove diacritics from the input text
+remove_diacritics() {
+    sed 'y/ąāáǎàćēéěèęīíǐìłńōóǒòóśūúǔùǖǘǚǜżźĄĀÁǍÀĆĒĘÉĚÈĪÍǏÌŁŃŌÓǑÒÓŚŪÚǓÙǕǗǙǛŻŹ/aaaaaceeeeeiiiilnooooosuuuuuuuuzzAAAAACEEEEEIIIILNOOOOOSUUUUUUUUZZ/'
 }
 
-export -f remove_diacritics process_text
+# Print "word:count" lines for the text on stdin, most frequent first
+count_words() {
+    local min_word_length=$1
 
-# Main program starts here
-min_word_length=0
+    remove_diacritics \
+        | tr -dc '[:alpha:][:space:]' \
+        | tr -s '[:space:]' '\n' \
+        | tr '[:upper:]' '[:lower:]' \
+        | awk -v min="$min_word_length" 'length($0) >= min && length($0) > 0 { c[$0]++ } END { for (w in c) print w ":" c[w] }' \
+        | sort -t: -k2,2nr -k1,1
+}
+
+# Keep only the first top_n lines (all lines if top_n is 0)
+limit_output() {
+    if (( top_n > 0 )); then
+        head -n "$top_n"
+    else
+        cat
+    fi
+}
+
+# Print "word:count" lines as-is, or as a JSON object with -j
+format_output() {
+    if $output_json; then
+        jq -Rn '[inputs | split(":") | {(.[0]): (.[1] | tonumber)}] | add // {}'
+    else
+        cat
+    fi
+}
+
+min_word_length=1
+top_n=0
 output_json=false
 
-while getopts ":l:j" opt; do
+while getopts ":l:n:j" opt; do
     case $opt in
         l)
             min_word_length=$OPTARG
             ;;
+        n)
+            top_n=$OPTARG
+            ;;
         j)
             output_json=true
             ;;
-        "?")
-            echo "Invalid option: -$OPTARG" >&2
-            exit 1
-            ;;
         ":")
             echo "Option -$OPTARG requires an argument." >&2
+            usage
+            exit 1
+            ;;
+        *)
+            echo "Invalid option: -$OPTARG" >&2
+            usage
             exit 1
             ;;
     esac
 done
-shift $((OPTIND -1))
-# Define the temporary file
-temp_file=$(mktemp)
+shift $((OPTIND - 1))
 
-# Check if files are provided
-if [ "$#" -eq 0 ]; then
-    # No files provided, reading from stdin
-    input="/dev/stdin"
-    if $output_json; then
-        process_text "$input" "$min_word_length" > "$temp_file"
-        jq -Rn '[inputs | split(":") | {(.[0]): (. [1] | tonumber)}] | add' < "$temp_file"
-    else
-        process_text "$input" "$min_word_length"
-    fi
-else
-    # Process files in parallel
-    export min_word_length
-    export output_json
-    if $output_json; then
-        parallel --will-cite "process_text {} $min_word_length" ::: "$@" > "$temp_file"
-        jq -Rn '[inputs | split(":") | {(.[0]): (. [1] | tonumber)}] | add' < "$temp_file"
-    else
-        parallel --will-cite "process_text {} $min_word_length" ::: "$@" > "$temp_file"
-        sort -t: -k2,2nr < "$temp_file"
-    fi
+if ! [[ $min_word_length =~ ^[0-9]+$ && $top_n =~ ^[0-9]+$ ]]; then
+    echo "Error: -l and -n require non-negative integers." >&2
+    exit 1
 fi
 
-# Clean up the temporary file
-rm "$temp_file"
+if $output_json && ! command -v jq &> /dev/null; then
+    echo "Error: jq is required for JSON output (-j)." >&2
+    exit 1
+fi
+
+for file in "$@"; do
+    if [[ ! -f $file || ! -r $file ]]; then
+        echo "Error: cannot read file: $file" >&2
+        exit 1
+    fi
+done
+
+# With no files, cat reads standard input
+cat -- "$@" | count_words "$min_word_length" | limit_output | format_output
 

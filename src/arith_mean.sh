@@ -25,17 +25,22 @@ mean() {
 main() {
     # Check if at least one argument is given
     if [ $# -eq 0 ]; then
-        echo "Error: No arguments provided."
-        echo "Usage: arith_mean.sh list_of_numbers"
-        echo "       list_of_numbers - A space-separated list of numbers"
-        echo "Example: ./arith_mean.sh 1 2 3 4 5"
+        echo "Error: No arguments provided." >&2
+        echo "Usage: arith_mean.sh list_of_numbers" >&2
+        echo "       list_of_numbers - A space-separated list of numbers" >&2
+        echo "Example: ./arith_mean.sh 1 2 3 4 5" >&2
+        exit 1
+    fi
+
+    if ! command -v bc &> /dev/null; then
+        echo "Error: bc is required but it's not installed." >&2
         exit 1
     fi
 
     # Check if each argument is a valid number
     for i in "$@"; do
         if ! [[ $i =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
-            echo "Error: $i is not a number"
+            echo "Error: $i is not a number" >&2
             exit 1
         fi
     done

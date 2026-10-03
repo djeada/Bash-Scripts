@@ -2,7 +2,8 @@
 
 # Script Name: strip_python_comments.sh
 # Description: Removes comments from Python files with support for interactive mode,
-#              verbose output, dry-run, backups, and logging.
+#              verbose output, dry-run, backups, and logging. Strings, docstrings,
+#              the shebang line and the encoding declaration are left untouched.
 # Usage: ./strip_python_comments.sh [options] [file|directory|pattern]
 # Options:
 #   -i, --interactive      Ask for confirmation before removing comments from each file.
@@ -37,13 +38,14 @@ Options:
   -h, --help             Display this help message
 
 By default, the script finds all .py files in the current directory and subdirectories,
-and removes comments from them.
+and removes comments from them. The shebang line and encoding declaration are kept;
+strings and docstrings are left untouched. A backup of every modified file is created.
 
 You can provide a file, directory, or pattern to specify which files to process.
 EOF
 }
 
-# Logging function
+# Logging function: errors and warnings always go to stderr, other messages only with --verbose
 log() {
     local LEVEL="$1"
     shift
@@ -51,7 +53,9 @@ log() {
     if [ "$LOG_FILE" ]; then
         echo "[$LEVEL] $MESSAGE" >> "$LOG_FILE"
     fi
-    if [ $VERBOSE -eq 1 ]; then
+    if [[ "$LEVEL" == "ERROR" || "$LEVEL" == "WARNING" ]]; then
+        echo "[$LEVEL] $MESSAGE" >&2
+    elif [ $VERBOSE -eq 1 ]; then
         echo "[$LEVEL] $MESSAGE"
     fi
 }
@@ -62,7 +66,7 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# Parse command-line options using getopts
+# Parse command-line options
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -i|--interactive)
@@ -77,12 +81,16 @@ while [[ $# -gt 0 ]]; do
             DRY_RUN=1
             shift
             ;;
-        -b|--backup-ext)
-            BACKUP_EXT="$2"
-            shift 2
-            ;;
-        -l|--log-file)
-            LOG_FILE="$2"
+        -b|--backup-ext|-l|--log-file)
+            if [[ $# -lt 2 || -z "$2" ]]; then
+                echo "Error: $1 requires a non-empty argument." >&2
+                exit 1
+            fi
+            if [[ "$1" == -b || "$1" == --backup-ext ]]; then
+                BACKUP_EXT="$2"
+            else
+                LOG_FILE="$2"
+            fi
             shift 2
             ;;
         -h|--help)
@@ -91,7 +99,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -*)
             echo "Unknown option: $1" >&2
-            show_help
+            show_help >&2
             exit 1
             ;;
         *)
@@ -121,9 +129,9 @@ process_file() {
         return
     fi
 
-    # Interactive mode confirmation
+    # Interactive mode confirmation (read from the terminal, not from the file list)
     if [ $INTERACTIVE -eq 1 ]; then
-        read -rp "Remove comments from $FILE? [y/N]: " CONFIRM
+        read -rp "Remove comments from $FILE? [y/N]: " CONFIRM < /dev/tty || CONFIRM=""
         if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
             log "INFO" "Skipping $FILE"
             return
@@ -137,48 +145,53 @@ process_file() {
     fi
 
     # Create a backup of the file
-    cp "$FILE" "$FILE$BACKUP_EXT"
+    if ! cp -p -- "$FILE" "$FILE$BACKUP_EXT"; then
+        log "ERROR" "Could not create backup of $FILE; skipping it"
+        return
+    fi
     log "INFO" "Backup created: $FILE$BACKUP_EXT"
 
-    # Use Python to remove comments and docstrings
+    # Use Python's tokenizer to find comments, so '#' inside strings is left alone.
+    # Only the comment text is cut from each line; all other code is kept byte-for-byte.
     if python3 - "$FILE" << 'EOF'
+import io
+import re
 import sys
-import token
 import tokenize
 
-def remove_comments_and_docstrings(source):
-    """
-    Removes comments and docstrings from Python source code.
-    """
-    tokens = tokenize.generate_tokens(source.readline)
-    result = []
-    prev_toktype = token.INDENT
-    for tok in tokens:
-        tok_type, tok_string, start, end, line = tok
-        if tok_type == token.COMMENT:
-            continue
-        elif tok_type == token.STRING:
-            if prev_toktype != token.INDENT:
-                continue
-            else:
-                result.append(tok_string)
-        else:
-            result.append(tok_string)
-        prev_toktype = tok_type
-    return ''.join(result)
 
-if __name__ == "__main__":
-    try:
-        filename = sys.argv[1]
-        with open(filename, 'r') as f:
-            source = f.read()
-        from io import StringIO
-        cleaned_code = remove_comments_and_docstrings(StringIO(source))
-        with open(filename, 'w') as f:
-            f.write(cleaned_code)
-    except Exception as e:
-        print(f"Error processing {filename}: {e}", file=sys.stderr)
-        sys.exit(1)
+def remove_comments(source):
+    lines = io.StringIO(source, newline="").readlines()
+    reader = io.StringIO(source, newline="").readline
+    for tok in tokenize.generate_tokens(reader):
+        if tok.type != tokenize.COMMENT:
+            continue
+        row, col = tok.start
+        idx = row - 1
+        text = lines[idx]
+        # Keep the shebang and the encoding declaration
+        if idx == 0 and text.startswith("#!"):
+            continue
+        if idx < 2 and col == 0 and re.match(r"^#.*coding[:=]", text):
+            continue
+        ending = text[len(text.rstrip("\r\n")):]
+        code = text[:col].rstrip()
+        # Drop lines that contained nothing but a comment
+        lines[idx] = code + ending if code else ""
+    return "".join(lines)
+
+
+filename = sys.argv[1]
+try:
+    with open(filename, "rb") as f:
+        raw = f.read()
+    encoding, _ = tokenize.detect_encoding(io.BytesIO(raw).readline)
+    cleaned_code = remove_comments(raw.decode(encoding))
+    with open(filename, "wb") as f:
+        f.write(cleaned_code.encode(encoding))
+except Exception as e:
+    print(f"Error processing {filename}: {e}", file=sys.stderr)
+    sys.exit(1)
 EOF
     then
         log "INFO" "Comments removed from $FILE"
@@ -190,6 +203,7 @@ EOF
 # Function to find and process files
 find_and_process_files() {
     local TARGET="$1"
+    local FILE
 
     if [ -f "$TARGET" ]; then
         process_file "$TARGET"
@@ -203,18 +217,18 @@ find_and_process_files() {
         shopt -s nullglob
         # shellcheck disable=SC2206
         local FILES=($TARGET)
+        shopt -u nullglob
         if [ ${#FILES[@]} -eq 0 ]; then
             log "WARNING" "No files matched pattern: $TARGET"
         else
             for FILE in "${FILES[@]}"; do
-                if [ -e "$FILE" ]; then
+                if [ -f "$FILE" ]; then
                     process_file "$FILE"
                 else
-                    log "WARNING" "File does not exist: $FILE"
+                    log "WARNING" "Not a regular file: $FILE"
                 fi
             done
         fi
-        shopt -u nullglob
     fi
 }
 

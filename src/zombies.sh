@@ -203,16 +203,18 @@ check_zombies() {
     local zombie_count=0
     local -a ps_options
 
-    # Build ps options - avoid combining -e with -u since -e overrides user filter
+    # Build ps options - avoid combining -e with -u since -e overrides user filter.
+    # comm comes last because it may contain spaces; lstart is always 5 words.
+    local columns="pid,ppid,user,state,etime,lstart,comm"
     if [[ "$USER_ONLY" == true ]]; then
-        ps_options=(-u "$(id -un)" -o "pid,ppid,user,comm,state,etime,lstart")
+        ps_options=(-u "$(id -un)" -o "$columns")
     else
-        ps_options=(-eo "pid,ppid,user,comm,state,etime,lstart")
+        ps_options=(-e -o "$columns")
     fi
 
     # Get zombie processes
     local zombies
-    if ! zombies=$(ps "${ps_options[@]}" --no-headers 2>/dev/null | awk '$5 ~ /^Z/'); then
+    if ! zombies=$(ps "${ps_options[@]}" --no-headers 2>/dev/null | awk '$4 ~ /^Z/'); then
         echo -e "${RED}Error: Failed to retrieve process information${NC}" >&2
         return 1
     fi
@@ -251,11 +253,13 @@ check_zombies() {
     fi
 
     # Process each zombie
-    while IFS=' ' read -r pid ppid user comm state etime lstart; do
+    local pid ppid user state etime lstart_day lstart_month lstart_date lstart_time lstart_year comm lstart
+    while read -r pid ppid user state etime lstart_day lstart_month lstart_date lstart_time lstart_year comm; do
         # Skip empty lines
         if [[ -z "$pid" ]]; then
             continue
         fi
+        lstart="$lstart_day $lstart_month $lstart_date $lstart_time $lstart_year"
 
         # Truncate command name if too long
         if [[ ${#comm} -gt 20 ]]; then
@@ -289,14 +293,11 @@ check_zombies() {
     echo -e "${BLUE}Summary:${NC}"
     echo -e "  • Total zombie processes: ${YELLOW}$zombie_count${NC}"
     echo -e "  • Zombies consume minimal resources but indicate parent process issues"
-
-    if [[ "$zombie_count" -gt 0 ]]; then
-        echo
-        echo -e "${BLUE}Recommendations:${NC}"
-        echo -e "  • Check parent processes for proper child process handling"
-        echo -e "  • Consider restarting problematic parent processes"
-        echo -e "  • Zombies will be cleaned up when parent processes exit"
-    fi
+    echo
+    echo -e "${BLUE}Recommendations:${NC}"
+    echo -e "  • Check parent processes for proper child process handling"
+    echo -e "  • Consider restarting problematic parent processes"
+    echo -e "  • Zombies will be cleaned up when parent processes exit"
 
     return 0
 }
@@ -351,8 +352,11 @@ main() {
     # Check for required dependencies
     check_dependencies
 
-    # Set trap for cleanup
-    trap cleanup EXIT INT TERM
+    # Set traps: Ctrl+C / TERM must actually stop the script (a trap that just
+    # returns would resume the watch loop); cleanup runs once on exit.
+    trap cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
 
     # Execute appropriate mode
     if [[ "$WATCH_MODE" == true ]]; then

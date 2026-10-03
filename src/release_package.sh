@@ -10,9 +10,11 @@
 #   -t, --test                   Upload the package to TestPyPI.
 #   -p, --production             Upload the package to PyPI.
 #   -s, --skip-tests             Skip running tests before building.
-#   -v, --version VERSION        Specify the package version to release.
+#   -v, --version VERSION        Expected package version; the release aborts if the
+#                                built distributions have a different version.
 #   -n, --name NAME              Specify the package name.
-#   -c, --config FILE            Specify a configuration file with default settings.
+#   -c, --config FILE            Configuration file (key=value lines) with default
+#                                settings; command-line options take precedence.
 #   -e, --env VENV_PATH          Specify a virtual environment to use.
 #   -i, --interpreter PATH       Specify the Python interpreter to use.
 #   --dry-run                    Perform a dry run without uploading.
@@ -40,10 +42,15 @@ VENV_PATH=""
 PYTHON_INTERPRETER="python"
 DRY_RUN=false
 
-# Function to display help message
+# Function to display help message (the header comment block above)
 function show_help() {
-    grep '^#' "$0" | cut -c 4-
-    exit 0
+    awk 'NR > 2 && /^#/ { sub(/^# ?/, ""); print; next } NR > 2 { exit }' "$0"
+}
+
+# Print an error message and exit
+function die() {
+    echo -e "${RED}Error: $*${NC}" >&2
+    exit 1
 }
 
 # Function to ensure a Python package is installed
@@ -55,17 +62,14 @@ function ensure_python_package() {
     fi
 }
 
-# Function to run tests
+# Function to run tests ('setup.py test' was removed from setuptools, so use pytest)
 function run_tests() {
-    if [ -f "setup.py" ]; then
-        echo -e "${GREEN}Running tests...${NC}"
-        "$PYTHON_INTERPRETER" setup.py test
-    elif [ -f "pytest.ini" ] || [ -d "tests" ]; then
+    if [ -f "pytest.ini" ] || [ -d "tests" ] || [ -d "test" ]; then
         echo -e "${GREEN}Running pytest...${NC}"
         ensure_python_package pytest
         "$PYTHON_INTERPRETER" -m pytest
     else
-        echo -e "${RED}No tests found.${NC}"
+        echo -e "${RED}No tests found.${NC}" >&2
     fi
 }
 
@@ -114,27 +118,37 @@ function upload_pypi() {
 function check_git_status() {
     if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
         if [ -n "$(git status --porcelain)" ]; then
-            echo -e "${RED}Uncommitted changes detected. Please commit or stash them before releasing.${NC}"
-            exit 1
+            die "Uncommitted changes detected. Please commit or stash them before releasing."
         fi
     else
-        echo -e "${RED}Not a git repository. Skipping git status check.${NC}"
+        echo -e "${RED}Not a git repository. Skipping git status check.${NC}" >&2
     fi
 }
 
-# Function to confirm the package version
+# Function to read the version from the built sdist (dist/<name>-<version>.tar.gz)
+function built_version() {
+    local sdist
+    for sdist in dist/*.tar.gz; do
+        [ -f "$sdist" ] || continue
+        sdist="${sdist##*/}"
+        sdist="${sdist%.tar.gz}"
+        echo "${sdist##*-}"
+        return 0
+    done
+    echo "Unknown"
+}
+
+# Function to check and confirm the package version
 function confirm_version() {
-    local version
-    if [ -n "$PACKAGE_VERSION" ]; then
-        version="$PACKAGE_VERSION"
-    else
-        version=$("$PYTHON_INTERPRETER" setup.py --version 2>/dev/null || echo "Unknown")
+    local version answer
+    version=$(built_version)
+    if [ -n "$PACKAGE_VERSION" ] && [ "$version" != "$PACKAGE_VERSION" ]; then
+        die "Built version '$version' does not match the requested version '$PACKAGE_VERSION'."
     fi
-    echo -e "${GREEN}Current package version is: $version${NC}"
-    read -r -p "Is this the correct version to upload? (y/n): " confirm_version
-    if [ "$confirm_version" != "y" ]; then
-        echo -e "${RED}Please update your package version before proceeding.${NC}"
-        exit 1
+    echo -e "${GREEN}Built package version is: $version${NC}"
+    read -r -p "Is this the correct version to upload? (y/n): " answer || answer=""
+    if [ "$answer" != "y" ]; then
+        die "Please update your package version before proceeding."
     fi
 }
 
@@ -142,8 +156,14 @@ function confirm_version() {
 function parse_config() {
     if [ -f "$CONFIG_FILE" ]; then
         echo -e "${GREEN}Loading configuration from $CONFIG_FILE...${NC}"
-        while IFS='=' read -r key value; do
+        while IFS='=' read -r key value || [ -n "$key" ]; do
+            # Ignore comments/blank lines; trim whitespace and CRs around key and value
+            key="${key//[[:space:]]/}"
+            value="${value%$'\r'}"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
             case "$key" in
+                ""|"#"*) ;;
                 upload_to_test) UPLOAD_TO_TEST="$value" ;;
                 upload_to_prod) UPLOAD_TO_PROD="$value" ;;
                 skip_tests) SKIP_TESTS="$value" ;;
@@ -152,12 +172,17 @@ function parse_config() {
                 python_interpreter) PYTHON_INTERPRETER="$value" ;;
                 venv_path) VENV_PATH="$value" ;;
                 dry_run) DRY_RUN="$value" ;;
+                *) echo -e "${RED}Ignoring unknown config key: $key${NC}" >&2 ;;
             esac
         done < "$CONFIG_FILE"
     else
-        echo -e "${RED}Configuration file $CONFIG_FILE not found.${NC}"
-        exit 1
+        die "Configuration file $CONFIG_FILE not found."
     fi
+}
+
+# Ensure an option that needs a value got one
+function require_value() {
+    [[ $# -ge 2 && -n "$2" ]] || die "Option $1 requires a value."
 }
 
 # Parse command-line arguments
@@ -166,6 +191,7 @@ function parse_args() {
         case $1 in
             -h|--help)
                 show_help
+                exit 0
                 ;;
             -t|--test)
                 UPLOAD_TO_TEST=true
@@ -180,22 +206,27 @@ function parse_args() {
                 shift
                 ;;
             -v|--version)
+                require_value "$@"
                 PACKAGE_VERSION="$2"
                 shift 2
                 ;;
             -n|--name)
+                require_value "$@"
                 PACKAGE_NAME="$2"
                 shift 2
                 ;;
             -c|--config)
-                CONFIG_FILE="$2"
+                # Already loaded in main() before the other options
+                require_value "$@"
                 shift 2
                 ;;
             -e|--env)
+                require_value "$@"
                 VENV_PATH="$2"
                 shift 2
                 ;;
             -i|--interpreter)
+                require_value "$@"
                 PYTHON_INTERPRETER="$2"
                 shift 2
                 ;;
@@ -204,8 +235,9 @@ function parse_args() {
                 shift
                 ;;
             *)
-                echo -e "${RED}Unknown option: $1${NC}"
-                show_help
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                show_help >&2
+                exit 1
                 ;;
         esac
     done
@@ -219,20 +251,33 @@ function activate_virtualenv() {
             PYTHON_INTERPRETER="$VENV_PATH/bin/python"
             echo -e "${GREEN}Using virtual environment at $VENV_PATH${NC}"
         else
-            echo -e "${RED}Virtual environment at $VENV_PATH not found.${NC}"
-            exit 1
+            die "Virtual environment at $VENV_PATH not found."
         fi
     fi
 }
 
 # Main script execution
 function main() {
-    parse_args "$@"
-
-    # Parse configuration file if specified
+    # Load the configuration file first so command-line options override it
+    local i
+    for (( i = 1; i <= $#; i++ )); do
+        if [[ "${!i}" == "-c" || "${!i}" == "--config" ]]; then
+            i=$((i + 1))
+            CONFIG_FILE="${!i:-}"
+        fi
+    done
     if [ -n "$CONFIG_FILE" ]; then
         parse_config
     fi
+
+    parse_args "$@"
+
+    # build_package wipes dist/ and build/, so make sure we are in a project root
+    if [ ! -f "pyproject.toml" ] && [ ! -f "setup.py" ] && [ ! -f "setup.cfg" ]; then
+        die "No pyproject.toml, setup.py or setup.cfg found; run this from the package root."
+    fi
+
+    command -v "$PYTHON_INTERPRETER" >/dev/null 2>&1 || die "Python interpreter not found: $PYTHON_INTERPRETER"
 
     # Activate virtual environment if specified
     activate_virtualenv
@@ -258,7 +303,9 @@ function main() {
     check_package
 
     # Confirm version before uploading
-    confirm_version
+    if [ "$UPLOAD_TO_TEST" = true ] || [ "$UPLOAD_TO_PROD" = true ]; then
+        confirm_version
+    fi
 
     # Upload to TestPyPI or PyPI
     if [ "$UPLOAD_TO_TEST" = true ]; then

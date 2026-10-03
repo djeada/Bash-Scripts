@@ -13,26 +13,23 @@ count_char() {
     local string="$1"
     local character="$2"
 
-    # Using awk, FS sets the field separator to the character.
-    # NF returns the number of fields (i.e., the number of occurrences of the character)
-    # Subtract 1 because awk splits the string into fields,
-    # thus creating an extra field. Subtracting 1 gives the number of occurrences of the character.
-    local count=0
-    count=$(awk -F"$character" '{print NF-1}' <<< "$string")
+    # Delete every occurrence of the character (quoting the pattern makes it
+    # literal, so '*', '.', ' ' etc. work), then compare the lengths.
+    local stripped="${string//"$character"/}"
 
-    echo "$count"
+    echo $(( ${#string} - ${#stripped} ))
 }
 
 main() {
     # Check if exactly 2 arguments are provided
     if [[ $# -ne 2 ]]; then
-        echo "Usage: count_char.sh [string] [character]"
+        echo "Usage: count_char.sh [string] [character]" >&2
         exit 1
     fi
 
     # Check if the character argument has exactly one character
     if [[ ${#2} -ne 1 ]]; then
-        echo "Please provide a single character as the second argument."
+        echo "Please provide a single character as the second argument." >&2
         exit 1
     fi
 

@@ -78,7 +78,9 @@ Converts <input_file> to MP4 using ffmpeg.
 
 - <input_file> can be an absolute or relative path.
 - Output file is created in the same directory as <input_file>
-  with the same base name and extension ".mp4".
+  with the same base name and extension ".mp4". If <input_file> is
+  already an .mp4 file, the output is named "<name>_converted.mp4"
+  so the input is never overwritten.
 
 Examples:
   $SCRIPT_NAME video.avi
@@ -92,18 +94,21 @@ convert_to_mp4() {
     local input_path="$1"
 
     # Resolve to an absolute path
-    local input_dir input_base abs_input
+    local input_dir input_base abs_dir abs_input
     input_dir=$(dirname "$input_path")
     input_base=$(basename "$input_path")
-    abs_input="$(cd "$input_dir" && pwd)/$input_base"
+    abs_dir="$(cd "$input_dir" && pwd)"
+    abs_input="$abs_dir/$input_base"
 
     # Derive output file path (same directory, .mp4 extension)
     local filename_no_ext output_file
     filename_no_ext="${input_base%.*}"
-    output_file="${input_dir}/${filename_no_ext}.mp4"
+    output_file="$abs_dir/${filename_no_ext}.mp4"
 
-    # Resolve output to absolute, too (cosmetic, for messages)
-    output_file="$(cd "$input_dir" && pwd)/${filename_no_ext}.mp4"
+    # Never let ffmpeg -y overwrite the file it is reading from
+    if [ "$output_file" = "$abs_input" ]; then
+        output_file="$abs_dir/${filename_no_ext}_converted.mp4"
+    fi
 
     log "Starting conversion: '$abs_input' -> '$output_file'"
 
@@ -131,7 +136,7 @@ main() {
     fi
 
     if [ "$#" -ne 1 ]; then
-        usage
+        usage >&2
         log "Incorrect number of arguments: expected 1, got $#: $*"
         exit 1
     fi

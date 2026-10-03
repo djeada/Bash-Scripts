@@ -10,7 +10,7 @@
 #   -u, --unit UNIT         Specify temperature unit: C (Celsius), F (Fahrenheit), K (Kelvin). Default is C.
 #   -j, --json              Output in JSON format.
 #   -l, --log-file FILE     Log output to specified file.
-#   -m, --monitor INTERVAL  Monitor CPU temperature at specified interval in seconds.
+#   -m, --monitor INTERVAL  Monitor CPU temperature at specified interval in seconds (0 = single reading).
 #   -o, --output FILE       Save output to specified file.
 #   -V, --version           Display script version and exit.
 #
@@ -43,7 +43,7 @@ Options:
   -u, --unit UNIT         Specify temperature unit: C (Celsius), F (Fahrenheit), K (Kelvin). Default is C.
   -j, --json              Output in JSON format.
   -l, --log-file FILE     Log output to specified file.
-  -m, --monitor INTERVAL  Monitor CPU temperature at specified interval in seconds.
+  -m, --monitor INTERVAL  Monitor CPU temperature at specified interval in seconds (0 = single reading).
   -o, --output FILE       Save output to specified file.
   -V, --version           Display script version and exit.
 
@@ -59,69 +59,80 @@ print_version() {
     echo "$0 version $VERSION"
 }
 
-# Function for logging
+# Function for logging (verbose messages go to stderr so they never mix with JSON output)
 log_action() {
     local message="$1"
     if [[ "$LOG_ENABLED" == true ]]; then
         echo "$(date +"%Y-%m-%d %T"): $message" >> "$LOG_FILE"
     fi
     if [[ "$VERBOSE" == true ]]; then
-        echo "$message"
+        echo "$message" >&2
     fi
 }
 
-# Function to convert temperature units
+# Function to convert a Celsius temperature to the selected unit (UNIT is validated at startup)
 convert_temp() {
     local temp_c="$1"
-    local unit="$2"
-    local temp_output
 
-    case "$unit" in
-        C|c)
-            temp_output="$temp_c"
-            ;;
-        F|f)
-            temp_output=$(echo "scale=2; ($temp_c * 9/5) + 32" | bc)
-            ;;
-        K|k)
-            temp_output=$(echo "scale=2; $temp_c + 273.15" | bc)
-            ;;
-        *)
-            echo "Invalid unit: $unit"
-            exit 1
-            ;;
+    case "$UNIT" in
+        C) LC_ALL=C awk -v t="$temp_c" 'BEGIN { printf "%.1f\n", t }' ;;
+        F) LC_ALL=C awk -v t="$temp_c" 'BEGIN { printf "%.1f\n", t * 9 / 5 + 32 }' ;;
+        K) LC_ALL=C awk -v t="$temp_c" 'BEGIN { printf "%.2f\n", t + 273.15 }' ;;
     esac
+}
 
-    echo "$temp_output"
+# Print the first readable integer sensor value (millidegrees Celsius) as degrees Celsius
+read_sensor() {
+    local file raw
+    for file in "$@"; do
+        [[ -r "$file" ]] || continue
+        # Some sensors fail on read (e.g. EIO); just try the next one
+        raw=$(cat "$file" 2>/dev/null) || continue
+        [[ "$raw" =~ ^-?[0-9]+$ ]] || continue
+        log_action "Using sensor: $file"
+        LC_ALL=C awk -v r="$raw" 'BEGIN { print (r > 1000 || r < -1000) ? r / 1000 : r }'
+        return 0
+    done
+    return 1
 }
 
 # Function to get the CPU temperature on Linux
 get_linux_cpu_temp() {
-    local temp_paths=(
-        "/sys/class/thermal/thermal_zone*/temp"
-        "/sys/class/hwmon/hwmon*/temp1_input"
-    )
+    local dir name
+    local -a cpu_sensors=() other_sensors=()
 
-    for path in "${temp_paths[@]}"; do
-        for file in $path; do
-            if [[ -r "$file" ]]; then
-                local temp_raw
-                temp_raw=$(cat "$file")
-                if [[ "$temp_raw" -gt 1000 ]]; then
-                    temp_c=$(echo "scale=2; $temp_raw / 1000" | bc)
-                else
-                    temp_c="$temp_raw"
-                fi
-                local temp
-                temp=$(convert_temp "$temp_c" "$UNIT")
-                echo "$temp"
-                return
-            fi
-        done
+    # Prefer sensors known to belong to the CPU over e.g. ACPI, NVMe or GPU sensors
+    for dir in /sys/class/hwmon/hwmon*; do
+        [[ -r "$dir/name" ]] || continue
+        name=$(cat "$dir/name" 2>/dev/null) || continue
+        case "$name" in
+            coretemp | k10temp | zenpower | cpu_thermal | cpu-thermal | soc_thermal)
+                cpu_sensors+=("$dir/temp1_input")
+                ;;
+            *)
+                other_sensors+=("$dir/temp1_input")
+                ;;
+        esac
+    done
+    for dir in /sys/class/thermal/thermal_zone*; do
+        [[ -r "$dir/type" ]] || continue
+        name=$(cat "$dir/type" 2>/dev/null) || continue
+        case "$name" in
+            x86_pkg_temp | cpu* | CPU* | soc*)
+                cpu_sensors+=("$dir/temp")
+                ;;
+            *)
+                other_sensors+=("$dir/temp")
+                ;;
+        esac
     done
 
-    echo "Could not find a valid temperature file in common paths." >&2
-    exit 1
+    local temp_c
+    if ! temp_c=$(read_sensor "${cpu_sensors[@]}" "${other_sensors[@]}"); then
+        echo "Could not find a valid temperature file in common paths." >&2
+        exit 1
+    fi
+    convert_temp "$temp_c"
 }
 
 # Function to get the CPU temperature on macOS
@@ -137,9 +148,7 @@ get_macos_cpu_temp() {
         echo "Could not retrieve CPU temperature. Ensure you have the necessary permissions." >&2
         exit 1
     fi
-    local temp
-    temp=$(convert_temp "$temp_c" "$UNIT")
-    echo "$temp"
+    convert_temp "$temp_c"
 }
 
 # Function to get the CPU temperature on FreeBSD
@@ -147,10 +156,8 @@ get_freebsd_cpu_temp() {
     if sysctl hw.acpi.thermal.tz0.temperature >/dev/null 2>&1; then
         local temp_str
         temp_str=$(sysctl hw.acpi.thermal.tz0.temperature | awk '{print $2}')
-        local temp_c=${temp_str%.*}
-        local temp
-        temp=$(convert_temp "$temp_c" "$UNIT")
-        echo "$temp"
+        local temp_c=${temp_str%C}
+        convert_temp "$temp_c"
     else
         echo "Could not retrieve CPU temperature on FreeBSD." >&2
         exit 1
@@ -195,7 +202,7 @@ while [[ $# -gt 0 ]]; do
                 UNIT="$2"
                 shift 2
             else
-                echo "Error: --unit requires a value."
+                echo "Error: --unit requires a value." >&2
                 exit 1
             fi
             ;;
@@ -209,7 +216,7 @@ while [[ $# -gt 0 ]]; do
                 LOG_ENABLED=true
                 shift 2
             else
-                echo "Error: --log-file requires a value."
+                echo "Error: --log-file requires a value." >&2
                 exit 1
             fi
             ;;
@@ -218,7 +225,7 @@ while [[ $# -gt 0 ]]; do
                 MONITOR_INTERVAL="$2"
                 shift 2
             else
-                echo "Error: --monitor requires an interval in seconds."
+                echo "Error: --monitor requires an interval in seconds." >&2
                 exit 1
             fi
             ;;
@@ -227,7 +234,7 @@ while [[ $# -gt 0 ]]; do
                 OUTPUT_FILE="$2"
                 shift 2
             else
-                echo "Error: --output requires a file path."
+                echo "Error: --output requires a file path." >&2
                 exit 1
             fi
             ;;
@@ -236,40 +243,48 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
-            print_usage
+            echo "Unknown option: $1" >&2
+            print_usage >&2
             exit 1
             ;;
     esac
 done
+
+# Validate options
+UNIT=$(echo "$UNIT" | tr '[:lower:]' '[:upper:]')
+if [[ ! "$UNIT" =~ ^[CFK]$ ]]; then
+    echo "Error: Invalid unit '$UNIT'. Use C, F or K." >&2
+    exit 1
+fi
+if [[ ! "$MONITOR_INTERVAL" =~ ^[0-9]+$ ]]; then
+    echo "Error: --monitor interval must be a non-negative integer (seconds)." >&2
+    exit 1
+fi
 
 # Redirect output to file if specified
 if [[ -n "$OUTPUT_FILE" ]]; then
     exec > >(tee -a "$OUTPUT_FILE")
 fi
 
+# Print one temperature reading
+report_temp() {
+    local temp
+    temp=$(get_cpu_temp)
+    if [[ "$OUTPUT_JSON" == true ]]; then
+        echo "{\"cpu_temperature\": \"$temp\", \"unit\": \"$UNIT\"}"
+    else
+        echo "CPU Temperature: $temp°$UNIT"
+    fi
+    log_action "CPU Temperature: $temp°$UNIT"
+}
+
 # Main execution function
 main() {
-    if [[ "$MONITOR_INTERVAL" -gt 0 ]]; then
-        while true; do
-            temp=$(get_cpu_temp)
-            if [[ "$OUTPUT_JSON" == true ]]; then
-                echo "{\"cpu_temperature\": \"$temp\", \"unit\": \"$UNIT\"}"
-            else
-                echo "CPU Temperature: $temp°$UNIT"
-            fi
-            log_action "CPU Temperature: $temp°$UNIT"
-            sleep "$MONITOR_INTERVAL"
-        done
-    else
-        temp=$(get_cpu_temp)
-        if [[ "$OUTPUT_JSON" == true ]]; then
-            echo "{\"cpu_temperature\": \"$temp\", \"unit\": \"$UNIT\"}"
-        else
-            echo "CPU Temperature: $temp°$UNIT"
-        fi
-        log_action "CPU Temperature: $temp°$UNIT"
-    fi
+    report_temp
+    while [[ "$MONITOR_INTERVAL" -gt 0 ]]; do
+        sleep "$MONITOR_INTERVAL"
+        report_temp
+    done
 }
 
 main

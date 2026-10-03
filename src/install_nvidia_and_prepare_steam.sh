@@ -8,8 +8,8 @@
 set -euo pipefail
 
 if [[ ${EUID} -ne 0 ]]; then
-    echo "Run this script as root:"
-    echo "  sudo bash $0"
+    echo "Run this script as root:" >&2
+    echo "  sudo bash $0" >&2
     exit 1
 fi
 
@@ -19,7 +19,7 @@ log() {
 
 need_cmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
-        echo "Missing required command: $1"
+        echo "Missing required command: $1" >&2
         exit 1
     fi
 }
@@ -29,11 +29,11 @@ need_cmd ubuntu-drivers
 need_cmd lspci
 need_cmd grep
 need_cmd awk
-need_cmd sed
+need_cmd lsmod
 
 log "Detecting NVIDIA GPU"
 if ! lspci -nn | grep -qi 'NVIDIA'; then
-    echo "No NVIDIA GPU detected. Exiting."
+    echo "No NVIDIA GPU detected. Exiting." >&2
     exit 1
 fi
 
@@ -44,9 +44,9 @@ recommended_driver="$(
 )"
 
 if [[ -z "${recommended_driver}" ]]; then
-    echo "Could not determine a recommended NVIDIA driver from ubuntu-drivers."
-    echo "Output follows:"
-    ubuntu-drivers devices || true
+    echo "Could not determine a recommended NVIDIA driver from ubuntu-drivers." >&2
+    echo "Output follows:" >&2
+    ubuntu-drivers devices >&2 || true
     exit 1
 fi
 
@@ -59,9 +59,14 @@ log "Installing ${recommended_driver}"
 DEBIAN_FRONTEND=noninteractive apt-get install -y "${recommended_driver}"
 
 log "Checking for a Steam desktop entry"
+# Look in the invoking (non-root) user's home first, then system-wide.
+user_home=""
+if [[ -n "${SUDO_USER:-}" ]]; then
+    user_home="$(getent passwd "${SUDO_USER}" | cut -d: -f6)"
+fi
 steam_desktop=""
-if [[ -f /home/adam/.local/share/applications/steam.desktop ]]; then
-    steam_desktop="/home/adam/.local/share/applications/steam.desktop"
+if [[ -n "${user_home}" && -f "${user_home}/.local/share/applications/steam.desktop" ]]; then
+    steam_desktop="${user_home}/.local/share/applications/steam.desktop"
 elif [[ -f /usr/share/applications/steam.desktop ]]; then
     steam_desktop="/usr/share/applications/steam.desktop"
 fi
