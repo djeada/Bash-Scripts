@@ -183,26 +183,17 @@ canonical_path() {
     local path="$1"
 
     if [[ -d "$path" ]]; then
-        (
-            cd "$path" >/dev/null 2>&1 &&
-                pwd -P
-        )
+        (cd "$path" >/dev/null 2>&1 && pwd -P)
         return
     fi
 
     if [[ -e "$path" ]]; then
-        (
-            cd "$(dirname "$path")" >/dev/null 2>&1 &&
-                printf '%s/%s\n' "$(pwd -P)" "$(basename "$path")"
-        )
+        (cd "$(dirname "$path")" >/dev/null 2>&1 && printf '%s/%s\n' "$(pwd -P)" "$(basename "$path")")
         return
     fi
 
     if [[ -d "$(dirname "$path")" ]]; then
-        (
-            cd "$(dirname "$path")" >/dev/null 2>&1 &&
-                printf '%s/%s\n' "$(pwd -P)" "$(basename "$path")"
-        )
+        (cd "$(dirname "$path")" >/dev/null 2>&1 && printf '%s/%s\n' "$(pwd -P)" "$(basename "$path")")
         return
     fi
 
@@ -935,3 +926,4 @@ if [[ "$AUTO_MODE" == true || "$BACKUP_REQUESTED" == true ]]; then
 fi
 
 main_menu
+

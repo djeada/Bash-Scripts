@@ -1,5 +1,3 @@
-
-
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
@@ -21,13 +19,13 @@ KIND="${4:-auto}"
 #   sfx   = force AudioGen
 
 if [[ "$MODEL" == "sfx" || "$MODEL" == "audiogen" ]]; then
-  MODEL="facebook/audiogen-medium"
-  KIND="sfx"
+    MODEL="facebook/audiogen-medium"
+    KIND="sfx"
 fi
 
 if [[ "$MODEL" == "music" || "$MODEL" == "musicgen" ]]; then
-  MODEL="facebook/musicgen-medium"
-  KIND="music"
+    MODEL="facebook/musicgen-medium"
+    KIND="music"
 fi
 
 mkdir -p "$PROJECT_DIR" "$TOOLS_DIR" "$OUTPUT_DIR"
@@ -41,7 +39,7 @@ echo "Kind: $KIND"
 echo ""
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-  cat <<'EOF'
+    cat <<'EOF'
 Usage:
   ./run_audiocraft.sh "prompt" duration model kind
 
@@ -68,32 +66,32 @@ Recommended models:
   facebook/musicgen-large
   facebook/audiogen-medium
 EOF
-  exit 0
+    exit 0
 fi
 
 echo "Checking required system tools..."
 
 if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
-  echo "Installing required system tools..."
-  sudo apt update
-  sudo apt install -y \
-    curl \
-    ffmpeg \
-    pkg-config \
-    build-essential \
-    libavformat-dev \
-    libavcodec-dev \
-    libavdevice-dev \
-    libavutil-dev \
-    libavfilter-dev \
-    libswscale-dev \
-    libswresample-dev
+    echo "Installing required system tools..."
+    sudo apt update
+    sudo apt install -y \
+        curl \
+        ffmpeg \
+        pkg-config \
+        build-essential \
+        libavformat-dev \
+        libavcodec-dev \
+        libavdevice-dev \
+        libavutil-dev \
+        libavfilter-dev \
+        libswscale-dev \
+        libswresample-dev
 fi
 
 if [ ! -x "$UV_BIN" ]; then
-  echo "Installing uv locally inside project..."
-  mkdir -p "$UV_DIR"
-  curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="$UV_DIR" sh
+    echo "Installing uv locally inside project..."
+    mkdir -p "$UV_DIR"
+    curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="$UV_DIR" sh
 fi
 
 export UV_CACHE_DIR="$PROJECT_DIR/.uv-cache"
@@ -105,23 +103,23 @@ echo "Installing private Python 3.10 with uv..."
 RECREATE_VENV=0
 
 if [ ! -x "$VENV_DIR/bin/python" ]; then
-  RECREATE_VENV=1
+    RECREATE_VENV=1
 else
-  CURRENT_VERSION="$("$VENV_DIR/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+    CURRENT_VERSION="$("$VENV_DIR/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 
-  if [ "$CURRENT_VERSION" != "3.10" ]; then
-    echo "Existing venv uses Python $CURRENT_VERSION. Recreating with Python 3.10..."
-    RECREATE_VENV=1
-  elif ! "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1; then
-    echo "Existing venv has no pip. Recreating with pip seeded..."
-    RECREATE_VENV=1
-  fi
+    if [ "$CURRENT_VERSION" != "3.10" ]; then
+        echo "Existing venv uses Python $CURRENT_VERSION. Recreating with Python 3.10..."
+        RECREATE_VENV=1
+    elif ! "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1; then
+        echo "Existing venv has no pip. Recreating with pip seeded..."
+        RECREATE_VENV=1
+    fi
 fi
 
 if [ "$RECREATE_VENV" = "1" ]; then
-  rm -rf "$VENV_DIR"
-  echo "Creating private Python 3.10 venv with pip..."
-  "$UV_BIN" venv --seed --python 3.10 "$VENV_DIR"
+    rm -rf "$VENV_DIR"
+    echo "Creating private Python 3.10 venv with pip..."
+    "$UV_BIN" venv --seed --python 3.10 "$VENV_DIR"
 fi
 
 source "$VENV_DIR/bin/activate"
@@ -137,8 +135,8 @@ python -m pip install --upgrade "pip<25" setuptools wheel packaging
 echo ""
 echo "Installing PyTorch CUDA 12.8 for RTX 50-series..."
 python -m pip install --upgrade \
-  torch torchvision torchaudio \
-  --index-url https://download.pytorch.org/whl/cu128
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu128
 
 echo ""
 echo "Installing AudioCraft without old pinned torch dependencies..."
@@ -147,35 +145,35 @@ python -m pip install --no-deps audiocraft==1.3.0
 echo ""
 echo "Installing AudioCraft runtime dependencies manually..."
 python -m pip install \
-  "numpy<2.0.0" \
-  "av==11.0.0" \
-  einops \
-  "flashy>=0.0.1" \
-  "hydra-core>=1.1" \
-  hydra_colorlog \
-  julius \
-  num2words \
-  sentencepiece \
-  "spacy==3.7.6" \
-  huggingface_hub \
-  tqdm \
-  "transformers>=4.31.0,<4.58" \
-  demucs \
-  librosa \
-  soundfile \
-  gradio \
-  torchmetrics \
-  encodec \
-  protobuf \
-  pesq \
-  pystoi \
-  torchdiffeq
+    "numpy<2.0.0" \
+    "av==11.0.0" \
+    einops \
+    "flashy>=0.0.1" \
+    "hydra-core>=1.1" \
+    hydra_colorlog \
+    julius \
+    num2words \
+    sentencepiece \
+    "spacy==3.7.6" \
+    huggingface_hub \
+    tqdm \
+    "transformers>=4.31.0,<4.58" \
+    demucs \
+    librosa \
+    soundfile \
+    gradio \
+    torchmetrics \
+    encodec \
+    protobuf \
+    pesq \
+    pystoi \
+    torchdiffeq
 
 echo ""
 echo "Forcing PyTorch CUDA 12.8 again in case another package touched it..."
 python -m pip install --upgrade \
-  torch torchvision torchaudio \
-  --index-url https://download.pytorch.org/whl/cu128
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu128
 
 echo ""
 echo "Patching AudioCraft to run without xformers..."
@@ -363,3 +361,4 @@ echo ""
 echo "Done."
 echo "Output folder:"
 echo "$OUTPUT_DIR"
+
